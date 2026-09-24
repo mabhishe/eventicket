@@ -21,20 +21,27 @@ function LoginForm() {
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error || "Sign in failed");
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Sign in failed");
+        setBusy(false);
+        return;
+      }
+      const role = data.user.role as string;
+      router.push(role === "DOOR" ? "/door" : "/admin");
+      router.refresh();
+    } catch {
+      setError(
+        "Could not reach the server. Check you are on the same Wi-Fi as the computer running EventPass and that the server is still running, then try again."
+      );
       setBusy(false);
-      return;
     }
-    const role = data.user.role as string;
-    router.push(role === "DOOR" ? "/door" : "/admin");
-    router.refresh();
   }
 
   return (

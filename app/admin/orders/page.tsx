@@ -29,6 +29,7 @@ type Order = {
   payMethod: string;
   totalCents: number;
   notes: string | null;
+  refCode: string | null;
   createdAt: string;
   event: { title: string };
   seller: { name: string } | null;
@@ -125,6 +126,14 @@ function OrdersInner() {
                 <div>
                   <div className="flex items-center gap-2">
                     <p className="font-semibold">{o.buyerName}</p>
+                    {o.refCode && (
+                      <span
+                        className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-xs font-bold tracking-widest dark:bg-zinc-800"
+                        title="Payment reference code — match it against the e-transfer message"
+                      >
+                        {o.refCode}
+                      </span>
+                    )}
                     <Badge tone={tone[o.status] ?? "zinc"}>
                       {o.status.replace("_", " ")}
                     </Badge>

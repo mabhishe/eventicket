@@ -157,19 +157,37 @@ export async function createOrder(input: NewOrderInput) {
     });
   }
 
-  return db.order.create({
-    data: {
-      eventId: input.eventId,
-      buyerName: input.buyerName.trim(),
-      buyerEmail: input.buyerEmail?.trim() || null,
-      buyerPhone: input.buyerPhone?.trim() || null,
-      payMethod: input.payMethod,
-      notes: input.notes?.trim() || null,
-      sellerId: input.sellerId ?? null,
-      status: input.status ?? "PENDING_PAYMENT",
-      totalCents,
-      items: { create: rows },
-    },
-    include: { items: { include: { ticketType: true, mealOption: true } } },
-  });
+  const data = {
+    eventId: input.eventId,
+    buyerName: input.buyerName.trim(),
+    buyerEmail: input.buyerEmail?.trim() || null,
+    buyerPhone: input.buyerPhone?.trim() || null,
+    payMethod: input.payMethod,
+    notes: input.notes?.trim() || null,
+    sellerId: input.sellerId ?? null,
+    status: input.status ?? "PENDING_PAYMENT",
+    totalCents,
+    items: { create: rows },
+  };
+  // Retry on the (extremely unlikely) refCode collision.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      return await db.order.create({
+        data: { ...data, refCode: newTicketCode(6) },
+        include: {
+          items: { include: { ticketType: true, mealOption: true } },
+        },
+      });
+    } catch (e) {
+      if (
+        attempt < 4 &&
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === "P2002"
+      ) {
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw new Error("Could not create order, please try again");
 }

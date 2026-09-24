@@ -191,12 +191,32 @@ export default function PublicEventPage({
   return (
     <Container>
       <div className="mx-auto max-w-2xl">
-        {event.logoUrl && (
-          <img
-            src={event.logoUrl}
-            alt={`${event.title} logo`}
-            className="mb-4 h-16 w-auto max-w-full object-contain"
-          />
+        {gallery.length > 0 ? (
+          <div className="relative mb-6 overflow-hidden rounded-2xl">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={gallery[0]}
+              alt={`${event.title} banner`}
+              className="h-56 w-full object-cover sm:h-72"
+            />
+            {event.logoUrl && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={event.logoUrl}
+                alt={`${event.title} logo`}
+                className="absolute bottom-4 left-4 h-20 w-auto max-w-[45%] rounded-xl bg-white/95 p-2 object-contain shadow-lg"
+              />
+            )}
+          </div>
+        ) : (
+          event.logoUrl && (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={event.logoUrl}
+              alt={`${event.title} logo`}
+              className="mb-4 h-28 w-auto max-w-full object-contain"
+            />
+          )
         )}
         <PageTitle
           title={event.title}
@@ -241,9 +261,9 @@ export default function PublicEventPage({
             </ol>
           </Card>
         )}
-        {gallery.length > 0 && (
+        {gallery.length > 1 && (
           <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
-            {gallery.map((u) => (
+            {gallery.slice(1).map((u) => (
               <img
                 key={u}
                 src={u}

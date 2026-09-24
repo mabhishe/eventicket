@@ -28,12 +28,20 @@ export async function createSession(userId: string, role: string): Promise<void>
     .setExpirationTime("7d")
     .sign(getSecret());
   const store = await cookies();
+  // The Secure flag must only be set when the app is served over HTTPS.
+  // Basing it on NODE_ENV breaks logins when the production build is opened
+  // over plain http:// on the local network (e.g. from a phone), because the
+  // browser silently drops Secure cookies sent over http.
+  const appUrl = process.env.APP_URL || "";
+  const secure = appUrl
+    ? appUrl.startsWith("https://")
+    : process.env.NODE_ENV === "production";
   store.set(COOKIE_NAME, token, {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 24 * 7,
-    secure: process.env.NODE_ENV === "production",
+    secure,
   });
 }
 

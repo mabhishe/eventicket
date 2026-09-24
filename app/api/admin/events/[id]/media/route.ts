@@ -114,6 +114,57 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 }
 
 /** Remove the logo or one gallery image. Body: { url }. */
+/**
+ * Reorder gallery images. Body: { imageUrls: string[] } — must be a
+ * reordering of the event's existing images (no add/remove here).
+ * The first image is used as the event page banner.
+ */
+export async function PATCH(req: NextRequest, { params }: Ctx) {
+  const auth = await requireApiUser(req, ["ADMIN"]);
+  if (!auth.ok) return auth.error;
+  const { id } = await params;
+
+  const event = await db.event.findUnique({ where: { id } });
+  if (!event) {
+    return NextResponse.json({ error: "Event not found" }, { status: 404 });
+  }
+
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
+  const urls = body.imageUrls;
+  if (
+    !Array.isArray(urls) ||
+    !urls.every(
+      (u): u is string => typeof u === "string" && u.startsWith(`/uploads/${id}/`)
+    )
+  ) {
+    return NextResponse.json({ error: "Invalid image list" }, { status: 400 });
+  }
+  const current = parseImageUrls(event.imageUrls);
+  if (
+    urls.length !== current.length ||
+    !urls.every((u) => current.includes(u))
+  ) {
+    return NextResponse.json(
+      { error: "Image list does not match the event's images" },
+      { status: 400 }
+    );
+  }
+
+  const updated = await db.event.update({
+    where: { id },
+    data: { imageUrls: JSON.stringify(urls) },
+  });
+  return NextResponse.json({
+    logoUrl: updated.logoUrl,
+    imageUrls: parseImageUrls(updated.imageUrls),
+  });
+}
+
 export async function DELETE(req: NextRequest, { params }: Ctx) {
   const auth = await requireApiUser(req, ["ADMIN"]);
   if (!auth.ok) return auth.error;

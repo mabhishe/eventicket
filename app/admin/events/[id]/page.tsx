@@ -322,6 +322,26 @@ export default function ManageEventPage({
     setGallery(d.imageUrls || []);
   }
 
+  async function moveImage(idx: number, dir: -1 | 1) {
+    if (!id) return;
+    const next = [...gallery];
+    const j = idx + dir;
+    if (j < 0 || j >= next.length) return;
+    [next[idx], next[j]] = [next[j], next[idx]];
+    setGallery(next);
+    const res = await fetch(`/api/admin/events/${id}/media`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ imageUrls: next }),
+    });
+    const d = await res.json();
+    if (!res.ok) {
+      setError(d.error || "Could not reorder images");
+      return;
+    }
+    setGallery(d.imageUrls || []);
+  }
+
   async function loadSponsors(eid: string) {
     const res = await fetch(`/api/admin/events/${eid}/sponsors`);
     if (res.ok) setSponsors(((await res.json()).ads || []) as SponsorAd[]);
@@ -556,21 +576,48 @@ export default function ManageEventPage({
                 <p className="mb-1 text-sm font-medium">
                   Event images ({gallery.length}/12)
                 </p>
+                <p className="mb-2 text-xs text-zinc-500">
+                  The first image is the large banner on the event page — use
+                  the arrows to choose it.
+                </p>
                 {gallery.length > 0 && (
                   <div className="mb-2 grid grid-cols-3 gap-2">
-                    {gallery.map((u) => (
+                    {gallery.map((u, idx) => (
                       <div key={u} className="relative">
                         <img
                           src={u}
                           alt=""
                           className="h-20 w-full rounded object-cover"
                         />
+                        {idx === 0 && (
+                          <span className="absolute left-1 top-1 rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
+                            Banner
+                          </span>
+                        )}
                         <button
                           className="absolute right-1 top-1 rounded bg-zinc-900/70 px-1.5 py-0.5 text-xs text-white"
                           onClick={() => removeMedia(u)}
                         >
                           ✕
                         </button>
+                        <div className="absolute bottom-1 left-1 flex gap-1">
+                          <button
+                            className="rounded bg-zinc-900/70 px-1.5 py-0.5 text-xs text-white disabled:opacity-30"
+                            disabled={idx === 0}
+                            onClick={() => moveImage(idx, -1)}
+                            title="Move earlier (toward banner)"
+                          >
+                            ◀
+                          </button>
+                          <button
+                            className="rounded bg-zinc-900/70 px-1.5 py-0.5 text-xs text-white disabled:opacity-30"
+                            disabled={idx === gallery.length - 1}
+                            onClick={() => moveImage(idx, 1)}
+                            title="Move later"
+                          >
+                            ▶
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>

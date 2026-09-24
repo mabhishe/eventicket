@@ -68,20 +68,48 @@ export default async function OrderPage({ params }: Ctx) {
         {order.status === "PENDING_PAYMENT" && (
           <Card className="mb-6">
             <h2 className="mb-2 font-semibold">How to pay</h2>
+            {order.refCode && order.payMethod !== "CASH" && (
+              <div className="mb-3 rounded-xl bg-amber-500/10 p-4 text-center dark:bg-amber-500/10">
+                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  Your payment code
+                </p>
+                <p className="font-mono text-3xl font-bold tracking-[0.25em]">
+                  {order.refCode}
+                </p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Put this code in your transfer message so we can match your
+                  payment instantly.
+                </p>
+              </div>
+            )}
             {order.payMethod === "ETRANSFER" && (
               <p className="text-sm">
                 Send an <strong>Interac e-Transfer</strong> of{" "}
                 <strong>{formatCents(order.totalCents, e.currency)}</strong> to{" "}
-                <strong>{e.etransferEmail || "the organizer"}</strong>. Put your
-                name in the message so we can match it.
+                <strong>{e.etransferEmail || "the organizer"}</strong>.
+                {order.refCode ? (
+                  <>
+                    {" "}
+                    Put the code <strong>{order.refCode}</strong> in the message.
+                  </>
+                ) : (
+                  " Put your name in the message so we can match it."
+                )}
               </p>
             )}
             {order.payMethod === "ZELLE" && (
               <p className="text-sm">
                 Send <strong>{formatCents(order.totalCents, e.currency)}</strong>{" "}
                 via <strong>Zelle</strong> to{" "}
-                <strong>{e.zelleHandle || "the organizer"}</strong>. Put your
-                name in the memo so we can match it.
+                <strong>{e.zelleHandle || "the organizer"}</strong>.
+                {order.refCode ? (
+                  <>
+                    {" "}
+                    Put the code <strong>{order.refCode}</strong> in the memo.
+                  </>
+                ) : (
+                  " Put your name in the memo so we can match it."
+                )}
               </p>
             )}
             {order.payMethod === "CASH" && (
