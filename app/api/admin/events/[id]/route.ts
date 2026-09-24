@@ -14,6 +14,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     include: {
       ticketTypes: { orderBy: { sortOrder: "asc" } },
       mealOptions: { orderBy: { sortOrder: "asc" } },
+      programItems: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
       _count: { select: { orders: true } },
     },
   });

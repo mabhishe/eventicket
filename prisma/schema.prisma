@@ -69,6 +69,7 @@ model Event {
   ticketTypes    TicketType[]
   mealOptions    MealOption[]
   sponsorAds     SponsorAd[]
+  programItems   ProgramItem[]
   orders         Order[]
 }
 
@@ -95,6 +96,17 @@ model MealOption {
   sortOrder  Int     @default(0)
   orderItems OrderItem[]
   tickets    Ticket[]
+}
+
+model ProgramItem {
+  id          String   @id @default(cuid())
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  timeLabel   String   // free text, e.g. "6:00 PM" or "Doors open"
+  title       String
+  description String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
 }
 
 model SponsorAd {

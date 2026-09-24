@@ -44,8 +44,12 @@ branding, per-event sponsor ads, and a mobile-friendly experience throughout.
   links per event. An "Our sponsors" strip appears on the event page,
   the order/payment page, and each ticket page; linked logos open in a
   new tab.
+- **Program / schedule**: admin adds timed agenda entries (e.g. "6:00 PM —
+  Doors open"); shown as a Program section on the public event page.
 - Uploads accept JPG/PNG/WebP/GIF (5 MB max) and live under
-  `public/uploads/<eventId>/`.
+  `public/uploads/<eventId>/`; in production they are served by the
+  built-in `/uploads/[...path]` route so files added after the build
+  work too.
 
 ### Admin tools
 - Dashboard with events, orders, ticket types, meal options, media,

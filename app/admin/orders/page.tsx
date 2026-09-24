@@ -183,6 +183,18 @@ function OrdersInner() {
                         Tickets
                       </Link>
                       <button
+                        className={btnSecondary + " text-xs"}
+                        onClick={() => {
+                          const url = `${window.location.origin}/order/${o.id}`;
+                          navigator.clipboard
+                            .writeText(url)
+                            .then(() => alert("Ticket link copied"))
+                            .catch(() => prompt("Copy ticket link:", url));
+                        }}
+                      >
+                        Copy link
+                      </button>
+                      <button
                         className={btnDanger}
                         disabled={busy === o.id}
                         onClick={() => act(o.id, "cancel")}

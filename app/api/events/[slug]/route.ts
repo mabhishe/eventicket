@@ -12,6 +12,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     include: {
       ticketTypes: { orderBy: { sortOrder: "asc" } },
       mealOptions: { orderBy: { sortOrder: "asc" } },
+      programItems: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
       sponsorAds: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
     },
   });

@@ -38,6 +38,7 @@ type EventData = {
   imageUrls: string;
   brandColor: string | null;
   sponsorAds: SponsorAdInfo[];
+  programItems: ProgramItem[];
   ticketTypes: TicketType[];
   mealOptions: MealOption[];
 };
@@ -53,6 +54,13 @@ type Slot = {
   ticketTypeId: string;
   typeName: string;
   includesMeal: boolean;
+};
+
+type ProgramItem = {
+  id: string;
+  timeLabel: string;
+  title: string;
+  description: string | null;
 };
 
 export default function PublicEventPage({
@@ -207,6 +215,30 @@ export default function PublicEventPage({
         {event.description && (
           <Card className="mb-6">
             <p className="whitespace-pre-wrap text-sm">{event.description}</p>
+          </Card>
+        )}
+        {(event.programItems || []).length > 0 && (
+          <Card className="mb-6">
+            <h2 className="mb-3 font-semibold">Program</h2>
+            <ol className="space-y-3">
+              {(event.programItems || []).map((p) => (
+                <li key={p.id} className="flex gap-3">
+                  {p.timeLabel && (
+                    <span className="w-20 shrink-0 pt-0.5 text-xs font-semibold text-zinc-500">
+                      {p.timeLabel}
+                    </span>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium">{p.title}</p>
+                    {p.description && (
+                      <p className="whitespace-pre-wrap text-sm text-zinc-500">
+                        {p.description}
+                      </p>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ol>
           </Card>
         )}
         {gallery.length > 0 && (
