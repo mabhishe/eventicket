@@ -1,0 +1,156 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  SELLER
+  DOOR
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  CANCELLED
+}
+
+enum PayMethod {
+  ETRANSFER
+  ZELLE
+  CASH
+}
+
+enum TicketStatus {
+  ISSUED
+  CHECKED_IN
+  CANCELLED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(SELLER)
+  createdAt    DateTime @default(now())
+  soldOrders   Order[]  @relation("SellerOrders")
+  events       Event[]  @relation("CreatedEvents")
+}
+
+model Event {
+  id             String      @id @default(cuid())
+  slug           String      @unique
+  title          String
+  description    String?
+  date           DateTime
+  venue          String?
+  currency       String      @default("CAD")
+  status         EventStatus @default(DRAFT)
+  etransferEmail String?
+  zelleHandle    String?
+  cashNote       String?
+  logoUrl        String?
+  imageUrls      String      @default("[]")
+  brandColor     String?
+  createdById    String
+  createdBy      User        @relation("CreatedEvents", fields: [createdById], references: [id])
+  createdAt      DateTime    @default(now())
+  ticketTypes    TicketType[]
+  mealOptions    MealOption[]
+  sponsorAds     SponsorAd[]
+  orders         Order[]
+}
+
+model TicketType {
+  id            String  @id @default(cuid())
+  eventId       String
+  event         Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name          String
+  description   String?
+  priceCents    Int
+  quantityTotal Int
+  includesMeal  Boolean @default(false)
+  sortOrder     Int     @default(0)
+  orderItems    OrderItem[]
+  tickets       Ticket[]
+}
+
+model MealOption {
+  id         String  @id @default(cuid())
+  eventId    String
+  event      Event   @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name       String
+  tag        String? // "veg" | "nonveg" — used for door routing badges
+  sortOrder  Int     @default(0)
+  orderItems OrderItem[]
+  tickets    Ticket[]
+}
+
+model SponsorAd {
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name      String
+  imageUrl  String
+  linkUrl   String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model Order {
+  id         String      @id @default(cuid())
+  eventId    String
+  event      Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  buyerName  String
+  buyerEmail String?
+  buyerPhone String?
+  status     OrderStatus @default(PENDING_PAYMENT)
+  payMethod  PayMethod
+  sellerId   String?
+  seller     User?       @relation("SellerOrders", fields: [sellerId], references: [id])
+  totalCents Int
+  notes      String?
+  createdAt  DateTime    @default(now())
+  items      OrderItem[]
+  tickets    Ticket[]
+}
+
+model OrderItem {
+  id             String      @id @default(cuid())
+  orderId        String
+  order          Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  ticketTypeId   String
+  ticketType     TicketType  @relation(fields: [ticketTypeId], references: [id])
+  qty            Int
+  unitPriceCents Int
+  holderName     String? // one attendee per item (qty 1); null = legacy grouped rows
+  mealOptionId   String?
+  mealOption     MealOption? @relation(fields: [mealOptionId], references: [id])
+}
+
+model Ticket {
+  id           String       @id @default(cuid())
+  code         String       @unique
+  orderId      String
+  order        Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  ticketTypeId String
+  ticketType   TicketType   @relation(fields: [ticketTypeId], references: [id])
+  holderName   String?
+  mealOptionId String?
+  mealOption   MealOption?  @relation(fields: [mealOptionId], references: [id])
+  status       TicketStatus @default(ISSUED)
+  checkedInAt  DateTime?
+  foodCollectedAt DateTime?
+  createdAt    DateTime     @default(now())
+}

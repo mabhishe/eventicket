@@ -1,0 +1,32 @@
+services:
+  app:
+    build: .
+    env_file: .env
+    environment:
+      # SQLite lives on a mounted volume so it survives container rebuilds.
+      DATABASE_URL: file:/app/data/app.db
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+    volumes:
+      # SQLite lives on a mounted volume so it survives container rebuilds.
+      - ./data:/app/data
+      # Event logos/gallery images are written here at runtime.
+      - ./uploads:/app/public/uploads
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  caddy_data: {}
+  caddy_config: {}

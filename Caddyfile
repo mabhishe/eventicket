@@ -1,0 +1,5 @@
+# Caddy obtains and renews a TLS certificate automatically.
+# Point events.aicloudconsult.com at this server's IP first (see DEPLOY.md).
+events.aicloudconsult.com {
+	reverse_proxy app:3000
+}
