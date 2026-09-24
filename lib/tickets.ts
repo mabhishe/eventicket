@@ -23,6 +23,18 @@ export async function ticketQrDataUrl(code: string): Promise<string> {
   return QRCode.toDataURL(ticketUrl(code), { margin: 1, width: 320 });
 }
 
+/**
+ * PNG data-URL of an order's group-pass QR. Encodes the raw order refCode
+ * (e.g. "K7Q2XD"): one code for the whole party, scanned once per person
+ * at the door and once per meal at the food line.
+ */
+export async function orderQrDataUrl(refCode: string): Promise<string> {
+  return QRCode.toDataURL(refCode.trim().toUpperCase(), {
+    margin: 1,
+    width: 320,
+  });
+}
+
 /** Pull a ticket code out of a scanned QR payload (URL or raw code). */
 export function extractCode(scanned: string): string {
   const s = scanned.trim();

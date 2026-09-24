@@ -1,25 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireApiUser } from "@/lib/auth";
-import { extractCode } from "@/lib/tickets";
-
-const ticketInclude = {
-  ticketType: { select: { name: true } },
-  mealOption: { select: { name: true, tag: true } },
-  order: {
-    select: {
-      buyerName: true,
-      status: true,
-      eventId: true,
-      event: { select: { title: true } },
-    },
-  },
-} as const;
+import { resolveScanCode, partyProgress, scanTicketInclude } from "@/lib/door";
 
 /**
- * Food service: scan a ticket and record that the guest collected their meal.
- * Independent from door check-in. Duplicate scans are rejected and report
- * the original collection time.
+ * Food service, group-aware:
+ * - a per-ticket code records that ticket's meal as served (unchanged);
+ * - an order refCode (the group pass) serves the next unserved meal of that
+ *   order and reports which meal it was, so one QR works for the whole party.
+ * Responses carry party progress { mealsTotal, mealsServed, ... }.
  */
 export async function POST(req: NextRequest) {
   const auth = await requireApiUser(req, ["ADMIN", "DOOR"]);
@@ -37,42 +26,82 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Ticket code required" }, { status: 400 });
   }
 
-  const ticket = await db.ticket.findUnique({
-    where: { code: extractCode(raw) },
-    include: ticketInclude,
-  });
-  if (!ticket) {
-    return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
+  const resolved = await resolveScanCode(raw, "food");
+  if (resolved.kind === "none") {
+    return NextResponse.json({ error: "Code not found" }, { status: 404 });
   }
-  if (eventId && ticket.order.eventId !== eventId) {
+
+  const info =
+    resolved.kind === "ticket"
+      ? {
+          id: resolved.ticket.order.id,
+          title: resolved.ticket.order.event.title,
+          status: resolved.ticket.order.status,
+          eventId: resolved.ticket.order.eventId,
+        }
+      : {
+          id: resolved.orderId,
+          title: resolved.orderTitle,
+          status: resolved.orderStatus,
+          eventId: resolved.orderEventId,
+        };
+
+  if (eventId && info.eventId !== eventId) {
     return NextResponse.json(
-      { error: `This ticket is for "${ticket.order.event.title}", not this event` },
+      { error: `This code is for "${info.title}", not this event` },
       { status: 400 }
     );
   }
-  if (ticket.status === "CANCELLED") {
-    return NextResponse.json({ error: "Ticket was cancelled" }, { status: 400 });
-  }
-  if (ticket.order.status !== "CONFIRMED") {
+  if (info.status !== "CONFIRMED") {
     return NextResponse.json(
-      { error: "Ticket's order is not confirmed yet" },
+      { error: "This order is not confirmed yet" },
+      { status: 400 }
+    );
+  }
+
+  const party = await partyProgress(info.id);
+  if (resolved.kind === "order" && !resolved.nextTicket) {
+    if (party.mealsTotal === 0) {
+      return NextResponse.json(
+        { error: "This order does not include any meals", party },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json({
+      ticket: null,
+      already: true,
+      partyFull: true,
+      party,
+      message: `All meals already served (${party.mealsServed} of ${party.mealsTotal})`,
+    });
+  }
+
+  const ticket =
+    resolved.kind === "ticket" ? resolved.ticket : resolved.nextTicket!;
+  if (ticket.status === "CANCELLED") {
+    return NextResponse.json(
+      { error: "Ticket was cancelled", party },
       { status: 400 }
     );
   }
   if (!ticket.mealOptionId) {
     return NextResponse.json(
-      { error: "This ticket does not include a meal", ticket },
+      { error: "This ticket does not include a meal", ticket, party },
       { status: 400 }
     );
   }
   if (ticket.foodCollectedAt) {
-    return NextResponse.json({ ticket, already: true });
+    return NextResponse.json({ ticket, already: true, party });
   }
 
   const updated = await db.ticket.update({
     where: { id: ticket.id },
     data: { foodCollectedAt: new Date() },
-    include: ticketInclude,
+    include: scanTicketInclude,
   });
-  return NextResponse.json({ ticket: updated, already: false });
+  return NextResponse.json({
+    ticket: updated,
+    already: false,
+    party: await partyProgress(info.id),
+  });
 }

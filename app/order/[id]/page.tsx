@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { formatCents } from "@/lib/money";
-import { ticketQrDataUrl } from "@/lib/tickets";
+import { orderQrDataUrl } from "@/lib/tickets";
+import { ensureOrderRefCode } from "@/lib/orders";
 import { Container, Card, PageTitle, Badge } from "@/components/ui";
 import { SponsorsStrip } from "@/components/sponsors-strip";
 
@@ -32,10 +33,11 @@ export default async function OrderPage({ params }: Ctx) {
   if (!order) notFound();
 
   const e = order.event;
-  const qrUrls =
-    order.status === "CONFIRMED"
-      ? await Promise.all(order.tickets.map((t) => ticketQrDataUrl(t.code)))
-      : [];
+  // One group pass per order: the refCode admits the whole party, one scan
+  // per person at the door and one per meal at the food line.
+  const groupCode =
+    order.status === "CONFIRMED" ? await ensureOrderRefCode(order.id) : null;
+  const groupQr = groupCode ? await orderQrDataUrl(groupCode) : null;
 
   return (
     <Container>
@@ -126,32 +128,51 @@ export default async function OrderPage({ params }: Ctx) {
           </Card>
         )}
 
-        {order.status === "CONFIRMED" && (
+        {order.status === "CONFIRMED" && groupCode && groupQr && (
           <div className="mb-6">
-            <h2 className="mb-3 font-semibold">
-              Your tickets ({order.tickets.length})
+            <Card className="text-center">
+              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                Entry + food pass
+              </p>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={groupQr}
+                alt={`Group pass ${groupCode}`}
+                className="mx-auto mt-3 h-56 w-56"
+              />
+              <p className="mt-3 font-mono text-3xl font-bold tracking-[0.25em]">
+                {groupCode}
+              </p>
+              <p className="mt-2 text-sm font-medium">
+                {order.tickets.length}{" "}
+                {order.tickets.length === 1 ? "person" : "people"} · one code
+                for your whole group
+              </p>
+              <p className="mx-auto mt-1 max-w-sm text-xs text-zinc-500">
+                Show this at the door and at the food line — we scan it once
+                per person. After everyone is in, it stops working.
+              </p>
+            </Card>
+            <h2 className="mb-3 mt-6 font-semibold">
+              Who&apos;s coming ({order.tickets.length})
             </h2>
-            <div className="grid gap-4 sm:grid-cols-2">
-              {order.tickets.map((t, i) => (
-                <Card key={t.id} className="text-center">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={qrUrls[i]}
-                    alt={`Ticket ${t.code}`}
-                    className="mx-auto h-40 w-40"
-                  />
-                  <p className="mt-2 font-mono text-lg font-bold tracking-widest">
-                    {t.code}
-                  </p>
-                  <p className="text-sm text-zinc-500">
-                    {t.ticketType.name}
-                    {t.mealOption ? ` · ${t.mealOption.name}` : ""}
-                  </p>
+            <div className="space-y-2">
+              {order.tickets.map((t) => (
+                <Card key={t.id} className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium">
+                      {t.holderName || order.buyerName}
+                    </p>
+                    <p className="text-xs text-zinc-500">
+                      {t.ticketType.name}
+                      {t.mealOption ? ` · ${t.mealOption.name}` : ""}
+                    </p>
+                  </div>
                   <Link
                     href={`/t/${t.code}`}
-                    className="mt-1 inline-block text-xs underline"
+                    className="text-xs underline"
                   >
-                    Open ticket
+                    Ticket
                   </Link>
                 </Card>
               ))}

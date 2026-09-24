@@ -99,7 +99,8 @@ export default function DoorConsole({
   const [lastScan, setLastScan] = useState<{
     ok: boolean;
     message: string;
-    ticket?: Ticket;
+    ticket?: Ticket | null;
+    party?: { total: number; checkedIn: number } | null;
   } | null>(null);
 
   // food scan
@@ -108,8 +109,14 @@ export default function DoorConsole({
     ok: boolean;
     already?: boolean;
     message: string;
-    ticket?: Ticket;
+    ticket?: Ticket | null;
+    party?: { mealsTotal: number; mealsServed: number } | null;
   } | null>(null);
+
+  // Live camera only works in secure contexts (https or localhost). On plain
+  // http:// over the LAN, phones refuse camera access — explain and fall back
+  // to typing the code.
+  const [noCamera, setNoCamera] = useState(false);
 
   const scannerRef = useRef<{ clear: () => Promise<void> } | null>(null);
   const scanningRef = useRef(false);
@@ -153,11 +160,16 @@ export default function DoorConsole({
       setLastScan({ ok: false, message: d.error || "Check-in failed" });
       return;
     }
-    const t: Ticket = d.ticket;
+    const t = d.ticket ?? null;
     setLastScan({
       ok: true,
-      message: d.already ? "Already checked in" : "Checked in ✓",
+      message: d.partyFull
+        ? d.message
+        : d.already
+          ? "Already checked in"
+          : "Checked in ✓",
       ticket: t,
+      party: d.party ?? null,
     });
     await load();
   }
@@ -175,18 +187,21 @@ export default function DoorConsole({
       setFoodResult({
         ok: false,
         message: d.error || "Could not record food",
-        ticket: d.ticket,
+        ticket: d.ticket ?? null,
       });
       return;
     }
-    const t: Ticket = d.ticket;
+    const t = d.ticket ?? null;
     setFoodResult({
       ok: true,
       already: d.already === true,
-      message: d.already
-        ? `Already collected at ${fmtTime(t.foodCollectedAt)}`
-        : "Food served ✓",
+      message: d.partyFull
+        ? d.message
+        : d.already
+          ? `Already collected at ${fmtTime(t?.foodCollectedAt ?? null)}`
+          : "Food served ✓",
       ticket: t,
+      party: d.party ?? null,
     });
     await load();
   }
@@ -196,6 +211,15 @@ export default function DoorConsole({
   handleScan.current = tab === "food" ? collectFood : checkIn;
   useEffect(() => {
     if ((tab !== "entry" && tab !== "food") || !eventId) return;
+    if (
+      typeof navigator !== "undefined" &&
+      !navigator.mediaDevices?.getUserMedia
+    ) {
+      // iOS/Android browsers only allow the camera on https (or localhost).
+      setNoCamera(true);
+      return;
+    }
+    setNoCamera(false);
     let cancelled = false;
     (async () => {
       try {
@@ -376,6 +400,13 @@ export default function DoorConsole({
       {tab === "entry" && (
         <div className="mx-auto max-w-md">
           <Card>
+            {noCamera && (
+              <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                The live camera needs a secure (https) connection — this page
+                is on plain http://, so the phone blocks it. Type the code
+                below instead.
+              </p>
+            )}
             <div id="qr-reader" className="overflow-hidden rounded-lg" />
             <form
               className="mt-4 flex gap-2"
@@ -391,7 +422,7 @@ export default function DoorConsole({
                 className={inputCls}
                 value={manualCode}
                 onChange={(e) => setManualCode(e.target.value)}
-                placeholder="Or type ticket code"
+                placeholder="Or type group / ticket code"
                 autoCapitalize="characters"
               />
               <button className={btnPrimary}>Check in</button>
@@ -415,6 +446,11 @@ export default function DoorConsole({
                       : ""}
                   </p>
                 )}
+                {lastScan.party && (
+                  <p className="mt-2 text-sm font-bold">
+                    👥 {lastScan.party.checkedIn} of {lastScan.party.total} in
+                  </p>
+                )}
               </div>
             )}
           </Card>
@@ -425,6 +461,13 @@ export default function DoorConsole({
         <div className="mx-auto max-w-md">
           <Card>
             <h2 className="mb-3 text-center font-semibold">Food counter</h2>
+            {noCamera && (
+              <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+                The live camera needs a secure (https) connection — this page
+                is on plain http://, so the phone blocks it. Type the code
+                below instead.
+              </p>
+            )}
             <div id="qr-reader" className="overflow-hidden rounded-lg" />
             <form
               className="mt-4 flex gap-2"
@@ -440,7 +483,7 @@ export default function DoorConsole({
                 className={inputCls}
                 value={foodCode}
                 onChange={(e) => setFoodCode(e.target.value)}
-                placeholder="Or type ticket code"
+                placeholder="Or type group / ticket code"
                 autoCapitalize="characters"
               />
               <button className={btnPrimary}>Serve</button>
@@ -469,6 +512,12 @@ export default function DoorConsole({
                     </p>
                   </div>
                 )}
+                {foodResult.party && (
+                  <p className="mt-3 text-sm font-bold">
+                    🍽️ {foodResult.party.mealsServed} of{" "}
+                    {foodResult.party.mealsTotal} served
+                  </p>
+                )}
               </div>
             )}
           </Card>
@@ -483,7 +532,7 @@ export default function DoorConsole({
                 className={inputCls}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Name or ticket code"
+                placeholder="Name, ticket code, or group code"
               />
               <button className={btnPrimary}>Search</button>
             </form>

@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
         { code: { contains: q.toUpperCase() } },
         { holderName: { contains: q } },
         { order: { buyerName: { contains: q } } },
+        { order: { refCode: q.toUpperCase() } },
       ],
     },
     take: 25,

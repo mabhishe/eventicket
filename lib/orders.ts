@@ -2,6 +2,38 @@ import { Prisma } from "@prisma/client";
 import { db } from "./db";
 import { newTicketCode } from "./tickets";
 
+/**
+ * Ensure an order has a group-pass refCode, backfilling one for orders
+ * created before refCodes existed. Idempotent; retries on collision.
+ */
+export async function ensureOrderRefCode(orderId: string): Promise<string> {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = newTicketCode(6);
+    try {
+      // Atomic claim: only fills orders that still lack a code.
+      const claimed = await db.order.updateMany({
+        where: { id: orderId, refCode: null },
+        data: { refCode: code },
+      });
+      if (claimed.count === 1) return code;
+    } catch (e) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === "P2002"
+      ) {
+        continue;
+      }
+      throw e;
+    }
+    const existing = await db.order.findUnique({
+      where: { id: orderId },
+      select: { refCode: true },
+    });
+    if (existing?.refCode) return existing.refCode;
+  }
+  throw new Error("Could not assign a group code, please try again");
+}
+
 export type Availability = Record<
   string,
   { total: number; taken: number; left: number }

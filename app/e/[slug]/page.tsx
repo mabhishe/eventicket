@@ -191,47 +191,42 @@ export default function PublicEventPage({
   return (
     <Container>
       <div className="mx-auto max-w-2xl">
-        {gallery.length > 0 ? (
-          <div className="relative mb-6 overflow-hidden rounded-2xl">
+        {gallery.length > 0 && (
+          <div className="mb-6 overflow-hidden rounded-2xl">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={gallery[0]}
               alt={`${event.title} banner`}
               className="h-56 w-full object-cover sm:h-72"
             />
-            {event.logoUrl && (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src={event.logoUrl}
-                alt={`${event.title} logo`}
-                className="absolute bottom-4 left-4 h-20 w-auto max-w-[45%] rounded-xl bg-white/95 p-2 object-contain shadow-lg"
-              />
-            )}
           </div>
-        ) : (
-          event.logoUrl && (
+        )}
+        <div className="mb-4 flex items-center gap-4">
+          {event.logoUrl && (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
               src={event.logoUrl}
               alt={`${event.title} logo`}
-              className="mb-4 h-28 w-auto max-w-full object-contain"
+              className="h-20 w-20 shrink-0 rounded-2xl border border-zinc-200 object-contain dark:border-zinc-800"
             />
-          )
-        )}
-        <PageTitle
-          title={event.title}
-          sub={
-            new Intl.DateTimeFormat("en-CA", {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-              hour: "numeric",
-              minute: "2-digit",
-            }).format(new Date(event.date)) +
-            (event.venue ? ` · ${event.venue}` : "")
-          }
-        />
+          )}
+          <div className="min-w-0">
+            <PageTitle
+              title={event.title}
+              sub={
+                new Intl.DateTimeFormat("en-CA", {
+                  weekday: "long",
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                }).format(new Date(event.date)) +
+                (event.venue ? ` · ${event.venue}` : "")
+              }
+            />
+          </div>
+        </div>
         {event.description && (
           <Card className="mb-6">
             <p className="whitespace-pre-wrap text-sm">{event.description}</p>
@@ -372,11 +367,6 @@ export default function PublicEventPage({
                             {event.mealOptions.map((m) => (
                               <option key={m.id} value={m.id}>
                                 {m.name}
-                                {m.tag === "veg"
-                                  ? " (veg)"
-                                  : m.tag === "nonveg"
-                                    ? " (non-veg)"
-                                    : ""}
                               </option>
                             ))}
                           </select>

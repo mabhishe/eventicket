@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { ticketQrDataUrl } from "@/lib/tickets";
+import { orderQrDataUrl } from "@/lib/tickets";
+import { ensureOrderRefCode } from "@/lib/orders";
 import { Container, Card, Badge } from "@/components/ui";
 import { SponsorsStrip } from "@/components/sponsors-strip";
 
@@ -21,7 +22,12 @@ export default async function TicketPage({ params }: Ctx) {
   if (!ticket) notFound();
 
   const e = ticket.order.event;
-  const qr = await ticketQrDataUrl(ticket.code);
+  // The group pass: one code for the whole order, scanned once per person.
+  const groupCode = await ensureOrderRefCode(ticket.order.id);
+  const partySize = await db.ticket.count({
+    where: { orderId: ticket.order.id, status: { not: "CANCELLED" } },
+  });
+  const qr = await orderQrDataUrl(groupCode);
 
   return (
     <Container>
@@ -43,11 +49,15 @@ export default async function TicketPage({ params }: Ctx) {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={qr}
-            alt={`Ticket ${ticket.code}`}
+            alt={`Group pass ${groupCode}`}
             className="mx-auto mt-4 h-56 w-56"
           />
           <p className="mt-3 font-mono text-2xl font-bold tracking-widest">
-            {ticket.code}
+            {groupCode}
+          </p>
+          <p className="mt-1 text-sm text-zinc-500">
+            Group pass · {partySize} {partySize === 1 ? "person" : "people"} ·
+            scanned once per person at the door and food line
           </p>
           <div className="mt-2 flex items-center justify-center gap-2">
             <Badge
@@ -69,7 +79,10 @@ export default async function TicketPage({ params }: Ctx) {
             {ticket.holderName || ticket.order.buyerName}
           </p>
           <p className="mt-1 text-xs text-zinc-400">
-            Show this QR at the door for check-in.
+            Show this QR at the door for check-in — one scan per person.
+          </p>
+          <p className="mt-2 font-mono text-xs text-zinc-400">
+            Ticket {ticket.code}
           </p>
         </Card>
         <SponsorsStrip ads={e.sponsorAds || []} />
