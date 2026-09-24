@@ -61,6 +61,7 @@ export async function POST(req: NextRequest) {
       etransferEmail: String(body.etransferEmail || "").trim() || null,
       zelleHandle: String(body.zelleHandle || "").trim() || null,
       cashNote: String(body.cashNote || "").trim() || null,
+      requireEntryBeforeFood: body.requireEntryBeforeFood === true,
       createdById: auth.user.id,
     },
   });

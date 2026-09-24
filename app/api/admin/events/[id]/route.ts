@@ -35,6 +35,7 @@ const EDITABLE = [
   "zelleHandle",
   "cashNote",
   "brandColor",
+  "requireEntryBeforeFood",
 ] as const;
 
 export async function PATCH(req: NextRequest, { params }: Ctx) {
@@ -53,6 +54,10 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   for (const key of EDITABLE) {
     if (!(key in body)) continue;
     const v = body[key];
+    if (key === "requireEntryBeforeFood") {
+      data.requireEntryBeforeFood = v === true;
+      continue;
+    }
     if (key === "date") {
       const d = new Date(String(v));
       if (isNaN(d.getTime())) {

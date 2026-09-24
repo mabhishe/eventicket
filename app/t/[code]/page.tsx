@@ -4,6 +4,7 @@ import { orderQrDataUrl } from "@/lib/tickets";
 import { ensureOrderRefCode } from "@/lib/orders";
 import { Container, Card, Badge } from "@/components/ui";
 import { SponsorsStrip } from "@/components/sponsors-strip";
+import { ShareButton } from "@/components/ShareButton";
 
 export const dynamic = "force-dynamic";
 
@@ -81,6 +82,13 @@ export default async function TicketPage({ params }: Ctx) {
           <p className="mt-1 text-xs text-zinc-400">
             Show this QR at the door for check-in — one scan per person.
           </p>
+          <div className="mt-4 flex justify-center">
+            <ShareButton
+              url={`/t/${ticket.code}`}
+              title={`${e.title} — ticket`}
+              text={`My ticket for ${e.title}`}
+            />
+          </div>
           <p className="mt-2 font-mono text-xs text-zinc-400">
             Ticket {ticket.code}
           </p>

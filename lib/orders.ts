@@ -143,6 +143,9 @@ export async function createOrder(input: NewOrderInput) {
     throw new Error("Event is not published");
   }
   if (!input.buyerName.trim()) throw new Error("Buyer name is required");
+  if (!input.buyerEmail?.trim() && !input.buyerPhone?.trim()) {
+    throw new Error("An email or phone number is required");
+  }
   if (!input.items.length) throw new Error("No tickets selected");
 
   const avail = await ticketAvailability(input.eventId);
@@ -222,4 +225,174 @@ export async function createOrder(input: NewOrderInput) {
     }
   }
   throw new Error("Could not create order, please try again");
+}
+
+/** Cancel an order (buyer or staff path share the same logic). */
+export async function cancelOrder(orderId: string) {
+  return db.$transaction(async (tx) => {
+    await tx.ticket.updateMany({
+      where: { orderId },
+      data: { status: "CANCELLED" },
+    });
+    return tx.order.update({
+      where: { id: orderId },
+      data: { status: "CANCELLED" },
+    });
+  });
+}
+
+/**
+ * Add tickets to a PENDING_PAYMENT order. Capacity-checked against current
+ * availability (which already counts this order's existing items), total is
+ * recomputed, and the same refCode/payment code is kept. No tickets are
+ * issued — pending orders have none until payment is confirmed.
+ */
+export async function addOrderItems(
+  orderId: string,
+  items: NewOrderItem[]
+) {
+  const order = await db.order.findUnique({
+    where: { id: orderId },
+    include: { event: { include: { ticketTypes: true, mealOptions: true } } },
+  });
+  if (!order) throw new Error("Order not found");
+  if (order.status !== "PENDING_PAYMENT") {
+    throw new Error("Only unpaid orders can be changed");
+  }
+  if (!items.length) throw new Error("No tickets selected");
+
+  const event = order.event;
+  const avail = await ticketAvailability(order.eventId);
+  const typeById = new Map(event.ticketTypes.map((t) => [t.id, t]));
+  const mealById = new Map(event.mealOptions.map((m) => [m.id, m]));
+
+  let totalCents = order.totalCents;
+  const rows: {
+    qty: number;
+    unitPriceCents: number;
+    holderName: string | null;
+    ticketTypeId: string;
+    mealOptionId: string | null;
+  }[] = [];
+  for (const item of items) {
+    const type = typeById.get(item.ticketTypeId);
+    if (!type) throw new Error("Unknown ticket type");
+    if (!Number.isInteger(item.qty) || item.qty <= 0) {
+      throw new Error(`Invalid quantity for ${type.name}`);
+    }
+    const left = avail[item.ticketTypeId]?.left ?? 0;
+    if (item.qty > left) {
+      throw new Error(
+        `Only ${left} × ${type.name} left (requested ${item.qty})`
+      );
+    }
+    let mealOptionId: string | null = null;
+    if (item.mealOptionId) {
+      const meal = mealById.get(item.mealOptionId);
+      if (!meal) throw new Error("Unknown meal option");
+      if (!type.includesMeal) {
+        throw new Error(`${type.name} does not include a meal choice`);
+      }
+      mealOptionId = meal.id;
+    }
+    if (
+      type.includesMeal &&
+      event.mealOptions.length > 0 &&
+      !mealOptionId
+    ) {
+      throw new Error(`Please choose a meal for every ${type.name} guest`);
+    }
+    totalCents += type.priceCents * item.qty;
+    rows.push({
+      qty: item.qty,
+      unitPriceCents: type.priceCents,
+      holderName: item.holderName?.trim() || null,
+      ticketTypeId: type.id,
+      mealOptionId,
+    });
+  }
+
+  return db.$transaction(async (tx) => {
+    for (const r of rows) {
+      await tx.orderItem.create({
+        data: {
+          orderId,
+          qty: r.qty,
+          unitPriceCents: r.unitPriceCents,
+          holderName: r.holderName,
+          ticketTypeId: r.ticketTypeId,
+          mealOptionId: r.mealOptionId,
+        },
+      });
+    }
+    return tx.order.update({
+      where: { id: orderId },
+      data: { totalCents },
+      include: {
+        items: { include: { ticketType: true, mealOption: true } },
+      },
+    });
+  });
+}
+
+/**
+ * Edit a PENDING_PAYMENT order's buyer details and per-item attendee names.
+ * Enforces the same email-or-phone requirement as checkout.
+ */
+export async function updatePendingOrderDetails(
+  orderId: string,
+  input: {
+    buyerName?: string;
+    buyerEmail?: string;
+    buyerPhone?: string;
+    holderNames?: Record<string, string>;
+  }
+) {
+  const order = await db.order.findUnique({
+    where: { id: orderId },
+    select: {
+      id: true,
+      status: true,
+      buyerName: true,
+      buyerEmail: true,
+      buyerPhone: true,
+    },
+  });
+  if (!order) throw new Error("Order not found");
+  if (order.status !== "PENDING_PAYMENT") {
+    throw new Error("Only unpaid orders can be changed");
+  }
+
+  const buyerName = input.buyerName?.trim() || order.buyerName;
+  const buyerEmail =
+    input.buyerEmail === undefined
+      ? order.buyerEmail
+      : input.buyerEmail.trim() || null;
+  const buyerPhone =
+    input.buyerPhone === undefined
+      ? order.buyerPhone
+      : input.buyerPhone.trim() || null;
+  if (!buyerName) throw new Error("Buyer name is required");
+  if (!buyerEmail && !buyerPhone) {
+    throw new Error("An email or phone number is required");
+  }
+
+  return db.$transaction(async (tx) => {
+    await tx.order.update({
+      where: { id: orderId },
+      data: { buyerName, buyerEmail, buyerPhone },
+    });
+    for (const [itemId, name] of Object.entries(input.holderNames || {})) {
+      await tx.orderItem.updateMany({
+        where: { id: itemId, orderId },
+        data: { holderName: name.trim() || null },
+      });
+    }
+    return tx.order.findUnique({
+      where: { id: orderId },
+      include: {
+        items: { include: { ticketType: true, mealOption: true } },
+      },
+    });
+  });
 }

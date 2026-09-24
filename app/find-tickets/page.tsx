@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Container,
@@ -9,8 +9,10 @@ import {
   Field,
   inputCls,
   btnPrimary,
+  Badge,
   ErrorNote,
 } from "@/components/ui";
+import { formatCents } from "@/lib/money";
 
 type Found = {
   orderId: string;
@@ -20,6 +22,60 @@ type Found = {
   tickets: number;
 };
 
+type SavedOrder = {
+  id: string;
+  status: string;
+  totalCents: number;
+  event: { title: string; date: string; currency: string };
+  items: { qty: number; ticketType: { name: string } }[];
+};
+
+const tone: Record<string, "amber" | "green" | "red" | "zinc"> = {
+  PENDING_PAYMENT: "amber",
+  CONFIRMED: "green",
+  CANCELLED: "red",
+};
+
+function savedOrderIds(): string[] {
+  try {
+    const raw = localStorage.getItem("eventpass:orders");
+    const ids = raw ? JSON.parse(raw) : [];
+    return Array.isArray(ids) ? ids.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function OrderRow({
+  title,
+  sub,
+  status,
+  total,
+  orderId,
+}: {
+  title: string;
+  sub: string;
+  status: string;
+  total: string;
+  orderId: string;
+}) {
+  return (
+    <Link
+      href={`/order/${orderId}`}
+      className="block rounded-lg border border-zinc-200 p-3 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <p className="font-medium">{title}</p>
+        <Badge tone={tone[status] ?? "zinc"}>{status.replace("_", " ")}</Badge>
+      </div>
+      <p className="text-sm text-zinc-500">
+        {sub}
+        {total ? ` · ${total}` : ""}
+      </p>
+    </Link>
+  );
+}
+
 export default function FindTicketsPage() {
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
@@ -27,6 +83,29 @@ export default function FindTicketsPage() {
   const [searched, setSearched] = useState(false);
   const [orders, setOrders] = useState<Found[]>([]);
   const [busy, setBusy] = useState(false);
+
+  const [saved, setSaved] = useState<SavedOrder[]>([]);
+  const [savedLoaded, setSavedLoaded] = useState(false);
+
+  // Orders placed on this device — quick access without re-typing details.
+  useEffect(() => {
+    (async () => {
+      const ids = savedOrderIds();
+      const out: SavedOrder[] = [];
+      for (const id of ids) {
+        try {
+          const res = await fetch(`/api/orders/${id}`);
+          if (!res.ok) continue;
+          const d = await res.json();
+          out.push(d.order as SavedOrder);
+        } catch {
+          // skip orders that no longer load
+        }
+      }
+      setSaved(out);
+      setSavedLoaded(true);
+    })();
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -52,10 +131,37 @@ export default function FindTicketsPage() {
     <Container>
       <div className="mx-auto max-w-md">
         <PageTitle
-          title="Find my tickets"
-          sub="Enter the name and the email or phone you used when ordering."
+          title="My bookings"
+          sub="Orders you placed on this device, plus lookup for anything else."
         />
+
+        {savedLoaded && saved.length > 0 && (
+          <div className="mb-8">
+            <h2 className="mb-3 font-semibold">On this device</h2>
+            <div className="space-y-2">
+              {saved.map((o) => {
+                const qty = o.items.reduce((s, i) => s + i.qty, 0);
+                return (
+                  <OrderRow
+                    key={o.id}
+                    orderId={o.id}
+                    title={o.event.title}
+                    sub={`${new Intl.DateTimeFormat("en-CA", {
+                      dateStyle: "medium",
+                    }).format(new Date(o.event.date))} · ${qty} ticket${
+                      qty === 1 ? "" : "s"
+                    }`}
+                    status={o.status}
+                    total={formatCents(o.totalCents, o.event.currency)}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <Card>
+          <h2 className="mb-3 font-semibold">Look up an order</h2>
           <form onSubmit={submit} className="space-y-4">
             <Field label="Your name">
               <input
@@ -91,22 +197,20 @@ export default function FindTicketsPage() {
               ) : (
                 <div className="space-y-2">
                   {orders.map((o) => (
-                    <Link
+                    <OrderRow
                       key={o.orderId}
-                      href={`/order/${o.orderId}`}
-                      className="block rounded-lg border border-zinc-200 p-3 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
-                    >
-                      <p className="font-medium">{o.eventTitle}</p>
-                      <p className="text-sm text-zinc-500">
-                        {new Intl.DateTimeFormat("en-CA", {
-                          dateStyle: "medium",
-                        }).format(new Date(o.eventDate))}{" "}
-                        ·{" "}
-                        {o.status === "CONFIRMED"
+                      orderId={o.orderId}
+                      title={o.eventTitle}
+                      sub={`${new Intl.DateTimeFormat("en-CA", {
+                        dateStyle: "medium",
+                      }).format(new Date(o.eventDate))} · ${
+                        o.status === "CONFIRMED"
                           ? `${o.tickets} ticket(s)`
-                          : "payment pending"}
-                      </p>
-                    </Link>
+                          : "payment pending"
+                      }`}
+                      status={o.status}
+                      total=""
+                    />
                   ))}
                 </div>
               )}

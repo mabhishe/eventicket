@@ -4,8 +4,10 @@ import { db } from "@/lib/db";
 import { formatCents } from "@/lib/money";
 import { orderQrDataUrl } from "@/lib/tickets";
 import { ensureOrderRefCode } from "@/lib/orders";
-import { Container, Card, PageTitle, Badge } from "@/components/ui";
+import { Container, Card, PageTitle, Badge, btnPrimary } from "@/components/ui";
 import { SponsorsStrip } from "@/components/sponsors-strip";
+import { ShareButton } from "@/components/ShareButton";
+import { PendingOrderActions } from "@/components/PendingOrderActions";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +24,11 @@ export default async function OrderPage({ params }: Ctx) {
   const order = await db.order.findUnique({
     where: { id },
     include: {
-      event: { include: { sponsorAds: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } } },
+      event: {
+        include: {
+          sponsorAds: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+        },
+      },
       items: { include: { ticketType: true, mealOption: true } },
       tickets: {
         include: { ticketType: true, mealOption: true },
@@ -39,13 +45,34 @@ export default async function OrderPage({ params }: Ctx) {
     order.status === "CONFIRMED" ? await ensureOrderRefCode(order.id) : null;
   const groupQr = groupCode ? await orderQrDataUrl(groupCode) : null;
 
+  // "Buy more tickets" starts a fresh order with the buyer's details filled in.
+  const buyMoreUrl =
+    `/e/${e.slug}` +
+    `?name=${encodeURIComponent(order.buyerName)}` +
+    (order.buyerEmail
+      ? `&email=${encodeURIComponent(order.buyerEmail)}`
+      : "") +
+    (order.buyerPhone
+      ? `&phone=${encodeURIComponent(order.buyerPhone)}`
+      : "");
+
   return (
     <Container>
       <div className="mx-auto max-w-2xl">
         <PageTitle
           title="Your order"
           sub={`${e.title} · ordered by ${order.buyerName}`}
-          action={<Badge tone={tone[order.status]}>{order.status.replace("_", " ")}</Badge>}
+          action={
+            <div className="flex items-center gap-2">
+              <ShareButton
+                url={`/order/${order.id}`}
+                title={`${e.title} — order`}
+              />
+              <Badge tone={tone[order.status]}>
+                {order.status.replace("_", " ")}
+              </Badge>
+            </div>
+          }
         />
 
         <Card className="mb-6">
@@ -67,6 +94,16 @@ export default async function OrderPage({ params }: Ctx) {
           </div>
         </Card>
 
+        {order.status === "PENDING_PAYMENT" && (
+          <PendingOrderActions
+            orderId={order.id}
+            eventSlug={e.slug}
+            buyerName={order.buyerName}
+            buyerEmail={order.buyerEmail}
+            buyerPhone={order.buyerPhone}
+            items={order.items}
+          />
+        )}
         {order.status === "PENDING_PAYMENT" && (
           <Card className="mb-6">
             <h2 className="mb-2 font-semibold">How to pay</h2>
@@ -152,6 +189,28 @@ export default async function OrderPage({ params }: Ctx) {
                 Show this at the door and at the food line — we scan it once
                 per person. After everyone is in, it stops working.
               </p>
+              <div className="mt-4 flex justify-center">
+                <ShareButton
+                  url={`/order/${order.id}`}
+                  title={`${e.title} — group pass`}
+                  text={`My group pass for ${e.title}`}
+                />
+              </div>
+            </Card>
+            <Card className="mt-6 mb-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="font-semibold">Need more tickets?</h2>
+                  <p className="text-sm text-zinc-500">
+                    Paid orders are locked — buying more starts a new order
+                    with its own payment code and group pass. Your details are
+                    filled in for you.
+                  </p>
+                </div>
+                <Link href={buyMoreUrl} className={btnPrimary}>
+                  Buy more tickets
+                </Link>
+              </div>
             </Card>
             <h2 className="mb-3 mt-6 font-semibold">
               Who&apos;s coming ({order.tickets.length})

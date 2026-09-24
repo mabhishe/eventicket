@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Container,
   Card,
@@ -63,12 +63,13 @@ type ProgramItem = {
   description: string | null;
 };
 
-export default function PublicEventPage({
+function PublicEventPageInner({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [event, setEvent] = useState<EventData | null>(null);
   const [avail, setAvail] = useState<Availability>({});
   const [error, setError] = useState<string | null>(null);
@@ -82,6 +83,17 @@ export default function PublicEventPage({
   const [buyerPhone, setBuyerPhone] = useState("");
   const [payMethod, setPayMethod] = useState("ETRANSFER");
   const [busy, setBusy] = useState(false);
+
+  // Prefill buyer details when returning from a "Buy more tickets" link.
+  useEffect(() => {
+    const name = searchParams.get("name");
+    const email = searchParams.get("email");
+    const phone = searchParams.get("phone");
+    if (name) setBuyerName(name);
+    if (email) setBuyerEmail(email);
+    if (phone) setBuyerPhone(phone);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     params.then(async ({ slug }) => {
@@ -154,6 +166,18 @@ export default function PublicEventPage({
         return;
       }
     }
+    if (!buyerName.trim()) {
+      setError("Please enter your name.");
+      setBusy(false);
+      return;
+    }
+    if (!buyerEmail.trim() && !buyerPhone.trim()) {
+      setError(
+        "Please add an email or a phone number — you need one of them to find your tickets later."
+      );
+      setBusy(false);
+      return;
+    }
 
     const items = slots.map((s) => ({
       ticketTypeId: s.ticketTypeId,
@@ -178,6 +202,15 @@ export default function PublicEventPage({
       setError(data.error || "Could not place order");
       setBusy(false);
       return;
+    }
+    // Keep the buyer's own orders on this device for "My bookings".
+    try {
+      const raw = localStorage.getItem("eventpass:orders");
+      const ids: string[] = raw ? JSON.parse(raw) : [];
+      const next = [data.order.id, ...ids.filter((x) => x !== data.order.id)];
+      localStorage.setItem("eventpass:orders", JSON.stringify(next.slice(0, 20)));
+    } catch {
+      // localStorage unavailable — the order page link still works.
     }
     router.push(`/order/${data.order.id}`);
   }
@@ -408,6 +441,10 @@ export default function PublicEventPage({
                     />
                   </Field>
                 </div>
+                <p className="-mt-2 text-xs text-zinc-500">
+                  At least one of email or phone is needed so you can find your
+                  order later.
+                </p>
                 <Field label="How will you pay?">
                   <select
                     className={inputCls}
@@ -447,5 +484,17 @@ export default function PublicEventPage({
         </p>
       </div>
     </Container>
+  );
+}
+
+export default function PublicEventPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  return (
+    <Suspense>
+      <PublicEventPageInner params={params} />
+    </Suspense>
   );
 }

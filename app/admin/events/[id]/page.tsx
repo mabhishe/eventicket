@@ -46,6 +46,7 @@ type EventData = {
   logoUrl: string | null;
   imageUrls: string;
   brandColor: string | null;
+  requireEntryBeforeFood: boolean;
   ticketTypes: TicketType[];
   mealOptions: MealOption[];
   programItems: ProgramItem[];
@@ -828,6 +829,25 @@ export default function ManageEventPage({
 
           <Card>
             <h2 className="mb-3 font-semibold">Meal options</h2>
+            <label className="mb-4 flex cursor-pointer items-start gap-3 rounded-lg bg-zinc-50 p-3 dark:bg-zinc-800/50">
+              <input
+                type="checkbox"
+                className="mt-1 h-5 w-5"
+                checked={!!event.requireEntryBeforeFood}
+                onChange={(e) =>
+                  patch({ requireEntryBeforeFood: e.target.checked })
+                }
+              />
+              <span>
+                <span className="block text-sm font-medium">
+                  Require entry scan before food is served
+                </span>
+                <span className="block text-xs text-zinc-500">
+                  Guests must be checked in at the door before the food line
+                  will serve them.
+                </span>
+              </span>
+            </label>
             <div className="mb-4 space-y-2">
               {event.mealOptions.length === 0 && (
                 <p className="text-sm text-zinc-500">

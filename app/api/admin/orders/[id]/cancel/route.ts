@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireApiUser } from "@/lib/auth";
+import { cancelOrder } from "@/lib/orders";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -17,15 +18,6 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     return NextResponse.json({ order });
   }
 
-  const updated = await db.$transaction(async (tx) => {
-    await tx.ticket.updateMany({
-      where: { orderId: id },
-      data: { status: "CANCELLED" },
-    });
-    return tx.order.update({
-      where: { id },
-      data: { status: "CANCELLED" },
-    });
-  });
+  const updated = await cancelOrder(id);
   return NextResponse.json({ order: updated });
 }

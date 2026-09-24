@@ -63,6 +63,7 @@ model Event {
   logoUrl        String?
   imageUrls      String      @default("[]")
   brandColor     String?
+  requireEntryBeforeFood Boolean @default(false) // food line needs an entry scan first
   createdById    String
   createdBy      User        @relation("CreatedEvents", fields: [createdById], references: [id])
   createdAt      DateTime    @default(now())

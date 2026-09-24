@@ -48,6 +48,7 @@ function OrdersInner() {
   const highlight = searchParams.get("highlight");
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState("PENDING_PAYMENT");
+  const [buyerQuery, setBuyerQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -107,13 +108,39 @@ function OrdersInner() {
         }
       />
       <ErrorNote message={error} />
-      {orders.length === 0 ? (
-        <Card>
-          <p className="text-sm text-zinc-500">No orders in this view.</p>
-        </Card>
-      ) : (
-        <div className="space-y-3">
-          {orders.map((o) => (
+      <div className="mb-4">
+        <input
+          className="w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          value={buyerQuery}
+          onChange={(e) => setBuyerQuery(e.target.value)}
+          placeholder="Search buyer by name, email, or phone…"
+          aria-label="Search buyer"
+        />
+      </div>
+      {(() => {
+        const q = buyerQuery.trim().toLowerCase();
+        const visible = q
+          ? orders.filter(
+              (o) =>
+                o.buyerName.toLowerCase().includes(q) ||
+                (o.buyerEmail || "").toLowerCase().includes(q) ||
+                (o.buyerPhone || "").toLowerCase().includes(q)
+            )
+          : orders;
+        if (visible.length === 0) {
+          return (
+            <Card>
+              <p className="text-sm text-zinc-500">
+                {q
+                  ? "No orders match this buyer. Switch the status filter to ALL if the order may already be confirmed or cancelled."
+                  : "No orders in this view."}
+              </p>
+            </Card>
+          );
+        }
+        return (
+          <div className="space-y-3">
+            {visible.map((o) => (
             <Card
               key={o.id}
               className={
@@ -215,9 +242,10 @@ function OrdersInner() {
                 </div>
               </div>
             </Card>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        );
+      })()}
     </Container>
   );
 }

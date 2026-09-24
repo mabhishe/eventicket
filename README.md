@@ -14,6 +14,15 @@ branding, per-event sponsor ads, and a mobile-friendly experience throughout.
 - Draft / published / archived event lifecycle.
 - Public event pages with a ticket selector and one-page checkout.
 - Per-attendee details at checkout: name and meal choice per ticket.
+- Checkout requires an email **or** a phone number (at least one) so
+  returning buyers can be found later; `?name=&email=&phone=` pre-fills the
+  checkout form (used by "Buy more tickets").
+- **Pending orders stay editable**: the buyer can add more tickets
+  (capacity-checked, same payment code, total updated), edit buyer details
+  and attendee names, or cancel the order from the order page.
+- **Confirmed orders are locked**; "Buy more tickets" starts a separate
+  order with its own payment code and group pass, while the buyer's email
+  or phone links the orders together for lookup.
 
 ### Payments (manual confirmation)
 - Guests pay by e-Transfer, Zelle, or cash and submit their payment
@@ -27,6 +36,12 @@ branding, per-event sponsor ads, and a mobile-friendly experience throughout.
 - Door console (`/door/[eventId]`) scans QR codes with the phone camera
   (or manual code entry), shows a big PASS/FAIL result, and rejects
   duplicates with the original check-in time.
+- Group scans return the full **party roster** with per-person status
+  (in / not in, fed / not fed), and the result names exactly who was
+  admitted ("Admitted: Zara — 2 of 3 in").
+- **Undo**: staff can undo an accidental entry or food scan (on the scan
+  result or per person in Search), fixing "scanned twice but only one
+  entered".
 - Walk-in sales: sell and issue tickets at the door in one step.
 
 ### Food service
@@ -34,6 +49,8 @@ branding, per-event sponsor ads, and a mobile-friendly experience throughout.
   per attendee at checkout and walk-in.
 - Independent food-collection scanning: records `foodCollectedAt` per
   ticket, separate from entry check-in, with duplicate handling.
+- Optional **require entry before food** (per event): when on, the food
+  line refuses guests who haven't been scanned in at the door yet.
 - Big green **VEG** / red **NON-VEG** / neutral **NO MEAL** result so
   servers see the direction at a glance.
 
@@ -59,10 +76,15 @@ branding, per-event sponsor ads, and a mobile-friendly experience throughout.
   formula-injection safe).
 - Door search by name, order management (confirm/cancel), user roles
   (ADMIN / STAFF), and password change from the top bar.
+- **Buyer search** on the orders page: filter by buyer name, email, or
+  phone to see someone's complete purchase history.
 
 ### Guest tools
-- **Find my tickets**: guests look up their order links with their name
-  plus the exact email/phone used at purchase.
+- **My bookings**: orders placed on this device are saved locally for
+  one-tap access; guests can still look up any order with their name plus
+  the exact email/phone used at purchase.
+- **Share button** on order and ticket pages: opens the device share
+  sheet where available, otherwise copies the link.
 - Mobile-first layout: collapsible nav menu, 44px touch targets,
   single-column checkout, horizontal scroll on wide tables.
 

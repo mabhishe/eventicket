@@ -30,6 +30,7 @@ export default function NewEventPage() {
   const [etransferEmail, setEtransferEmail] = useState("");
   const [zelleHandle, setZelleHandle] = useState("");
   const [cashNote, setCashNote] = useState("");
+  const [requireEntryBeforeFood, setRequireEntryBeforeFood] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -48,6 +49,7 @@ export default function NewEventPage() {
         etransferEmail,
         zelleHandle,
         cashNote,
+        requireEntryBeforeFood,
       }),
     });
     const data = await res.json();
@@ -136,6 +138,23 @@ export default function NewEventPage() {
                 </Field>
               </div>
             </div>
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+              <input
+                type="checkbox"
+                className="mt-1 h-5 w-5"
+                checked={requireEntryBeforeFood}
+                onChange={(e) => setRequireEntryBeforeFood(e.target.checked)}
+              />
+              <span>
+                <span className="block text-sm font-medium">
+                  Require entry scan before food is served
+                </span>
+                <span className="block text-xs text-zinc-500">
+                  Guests must be checked in at the door before the food line
+                  will serve them. Off by default.
+                </span>
+              </span>
+            </label>
             <ErrorNote message={error} />
             <div className="flex gap-2">
               <button className={btnPrimary} disabled={busy}>

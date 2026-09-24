@@ -97,3 +97,36 @@ export async function partyProgress(orderId: string) {
   const mealsServed = tickets.filter((t) => t.foodCollectedAt).length;
   return { total, checkedIn, mealsTotal, mealsServed };
 }
+
+export type RosterTicket = {
+  id: string;
+  holderName: string | null;
+  status: string;
+  checkedInAt: string | null;
+  foodCollectedAt: string | null;
+  ticketType: { name: string };
+  mealOption: { name: string; tag: string | null } | null;
+};
+
+/** Full per-person roster for an order, oldest ticket first. */
+export async function partyRoster(orderId: string): Promise<RosterTicket[]> {
+  const tickets = await db.ticket.findMany({
+    where: { orderId, status: { not: "CANCELLED" } },
+    orderBy: { createdAt: "asc" },
+    include: {
+      ticketType: { select: { name: true } },
+      mealOption: { select: { name: true, tag: true } },
+    },
+  });
+  return tickets.map((t) => ({
+    id: t.id,
+    holderName: t.holderName,
+    status: t.status,
+    checkedInAt: t.checkedInAt ? t.checkedInAt.toISOString() : null,
+    foodCollectedAt: t.foodCollectedAt ? t.foodCollectedAt.toISOString() : null,
+    ticketType: { name: t.ticketType.name },
+    mealOption: t.mealOption
+      ? { name: t.mealOption.name, tag: t.mealOption.tag }
+      : null,
+  }));
+}

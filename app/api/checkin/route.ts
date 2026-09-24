@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireApiUser } from "@/lib/auth";
-import { resolveScanCode, partyProgress, scanTicketInclude } from "@/lib/door";
+import {
+  resolveScanCode,
+  partyProgress,
+  partyRoster,
+  scanTicketInclude,
+} from "@/lib/door";
 
 /**
  * Door check-in, group-aware:
  * - a per-ticket code checks in that ticket (unchanged behavior);
  * - an order refCode (the group pass) checks in the next pending ticket of
  *   that order, so one QR admits a whole party one scan at a time.
- * Responses carry party progress { total, checkedIn, ... }.
+ * Responses carry party progress { total, checkedIn, ... } and the full
+ * per-person roster so staff can see exactly who was admitted.
  */
 export async function POST(req: NextRequest) {
   const auth = await requireApiUser(req, ["ADMIN", "DOOR"]);
@@ -60,12 +66,14 @@ export async function POST(req: NextRequest) {
   }
 
   const party = await partyProgress(info.id);
+  const roster = await partyRoster(info.id);
   if (resolved.kind === "order" && !resolved.nextTicket) {
     return NextResponse.json({
       ticket: null,
       already: true,
       partyFull: true,
       party,
+      roster,
       message: `Everyone is already in (${party.checkedIn} of ${party.total})`,
     });
   }
@@ -74,12 +82,19 @@ export async function POST(req: NextRequest) {
     resolved.kind === "ticket" ? resolved.ticket : resolved.nextTicket!;
   if (ticket.status === "CANCELLED") {
     return NextResponse.json(
-      { error: "Ticket was cancelled", party },
+      { error: "Ticket was cancelled", party, roster },
       { status: 400 }
     );
   }
   if (ticket.status === "CHECKED_IN") {
-    return NextResponse.json({ ticket, already: true, party });
+    const name = ticket.holderName || ticket.order.buyerName;
+    return NextResponse.json({
+      ticket,
+      already: true,
+      party,
+      roster,
+      message: `${name} is already in`,
+    });
   }
 
   const updated = await db.ticket.update({
@@ -87,9 +102,13 @@ export async function POST(req: NextRequest) {
     data: { status: "CHECKED_IN", checkedInAt: new Date() },
     include: scanTicketInclude,
   });
+  const newParty = await partyProgress(info.id);
+  const name = updated.holderName || updated.order.buyerName;
   return NextResponse.json({
     ticket: updated,
     already: false,
-    party: await partyProgress(info.id),
+    party: newParty,
+    roster: await partyRoster(info.id),
+    message: `Admitted: ${name} — ${newParty.checkedIn} of ${newParty.total} in`,
   });
 }

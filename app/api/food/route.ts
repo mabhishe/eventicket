@@ -1,14 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireApiUser } from "@/lib/auth";
-import { resolveScanCode, partyProgress, scanTicketInclude } from "@/lib/door";
+import {
+  resolveScanCode,
+  partyProgress,
+  partyRoster,
+  scanTicketInclude,
+} from "@/lib/door";
 
 /**
  * Food service, group-aware:
  * - a per-ticket code records that ticket's meal as served (unchanged);
  * - an order refCode (the group pass) serves the next unserved meal of that
  *   order and reports which meal it was, so one QR works for the whole party.
- * Responses carry party progress { mealsTotal, mealsServed, ... }.
+ * Responses carry party progress { mealsTotal, mealsServed, ... } and the
+ * full per-person roster.
+ * When the event requires entry before food, unadmitted guests are refused.
  */
 export async function POST(req: NextRequest) {
   const auth = await requireApiUser(req, ["ADMIN", "DOOR"]);
@@ -60,10 +67,11 @@ export async function POST(req: NextRequest) {
   }
 
   const party = await partyProgress(info.id);
+  const roster = await partyRoster(info.id);
   if (resolved.kind === "order" && !resolved.nextTicket) {
     if (party.mealsTotal === 0) {
       return NextResponse.json(
-        { error: "This order does not include any meals", party },
+        { error: "This order does not include any meals", party, roster },
         { status: 400 }
       );
     }
@@ -72,6 +80,7 @@ export async function POST(req: NextRequest) {
       already: true,
       partyFull: true,
       party,
+      roster,
       message: `All meals already served (${party.mealsServed} of ${party.mealsTotal})`,
     });
   }
@@ -80,18 +89,43 @@ export async function POST(req: NextRequest) {
     resolved.kind === "ticket" ? resolved.ticket : resolved.nextTicket!;
   if (ticket.status === "CANCELLED") {
     return NextResponse.json(
-      { error: "Ticket was cancelled", party },
+      { error: "Ticket was cancelled", party, roster },
       { status: 400 }
     );
   }
   if (!ticket.mealOptionId) {
     return NextResponse.json(
-      { error: "This ticket does not include a meal", ticket, party },
+      { error: "This ticket does not include a meal", ticket, party, roster },
       { status: 400 }
     );
   }
   if (ticket.foodCollectedAt) {
-    return NextResponse.json({ ticket, already: true, party });
+    const name = ticket.holderName || ticket.order.buyerName;
+    return NextResponse.json({
+      ticket,
+      already: true,
+      party,
+      roster,
+      message: `${name} already collected their meal`,
+    });
+  }
+
+  // Per-event option: the food line only serves guests who entered first.
+  const event = await db.event.findUnique({
+    where: { id: info.eventId },
+    select: { requireEntryBeforeFood: true },
+  });
+  if (event?.requireEntryBeforeFood && ticket.status !== "CHECKED_IN") {
+    const name = ticket.holderName || ticket.order.buyerName;
+    return NextResponse.json(
+      {
+        error: `Not checked in yet — ${name} needs to be admitted at Entry first`,
+        ticket,
+        party,
+        roster,
+      },
+      { status: 409 }
+    );
   }
 
   const updated = await db.ticket.update({
@@ -99,9 +133,14 @@ export async function POST(req: NextRequest) {
     data: { foodCollectedAt: new Date() },
     include: scanTicketInclude,
   });
+  const newParty = await partyProgress(info.id);
+  const name = updated.holderName || updated.order.buyerName;
+  const meal = updated.mealOption?.name || "meal";
   return NextResponse.json({
     ticket: updated,
     already: false,
-    party: await partyProgress(info.id),
+    party: newParty,
+    roster: await partyRoster(info.id),
+    message: `Served: ${meal} to ${name} — ${newParty.mealsServed} of ${newParty.mealsTotal} served`,
   });
 }

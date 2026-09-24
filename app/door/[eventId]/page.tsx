@@ -42,6 +42,15 @@ type DoorData = {
     collected: number;
   }[];
 };
+type RosterPerson = {
+  id: string;
+  holderName: string | null;
+  status: string;
+  checkedInAt: string | null;
+  foodCollectedAt: string | null;
+  ticketType: { name: string };
+  mealOption: { name: string; tag: string | null } | null;
+};
 type Ticket = {
   id: string;
   code: string;
@@ -75,6 +84,41 @@ function DietBadge({ tag }: { tag: string | null }) {
   );
 }
 
+function RosterView({ roster }: { roster: RosterPerson[] }) {
+  return (
+    <div className="mt-4 border-t border-zinc-200 pt-3 text-left dark:border-zinc-700">
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide opacity-70">
+        Party ({roster.length})
+      </p>
+      <div className="space-y-1.5">
+        {roster.map((p) => (
+          <div
+            key={p.id}
+            className="flex items-center justify-between gap-2 rounded-lg bg-white/70 px-3 py-2 dark:bg-zinc-900/70"
+          >
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">
+                {p.holderName || "Guest"}
+              </p>
+              <p className="text-xs opacity-70">{p.ticketType.name}</p>
+            </div>
+            <div className="flex shrink-0 gap-1">
+              <Badge tone={p.status === "CHECKED_IN" ? "green" : "zinc"}>
+                {p.status === "CHECKED_IN" ? "In" : "Not in"}
+              </Badge>
+              {p.mealOption && (
+                <Badge tone={p.foodCollectedAt ? "amber" : "zinc"}>
+                  {p.foodCollectedAt ? "Fed" : "Not fed"}
+                </Badge>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function fmtTime(iso: string | null) {
   if (!iso) return "";
   return new Intl.DateTimeFormat("en-CA", {
@@ -101,6 +145,7 @@ export default function DoorConsole({
     message: string;
     ticket?: Ticket | null;
     party?: { total: number; checkedIn: number } | null;
+    roster?: RosterPerson[] | null;
   } | null>(null);
 
   // food scan
@@ -111,6 +156,7 @@ export default function DoorConsole({
     message: string;
     ticket?: Ticket | null;
     party?: { mealsTotal: number; mealsServed: number } | null;
+    roster?: RosterPerson[] | null;
   } | null>(null);
 
   // Live camera only works in secure contexts (https or localhost). On plain
@@ -163,13 +209,12 @@ export default function DoorConsole({
     const t = d.ticket ?? null;
     setLastScan({
       ok: true,
-      message: d.partyFull
-        ? d.message
-        : d.already
-          ? "Already checked in"
-          : "Checked in ✓",
+      message:
+        d.message ||
+        (d.partyFull ? "Everyone is already in" : d.already ? "Already checked in" : "Checked in ✓"),
       ticket: t,
       party: d.party ?? null,
+      roster: d.roster ?? null,
     });
     await load();
   }
@@ -195,14 +240,58 @@ export default function DoorConsole({
     setFoodResult({
       ok: true,
       already: d.already === true,
-      message: d.partyFull
-        ? d.message
-        : d.already
-          ? `Already collected at ${fmtTime(t?.foodCollectedAt ?? null)}`
-          : "Food served ✓",
+      message:
+        d.message ||
+        (d.partyFull
+          ? "All meals already served"
+          : d.already
+            ? `Already collected at ${fmtTime(t?.foodCollectedAt ?? null)}`
+            : "Food served ✓"),
       ticket: t,
       party: d.party ?? null,
+      roster: d.roster ?? null,
     });
+    await load();
+  }
+
+  /**
+   * Undo the most recent scan shown on screen — the fix for "scanned twice
+   * but only one entered". Works for both entry and food tabs.
+   */
+  async function undoLastScan() {
+    const current = tab === "entry" ? lastScan : foodResult;
+    const ticket = current?.ticket;
+    if (!ticket) return;
+    if (
+      !confirm(
+        tab === "entry"
+          ? `Undo the entry for ${ticket.holderName || ticket.order.buyerName}?`
+          : `Undo the meal served to ${ticket.holderName || ticket.order.buyerName}?`
+      )
+    )
+      return;
+    setError(null);
+    const endpoint =
+      tab === "entry" ? "/api/door/undo-entry" : "/api/door/undo-food";
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticketId: ticket.id }),
+    });
+    const d = await res.json();
+    if (!res.ok) {
+      setError(d.error || "Undo failed");
+      return;
+    }
+    const update = {
+      ok: true,
+      message: d.message,
+      ticket: null,
+      party: d.party ?? null,
+      roster: d.roster ?? null,
+    };
+    if (tab === "entry") setLastScan(update);
+    else setFoodResult({ ...update, already: false });
     await load();
   }
 
@@ -264,6 +353,40 @@ export default function DoorConsole({
     const d = await res.json();
     setResults(res.ok ? d.tickets : []);
     if (!res.ok) setError(d.error || "Search failed");
+  }
+
+  /** Per-person correction from the search results. */
+  async function undoTicket(
+    kind: "entry" | "food",
+    ticketId: string,
+    name: string
+  ) {
+    if (
+      !confirm(
+        kind === "entry"
+          ? `Undo the entry for ${name}?`
+          : `Undo the meal served to ${name}?`
+      )
+    )
+      return;
+    setError(null);
+    setNotice(null);
+    const res = await fetch(
+      kind === "entry" ? "/api/door/undo-entry" : "/api/door/undo-food",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticketId }),
+      }
+    );
+    const d = await res.json();
+    if (!res.ok) {
+      setError(d.error || "Undo failed");
+      return;
+    }
+    setNotice(d.message);
+    await search();
+    await load();
   }
 
   // walk-in attendee slots: one per ticket
@@ -451,6 +574,17 @@ export default function DoorConsole({
                     👥 {lastScan.party.checkedIn} of {lastScan.party.total} in
                   </p>
                 )}
+                {lastScan.ok && lastScan.ticket && (
+                  <button
+                    className={btnSecondary + " mt-3 text-xs"}
+                    onClick={undoLastScan}
+                  >
+                    Undo this scan
+                  </button>
+                )}
+                {lastScan.roster && lastScan.roster.length > 0 && (
+                  <RosterView roster={lastScan.roster} />
+                )}
               </div>
             )}
           </Card>
@@ -518,6 +652,17 @@ export default function DoorConsole({
                     {foodResult.party.mealsTotal} served
                   </p>
                 )}
+                {foodResult.ok && foodResult.ticket && !foodResult.already && (
+                  <button
+                    className={btnSecondary + " mt-3 text-xs"}
+                    onClick={undoLastScan}
+                  >
+                    Undo this scan
+                  </button>
+                )}
+                {foodResult.roster && foodResult.roster.length > 0 && (
+                  <RosterView roster={foodResult.roster} />
+                )}
               </div>
             )}
           </Card>
@@ -563,7 +708,21 @@ export default function DoorConsole({
                     </div>
                     <div className="flex shrink-0 gap-2">
                       {t.status === "CHECKED_IN" ? (
-                        <Badge tone="green">In</Badge>
+                        <>
+                          <Badge tone="green">In</Badge>
+                          <button
+                            className={btnSecondary + " px-3 py-2 text-xs"}
+                            onClick={() =>
+                              undoTicket(
+                                "entry",
+                                t.id,
+                                t.holderName || t.order.buyerName
+                              )
+                            }
+                          >
+                            Undo
+                          </button>
+                        </>
                       ) : (
                         <button
                           className={btnPrimary + " px-3 py-2 text-xs"}
@@ -573,9 +732,23 @@ export default function DoorConsole({
                         </button>
                       )}
                       {t.foodCollectedAt ? (
-                        <Badge tone="amber">
-                          Fed {fmtTime(t.foodCollectedAt)}
-                        </Badge>
+                        <>
+                          <Badge tone="amber">
+                            Fed {fmtTime(t.foodCollectedAt)}
+                          </Badge>
+                          <button
+                            className={btnSecondary + " px-3 py-2 text-xs"}
+                            onClick={() =>
+                              undoTicket(
+                                "food",
+                                t.id,
+                                t.holderName || t.order.buyerName
+                              )
+                            }
+                          >
+                            Undo
+                          </button>
+                        </>
                       ) : (
                         t.mealOption && (
                           <button
