@@ -36,8 +36,15 @@ async function storeFile(eventId: string, file: File) {
 function cleanLink(raw: string | null): string | null {
   const v = (raw || "").trim();
   if (!v) return null;
-  if (!/^https?:\/\//i.test(v)) return null;
-  return v;
+  // Be forgiving: "example.com" becomes "https://example.com".
+  const withScheme = /^https?:\/\//i.test(v) ? v : `https://${v}`;
+  try {
+    const u = new URL(withScheme);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    return withScheme;
+  } catch {
+    return null;
+  }
 }
 
 export async function GET(
@@ -72,7 +79,7 @@ export async function POST(
   if (!name) return NextResponse.json({ error: "Sponsor name is required" }, { status: 400 });
   if (form.get("linkUrl") && !linkUrl) {
     return NextResponse.json(
-      { error: "Link must start with http:// or https://" },
+      { error: "That website link doesn't look valid — try https://example.com" },
       { status: 400 }
     );
   }
