@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireApiUser } from "@/lib/auth";
-import { issueTickets } from "@/lib/orders";
+import { issueTickets, ensureOrderRefCode } from "@/lib/orders";
+import {
+  sendEmail,
+  ticketsIssuedHtml,
+  orderQrPngBuffer,
+  appUrl,
+} from "@/lib/email";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -31,5 +37,47 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     data: { status: "CONFIRMED" },
   });
   const tickets = await issueTickets(id);
+  // Tickets email with the group QR + entry code (never fails the confirm).
+  try {
+    const full = await db.order.findUnique({
+      where: { id },
+      include: {
+        event: true,
+        items: { include: { ticketType: true } },
+      },
+    });
+    if (full?.buyerEmail && full.event) {
+      const groupCode = await ensureOrderRefCode(id);
+      const qr = await orderQrPngBuffer(groupCode);
+      await sendEmail({
+        to: full.buyerEmail,
+        subject: `You're in! Tickets for ${full.event.title}`,
+        html: ticketsIssuedHtml(
+          {
+            id: full.id,
+            buyerName: full.buyerName,
+            buyerEmail: full.buyerEmail,
+            payMethod: full.payMethod,
+            refCode: full.refCode,
+            totalCents: full.totalCents,
+            currency: full.event.currency,
+            items: full.items.map((it) => ({
+              qty: it.qty,
+              name: it.ticketType.name,
+              holderName: it.holderName,
+            })),
+          },
+          full.event,
+          groupCode,
+          `${appUrl()}/order/${full.id}`
+        ),
+        attachments: [
+          { filename: `group-qr-${groupCode}.png`, content: qr.toString("base64") },
+        ],
+      });
+    }
+  } catch (e) {
+    console.error("[confirm] tickets email failed", e instanceof Error ? e.message : e);
+  }
   return NextResponse.json({ order: updated, tickets });
 }

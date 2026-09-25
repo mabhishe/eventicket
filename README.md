@@ -203,6 +203,7 @@ Caddyfile           # Reverse proxy config
 | `APP_URL` | Yes | Public base URL (used in links) |
 | `APP_NAME` | No | Brand name (default `EventPass`) |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | No | First-run admin; both or neither (min 8 chars). Otherwise a random password is generated once. |
+| `RESEND_API_KEY` / `EMAIL_FROM` | No | Transactional email (order confirmation + tickets with QR). Both or neither; when unset, email is skipped and everything else works. `EMAIL_FROM` must be a sender verified in Resend, e.g. `EventPass <tickets@events.aicloudconsult.com>`. |
 
 ## Docs
 

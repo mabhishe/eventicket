@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createOrder } from "@/lib/orders";
+import { db } from "@/lib/db";
+import {
+  sendEmail,
+  orderConfirmationHtml,
+  appUrl,
+} from "@/lib/email";
 
 /** Public endpoint: a guest places an order (status PENDING_PAYMENT). */
 export async function POST(req: NextRequest) {
@@ -43,6 +49,38 @@ export async function POST(req: NextRequest) {
         holderName: it.holderName ? String(it.holderName) : null,
       })),
     });
+    // Confirmation email (fire-and-forget safe: never fails the order).
+    if (order.buyerEmail) {
+      try {
+        const event = await db.event.findUnique({ where: { id: order.eventId } });
+        if (event) {
+          await sendEmail({
+            to: order.buyerEmail,
+            subject: `Order received — ${event.title}`,
+            html: orderConfirmationHtml(
+              {
+                id: order.id,
+                buyerName: order.buyerName,
+                buyerEmail: order.buyerEmail,
+                payMethod: order.payMethod,
+                refCode: order.refCode,
+                totalCents: order.totalCents,
+                currency: event.currency,
+                items: order.items.map((it) => ({
+                  qty: it.qty,
+                  name: it.ticketType.name,
+                  holderName: it.holderName,
+                })),
+              },
+              event,
+              `${appUrl()}/order/${order.id}`
+            ),
+          });
+        }
+      } catch (e) {
+        console.error("[orders] confirmation email failed", e instanceof Error ? e.message : e);
+      }
+    }
     return NextResponse.json({ order }, { status: 201 });
   } catch (e) {
     return NextResponse.json(
