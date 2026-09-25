@@ -15,6 +15,12 @@ import {
   ErrorNote,
 } from "@/components/ui";
 import { formatCents } from "@/lib/money";
+import {
+  SPONSOR_TIERS,
+  TIER_LABELS,
+  TIER_SINGULAR,
+  normalizeTier,
+} from "@/lib/sponsors";
 
 type TicketType = {
   id: string;
@@ -97,13 +103,21 @@ export default function ManageEventPage({
   type SponsorAd = {
     id: string;
     name: string;
-    imageUrl: string;
+    imageUrl: string | null;
     linkUrl: string | null;
+    tier: string;
   };
   const [sponsors, setSponsors] = useState<SponsorAd[]>([]);
   const [spName, setSpName] = useState("");
   const [spLink, setSpLink] = useState("");
+  const [spTier, setSpTier] = useState<string>("SILVER");
   const [spBusy, setSpBusy] = useState(false);
+  // bulk add
+  const [bulkTier, setBulkTier] = useState<string>("SILVER");
+  const [bulkLink, setBulkLink] = useState("");
+  const [bulkNames, setBulkNames] = useState("");
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [showBulk, setShowBulk] = useState(false);
 
   function parseGallery(raw: string | null): string[] {
     try {
@@ -345,7 +359,13 @@ export default function ManageEventPage({
 
   async function loadSponsors(eid: string) {
     const res = await fetch(`/api/admin/events/${eid}/sponsors`);
-    if (res.ok) setSponsors(((await res.json()).ads || []) as SponsorAd[]);
+    if (res.ok) {
+      const list = (((await res.json()).ads || []) as SponsorAd[]).map((s) => ({
+        ...s,
+        tier: normalizeTier(s.tier),
+      }));
+      setSponsors(list);
+    }
   }
 
   async function addSponsor(e: React.FormEvent<HTMLFormElement>) {
@@ -357,16 +377,13 @@ export default function ManageEventPage({
       setError("Sponsor name is required");
       return;
     }
-    if (!file) {
-      setError("Choose a sponsor logo image");
-      return;
-    }
     setError(null);
     setSpBusy(true);
     const form = new FormData();
     form.append("name", spName.trim());
+    form.append("tier", spTier);
     if (spLink.trim()) form.append("linkUrl", spLink.trim());
-    form.append("file", file);
+    if (file) form.append("file", file);
     const res = await fetch(`/api/admin/events/${id}/sponsors`, {
       method: "POST",
       body: form,
@@ -379,7 +396,60 @@ export default function ManageEventPage({
     }
     setSpName("");
     setSpLink("");
+    setSpTier("SILVER");
     (e.currentTarget.elements.namedItem("spFile") as HTMLInputElement).value = "";
+    await loadSponsors(id);
+  }
+
+  async function addSponsorsBulk(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!id) return;
+    const input = e.currentTarget.elements.namedItem(
+      "bulkFiles"
+    ) as HTMLInputElement;
+    const files = input?.files;
+    if (!files || files.length === 0) {
+      setError("Choose one or more logo images to bulk-add");
+      return;
+    }
+    setError(null);
+    setBulkBusy(true);
+    const form = new FormData();
+    form.append("tier", bulkTier);
+    if (bulkLink.trim()) form.append("linkUrl", bulkLink.trim());
+    if (bulkNames.trim()) form.append("names", bulkNames.trim());
+    for (const f of Array.from(files)) form.append("files", f);
+    const res = await fetch(`/api/admin/events/${id}/sponsors`, {
+      method: "POST",
+      body: form,
+    });
+    const d = await res.json();
+    setBulkBusy(false);
+    if (!res.ok) {
+      setError(d.error || "Could not add sponsors");
+      return;
+    }
+    const n = (d.ads || []).length;
+    setBulkNames("");
+    setBulkLink("");
+    input.value = "";
+    await loadSponsors(id);
+    setError(null);
+    alert(`Added ${n} sponsor${n === 1 ? "" : "s"}.`);
+  }
+
+  async function setSponsorTier(adId: string, tier: string) {
+    if (!id) return;
+    const res = await fetch(`/api/admin/events/${id}/sponsors`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: adId, tier }),
+    });
+    if (!res.ok) {
+      const d = await res.json();
+      setError(d.error || "Could not update tier");
+      return;
+    }
     await loadSponsors(id);
   }
 
@@ -677,56 +747,178 @@ export default function ManageEventPage({
           </Card>
 
           <Card>
-            <h2 className="mb-3 font-semibold">Sponsor ads</h2>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-semibold">Sponsor ads</h2>
+              <button
+                type="button"
+                className={btnSecondary}
+                onClick={() => setShowBulk((v) => !v)}
+              >
+                {showBulk ? "Hide bulk add" : "Bulk add"}
+              </button>
+            </div>
             <p className="mb-3 text-sm text-zinc-500">
               Sponsor logos appear on the event page, the order page, and
-              tickets. A logo with a link opens it in a new tab.
+              tickets. A logo with a link opens it in a new tab. Gold sponsors
+              show largest, then Silver, Bronze, then special mentions.
             </p>
-            <div className="mb-4 space-y-2">
+
+            {showBulk && (
+              <form
+                onSubmit={addSponsorsBulk}
+                className="mb-4 space-y-3 rounded-xl border border-dashed border-zinc-300 p-3 dark:border-zinc-700"
+              >
+                <p className="text-sm font-medium">
+                  Bulk add — many logos at once
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label="Tier for all">
+                    <select
+                      className={inputCls}
+                      value={bulkTier}
+                      onChange={(e) => setBulkTier(e.target.value)}
+                    >
+                      {SPONSOR_TIERS.map((t) => (
+                        <option key={t} value={t}>
+                          {TIER_SINGULAR[t]}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Website link for all (optional)">
+                    <input
+                      className={inputCls}
+                      value={bulkLink}
+                      onChange={(e) => setBulkLink(e.target.value)}
+                      placeholder="https://example.com"
+                    />
+                  </Field>
+                </div>
+                <Field label="Logo images (select many at once)">
+                  <input
+                    type="file"
+                    name="bulkFiles"
+                    multiple
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    className="text-sm"
+                  />
+                </Field>
+                <Field label="Names — one per line, matched to the files in order (optional)">
+                  <textarea
+                    className={inputCls}
+                    rows={3}
+                    value={bulkNames}
+                    onChange={(e) => setBulkNames(e.target.value)}
+                    placeholder={"Acme Foods\nNorthwind Traders"}
+                  />
+                </Field>
+                <p className="-mt-1 text-xs text-zinc-500">
+                  Leave a line blank to use the file name instead.
+                </p>
+                <button className={btnSecondary} disabled={bulkBusy}>
+                  {bulkBusy ? "Uploading…" : "Upload all"}
+                </button>
+              </form>
+            )}
+
+            <div className="mb-4 space-y-4">
               {sponsors.length === 0 && (
                 <p className="text-sm text-zinc-500">None yet.</p>
               )}
-              {sponsors.map((s) => (
-                <div
-                  key={s.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-3 py-2 dark:border-zinc-800"
-                >
-                  <div className="flex min-w-0 items-center gap-3">
-                    <img
-                      src={s.imageUrl}
-                      alt={s.name}
-                      className="h-12 w-auto max-w-28 shrink-0 rounded object-contain"
-                    />
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">{s.name}</p>
-                      {s.linkUrl && (
-                        <p className="truncate text-xs text-zinc-500">
-                          {s.linkUrl}
-                        </p>
-                      )}
+              {SPONSOR_TIERS.map((tier) => {
+                const items = sponsors.filter((s) => s.tier === tier);
+                if (items.length === 0) return null;
+                return (
+                  <div key={tier}>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                      {TIER_LABELS[tier]} ({items.length})
+                    </p>
+                    <div className="space-y-2">
+                      {items.map((s) => (
+                        <div
+                          key={s.id}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-3 py-2 dark:border-zinc-800"
+                        >
+                          <div className="flex min-w-0 items-center gap-3">
+                            {s.imageUrl ? (
+                              <img
+                                src={s.imageUrl}
+                                alt={s.name}
+                                className="h-12 w-auto max-w-28 shrink-0 rounded object-contain"
+                              />
+                            ) : (
+                              <span className="shrink-0 rounded-full border border-amber-300/60 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200">
+                                Text
+                              </span>
+                            )}
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">
+                                {s.name}
+                              </p>
+                              {s.linkUrl && (
+                                <p className="truncate text-xs text-zinc-500">
+                                  {s.linkUrl}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            <select
+                              className={inputCls}
+                              value={s.tier}
+                              onChange={(e) =>
+                                setSponsorTier(s.id, e.target.value)
+                              }
+                              aria-label="Sponsor tier"
+                            >
+                              {SPONSOR_TIERS.map((t) => (
+                                <option key={t} value={t}>
+                                  {TIER_SINGULAR[t]}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              className={btnDanger}
+                              onClick={() => deleteSponsor(s.id)}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <button
-                    className={btnDanger}
-                    onClick={() => deleteSponsor(s.id)}
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <form
               onSubmit={addSponsor}
               className="space-y-3 border-t border-zinc-200 pt-3 dark:border-zinc-800"
             >
-              <Field label="Sponsor name">
-                <input
-                  className={inputCls}
-                  value={spName}
-                  onChange={(e) => setSpName(e.target.value)}
-                  placeholder="Acme Foods"
-                />
-              </Field>
+              <p className="text-sm font-medium">Add one sponsor</p>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Sponsor name">
+                  <input
+                    className={inputCls}
+                    value={spName}
+                    onChange={(e) => setSpName(e.target.value)}
+                    placeholder="Acme Foods"
+                  />
+                </Field>
+                <Field label="Tier">
+                  <select
+                    className={inputCls}
+                    value={spTier}
+                    onChange={(e) => setSpTier(e.target.value)}
+                  >
+                    {SPONSOR_TIERS.map((t) => (
+                      <option key={t} value={t}>
+                        {TIER_SINGULAR[t]}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
               <Field label="Website link (optional)">
                 <input
                   className={inputCls}
@@ -735,7 +927,7 @@ export default function ManageEventPage({
                   placeholder="https://example.com"
                 />
               </Field>
-              <Field label="Logo image (JPG/PNG/WebP/GIF, max 5 MB)">
+              <Field label="Logo image (JPG/PNG/WebP/GIF, max 5 MB) — optional for special mentions">
                 <input
                   type="file"
                   name="spFile"

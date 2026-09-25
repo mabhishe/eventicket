@@ -115,8 +115,9 @@ model SponsorAd {
   eventId   String
   event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
   name      String
-  imageUrl  String
+  imageUrl  String?
   linkUrl   String?
+  tier      String   @default("SILVER")
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
 }

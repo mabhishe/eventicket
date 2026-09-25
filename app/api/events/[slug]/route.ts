@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { ticketAvailability } from "@/lib/orders";
+import { sortSponsorAds } from "@/lib/sponsors";
 
 type Ctx = { params: Promise<{ slug: string }> };
 
@@ -21,5 +22,6 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   }
   const availability = await ticketAvailability(event.id);
   const { ...rest } = event;
+  (rest as { sponsorAds: unknown }).sponsorAds = sortSponsorAds(event.sponsorAds);
   return NextResponse.json({ event: rest, availability });
 }
