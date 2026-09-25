@@ -3,10 +3,11 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { formatCents } from "@/lib/money";
 import { orderQrDataUrl } from "@/lib/tickets";
-import { ensureOrderRefCode } from "@/lib/orders";
+import { ensureOrderRefCode, ensureOrderInviteCode } from "@/lib/orders";
 import { Container, Card, PageTitle, Badge, btnPrimary } from "@/components/ui";
 import { SponsorsStrip } from "@/components/sponsors-strip";
 import { ShareButton } from "@/components/ShareButton";
+import { InviteCard } from "@/components/invite-card";
 import { PendingOrderActions } from "@/components/PendingOrderActions";
 
 export const dynamic = "force-dynamic";
@@ -44,6 +45,16 @@ export default async function OrderPage({ params }: Ctx) {
   const groupCode =
     order.status === "CONFIRMED" ? await ensureOrderRefCode(order.id) : null;
   const groupQr = groupCode ? await orderQrDataUrl(groupCode) : null;
+  const inviteCode = await ensureOrderInviteCode(order.id);
+  const friendCount = await db.order.count({
+    where: { eventId: e.id, invitedBy: inviteCode },
+  });
+  const dateLabel = new Intl.DateTimeFormat("en-CA", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(new Date(e.date));
 
   // "Buy more tickets" starts a fresh order with the buyer's details filled in.
   const buyMoreUrl =
@@ -246,6 +257,17 @@ export default async function OrderPage({ params }: Ctx) {
               organizer.
             </p>
           </Card>
+        )}
+        {order.status !== "CANCELLED" && (
+          <div className="mt-4">
+            <InviteCard
+              eventTitle={e.title}
+              eventSlug={e.slug}
+              inviteCode={inviteCode}
+              friendCount={friendCount}
+              eventDateLabel={dateLabel}
+            />
+          </div>
         )}
         <SponsorsStrip ads={e.sponsorAds || []} />
       </div>

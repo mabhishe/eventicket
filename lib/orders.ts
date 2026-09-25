@@ -34,6 +34,38 @@ export async function ensureOrderRefCode(orderId: string): Promise<string> {
   throw new Error("Could not assign a group code, please try again");
 }
 
+/**
+ * Ensure an order has a public invite code, backfilling one for orders
+ * created before invite codes existed. Idempotent; retries on collision.
+ */
+export async function ensureOrderInviteCode(orderId: string): Promise<string> {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = newTicketCode(8);
+    try {
+      // Atomic claim: only fills orders that still lack a code.
+      const claimed = await db.order.updateMany({
+        where: { id: orderId, inviteCode: null },
+        data: { inviteCode: code },
+      });
+      if (claimed.count === 1) return code;
+    } catch (e) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === "P2002"
+      ) {
+        continue;
+      }
+      throw e;
+    }
+    const existing = await db.order.findUnique({
+      where: { id: orderId },
+      select: { inviteCode: true },
+    });
+    if (existing?.inviteCode) return existing.inviteCode;
+  }
+  throw new Error("Could not assign an invite code, please try again");
+}
+
 export type Availability = Record<
   string,
   { total: number; taken: number; left: number }
@@ -130,6 +162,8 @@ export type NewOrderInput = {
   sellerId?: string | null;
   status?: "PENDING_PAYMENT" | "CONFIRMED";
   items: NewOrderItem[];
+  inviteCode?: string; // invite code from ?invite= — validated against same-event orders
+  showOnWall?: boolean; // buyer opted into the public "who's going" wall
 };
 
 /** Validate + create an order with its items. Throws on validation errors. */
@@ -201,14 +235,32 @@ export async function createOrder(input: NewOrderInput) {
     notes: input.notes?.trim() || null,
     sellerId: input.sellerId ?? null,
     status: input.status ?? "PENDING_PAYMENT",
+    showOnWall: input.showOnWall ?? false,
     totalCents,
     items: { create: rows },
   };
-  // Retry on the (extremely unlikely) refCode collision.
+  // Validate the invite code: it must belong to another order for the same
+  // event. Invalid codes are ignored rather than rejected.
+  let invitedBy: string | null = null;
+  if (input.inviteCode?.trim()) {
+    const referrer = await db.order.findUnique({
+      where: { inviteCode: input.inviteCode.trim().toUpperCase() },
+      select: { eventId: true, inviteCode: true },
+    });
+    if (referrer && referrer.eventId === input.eventId && referrer.inviteCode) {
+      invitedBy = referrer.inviteCode;
+    }
+  }
+  // Retry on the (extremely unlikely) refCode/inviteCode collision.
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
       return await db.order.create({
-        data: { ...data, refCode: newTicketCode(6) },
+        data: {
+          ...data,
+          refCode: newTicketCode(6),
+          inviteCode: newTicketCode(8),
+          invitedBy,
+        },
         include: {
           items: { include: { ticketType: true, mealOption: true } },
         },

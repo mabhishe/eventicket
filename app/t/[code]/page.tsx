@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { orderQrDataUrl } from "@/lib/tickets";
-import { ensureOrderRefCode } from "@/lib/orders";
+import { ensureOrderRefCode, ensureOrderInviteCode } from "@/lib/orders";
 import { Container, Card, Badge } from "@/components/ui";
 import { SponsorsStrip } from "@/components/sponsors-strip";
 import { ShareButton } from "@/components/ShareButton";
+import { InviteCard } from "@/components/invite-card";
 
 export const dynamic = "force-dynamic";
 
@@ -25,10 +26,20 @@ export default async function TicketPage({ params }: Ctx) {
   const e = ticket.order.event;
   // The group pass: one code for the whole order, scanned once per person.
   const groupCode = await ensureOrderRefCode(ticket.order.id);
+  const inviteCode = await ensureOrderInviteCode(ticket.order.id);
+  const friendCount = await db.order.count({
+    where: { eventId: e.id, invitedBy: inviteCode },
+  });
   const partySize = await db.ticket.count({
     where: { orderId: ticket.order.id, status: { not: "CANCELLED" } },
   });
   const qr = await orderQrDataUrl(groupCode);
+  const dateLabel = new Intl.DateTimeFormat("en-CA", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(new Date(e.date));
 
   return (
     <Container>
@@ -93,6 +104,15 @@ export default async function TicketPage({ params }: Ctx) {
             Ticket {ticket.code}
           </p>
         </Card>
+        <div className="mt-4">
+          <InviteCard
+            eventTitle={e.title}
+            eventSlug={e.slug}
+            inviteCode={inviteCode}
+            friendCount={friendCount}
+            eventDateLabel={dateLabel}
+          />
+        </div>
         <SponsorsStrip ads={e.sponsorAds || []} />
       </div>
     </Container>

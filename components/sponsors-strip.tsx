@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { TIER_LABELS, sortSponsorAds } from "@/lib/sponsors";
 
 export type SponsorAdInfo = {
@@ -21,7 +21,38 @@ const TIER_IMG_CLS: Record<string, string> = {
   MENTION: "h-9 max-w-24",
 };
 
-function AdLink({ a, children }: { a: SponsorAdInfo; children: React.ReactNode }) {
+/** Fire-and-forget analytics beacon. Must never break the page. */
+export function reportSponsorStats(ids: string[], kind: "impressions" | "clicks") {
+  if (ids.length === 0) return;
+  try {
+    const body = JSON.stringify({ [kind]: ids });
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(
+        "/api/sponsors/stats",
+        new Blob([body], { type: "application/json" })
+      );
+    } else {
+      fetch("/api/sponsors/stats", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body,
+        keepalive: true,
+      }).catch(() => {});
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+function AdLink({
+  a,
+  children,
+  onClick,
+}: {
+  a: SponsorAdInfo;
+  children: React.ReactNode;
+  onClick?: () => void;
+}) {
   return a.linkUrl ? (
     <a
       key={a.id}
@@ -30,6 +61,7 @@ function AdLink({ a, children }: { a: SponsorAdInfo; children: React.ReactNode }
       rel="noopener sponsored"
       aria-label={a.name}
       className="transition-opacity hover:opacity-80"
+      onClick={onClick}
     >
       {children}
     </a>
@@ -41,6 +73,29 @@ function AdLink({ a, children }: { a: SponsorAdInfo; children: React.ReactNode }
 }
 
 export function SponsorsStrip({ ads }: { ads: SponsorAdInfo[] }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const reported = useRef<Set<string>>(new Set());
+
+  // Count an impression when the strip actually scrolls into view.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || ads.length === 0 || typeof IntersectionObserver === "undefined") return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const fresh = ads.map((a) => a.id).filter((id) => !reported.current.has(id));
+          fresh.forEach((id) => reported.current.add(id));
+          reportSponsorStats(fresh, "impressions");
+          if (reported.current.size >= ads.length) obs.disconnect();
+        }
+      },
+      { threshold: 0.3 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [ads]);
+
   const groups = useMemo(() => {
     const sorted = sortSponsorAds(ads);
     const out: { tier: string; items: SponsorAdInfo[] }[] = [];
@@ -59,7 +114,10 @@ export function SponsorsStrip({ ads }: { ads: SponsorAdInfo[] }) {
   if (groups.length === 0) return null;
 
   return (
-    <div className="mt-6 mb-6 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800">
+    <div
+      ref={ref}
+      className="mt-6 mb-6 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800"
+    >
       <p className="mb-3 text-center text-xs font-semibold uppercase tracking-wider text-zinc-400">
         Our sponsors
       </p>
@@ -73,6 +131,7 @@ export function SponsorsStrip({ ads }: { ads: SponsorAdInfo[] }) {
             )}
             <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3">
               {items.map((a) => {
+                const onClick = () => reportSponsorStats([a.id], "clicks");
                 if (tier === "MENTION" && !a.imageUrl) {
                   // Special mention: elegant text pill instead of a logo.
                   const pill = (
@@ -80,7 +139,11 @@ export function SponsorsStrip({ ads }: { ads: SponsorAdInfo[] }) {
                       {a.name}
                     </span>
                   );
-                  return <AdLink key={a.id} a={a}>{pill}</AdLink>;
+                  return (
+                    <AdLink key={a.id} a={a} onClick={onClick}>
+                      {pill}
+                    </AdLink>
+                  );
                 }
                 const img = (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -92,7 +155,11 @@ export function SponsorsStrip({ ads }: { ads: SponsorAdInfo[] }) {
                     className={`w-auto object-contain ${TIER_IMG_CLS[tier] || TIER_IMG_CLS.SILVER}`}
                   />
                 );
-                return <AdLink key={a.id} a={a}>{img}</AdLink>;
+                return (
+                  <AdLink key={a.id} a={a} onClick={onClick}>
+                    {img}
+                  </AdLink>
+                );
               })}
             </div>
           </div>

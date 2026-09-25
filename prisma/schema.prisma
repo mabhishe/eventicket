@@ -119,6 +119,8 @@ model SponsorAd {
   linkUrl   String?
   tier      String   @default("SILVER")
   sortOrder Int      @default(0)
+  impressions Int    @default(0)
+  clicks      Int    @default(0)
   createdAt DateTime @default(now())
 }
 
@@ -136,6 +138,9 @@ model Order {
   totalCents Int
   notes      String?
   refCode    String?   @unique // short code the buyer puts in their e-transfer message
+  inviteCode String?   @unique // public invite code for referral links (?invite=), distinct from the door refCode
+  invitedBy  String? // inviteCode of the order that referred this buyer
+  showOnWall Boolean   @default(false) // buyer opted into the public "who's going" wall
   createdAt  DateTime    @default(now())
   items      OrderItem[]
   tickets    Ticket[]

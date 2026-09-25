@@ -23,5 +23,27 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   const availability = await ticketAvailability(event.id);
   const { ...rest } = event;
   (rest as { sponsorAds: unknown }).sponsorAds = sortSponsorAds(event.sponsorAds);
-  return NextResponse.json({ event: rest, availability });
+  // Who's-going wall: confirmed orders that opted in. First name + last
+  // initial only, so buyers aren't doxxed by full name.
+  const wallOrders = await db.order.findMany({
+    where: { eventId: event.id, status: "CONFIRMED", showOnWall: true },
+    select: {
+      buyerName: true,
+      tickets: { select: { status: true } },
+    },
+    orderBy: { createdAt: "asc" },
+    take: 200,
+  });
+  const attendeeWall = wallOrders.map((o) => {
+    const parts = o.buyerName.trim().split(/\s+/);
+    const display =
+      parts.length > 1
+        ? `${parts[0]} ${parts[parts.length - 1][0]}.`
+        : parts[0];
+    return {
+      name: display,
+      partySize: o.tickets.filter((t) => t.status !== "CANCELLED").length,
+    };
+  });
+  return NextResponse.json({ event: rest, availability, attendeeWall });
 }

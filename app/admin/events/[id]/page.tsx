@@ -106,6 +106,8 @@ export default function ManageEventPage({
     imageUrl: string | null;
     linkUrl: string | null;
     tier: string;
+    impressions: number;
+    clicks: number;
   };
   const [sponsors, setSponsors] = useState<SponsorAd[]>([]);
   const [spName, setSpName] = useState("");
@@ -124,6 +126,11 @@ export default function ManageEventPage({
   const [editLink, setEditLink] = useState("");
   const [editTier, setEditTier] = useState<string>("SILVER");
   const [editBusy, setEditBusy] = useState(false);
+  // invites & who's-going wall
+  const [topInviters, setTopInviters] = useState<
+    { name: string; inviteCode: string; joins: number }[]
+  >([]);
+  const [wallCount, setWallCount] = useState(0);
 
   function parseGallery(raw: string | null): string[] {
     try {
@@ -157,6 +164,8 @@ export default function ManageEventPage({
     setLogoUrl(e.logoUrl);
     setGallery(parseGallery(e.imageUrls));
     setBrandColor(e.brandColor || "");
+    setTopInviters(data.topInviters || []);
+    setWallCount(data.wallCount || 0);
   }, []);
 
   useEffect(() => {
@@ -796,6 +805,39 @@ export default function ManageEventPage({
           </Card>
 
           <Card>
+            <h2 className="mb-3 font-semibold">Invites & who&rsquo;s going</h2>
+            <p className="mb-3 text-sm text-zinc-500">
+              Every order gets a personal invite link (?invite=) on the order
+              and ticket pages. {wallCount} {wallCount === 1 ? "buyer has" : "buyers have"} opted
+              into the public who&rsquo;s-going wall.
+            </p>
+            {topInviters.length === 0 ? (
+              <p className="text-sm text-zinc-500">
+                No invite-driven orders yet.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {topInviters.map((t) => (
+                  <div
+                    key={t.inviteCode}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-3 py-2 dark:border-zinc-800"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{t.name}</p>
+                      <p className="font-mono text-xs text-zinc-500">
+                        {t.inviteCode}
+                      </p>
+                    </div>
+                    <span className="shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200">
+                      {t.joins} {t.joins === 1 ? "friend" : "friends"} joined
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          <Card>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="font-semibold">Sponsor ads</h2>
               <button
@@ -967,6 +1009,9 @@ export default function ManageEventPage({
                             <div className="min-w-0">
                               <p className="truncate text-sm font-medium">
                                 {s.name}
+                              </p>
+                              <p className="truncate text-xs text-zinc-500">
+                                👁 {s.impressions ?? 0} views · {s.clicks ?? 0} clicks
                               </p>
                               {s.linkUrl && (
                                 <p className="truncate text-xs text-zinc-500">

@@ -83,6 +83,11 @@ function PublicEventPageInner({
   const [buyerPhone, setBuyerPhone] = useState("");
   const [payMethod, setPayMethod] = useState("ETRANSFER");
   const [busy, setBusy] = useState(false);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [showOnWall, setShowOnWall] = useState(false);
+  const [attendeeWall, setAttendeeWall] = useState<
+    { name: string; partySize: number }[]
+  >([]);
 
   // Prefill buyer details when returning from a "Buy more tickets" link.
   useEffect(() => {
@@ -92,6 +97,8 @@ function PublicEventPageInner({
     if (name) setBuyerName(name);
     if (email) setBuyerEmail(email);
     if (phone) setBuyerPhone(phone);
+    const invite = searchParams.get("invite");
+    if (invite) setInviteCode(invite.trim().toUpperCase());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -105,6 +112,7 @@ function PublicEventPageInner({
       }
       setEvent(data.event);
       setAvail(data.availability || {});
+      setAttendeeWall(data.attendeeWall || []);
     });
   }, [params]);
 
@@ -195,6 +203,8 @@ function PublicEventPageInner({
         buyerPhone,
         payMethod,
         items,
+        inviteCode: inviteCode || undefined,
+        showOnWall,
       }),
     });
     const data = await res.json();
@@ -224,6 +234,12 @@ function PublicEventPageInner({
   return (
     <Container>
       <div className="mx-auto max-w-2xl">
+        {inviteCode && (
+          <div className="mb-4 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
+            🎉 You&rsquo;ve been invited! Your friend is already going — grab
+            your tickets below.
+          </div>
+        )}
         {gallery.length > 0 && (
           <div className="mb-6 overflow-hidden rounded-2xl">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -303,6 +319,40 @@ function PublicEventPageInner({
           </div>
         )}
         <SponsorsStrip ads={event.sponsorAds || []} />
+
+        {attendeeWall.length > 0 && (
+          <Card className="mb-6">
+            <h2 className="mb-1 font-semibold">
+              Who&rsquo;s going 🎉{" "}
+              <span className="text-sm font-normal text-zinc-500">
+                ({attendeeWall.reduce((s, a) => s + a.partySize, 0)} attending)
+              </span>
+            </h2>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {attendeeWall.map((a, i) => (
+                <span
+                  key={i}
+                  title={`${a.name} · party of ${a.partySize}`}
+                  className="inline-flex items-center gap-2 rounded-full border border-zinc-200 py-1 pl-1 pr-3 text-sm dark:border-zinc-800"
+                >
+                  <span
+                    aria-hidden
+                    className="flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white"
+                    style={{
+                      backgroundColor: `hsl(${(i * 47) % 360} 60% 45%)`,
+                    }}
+                  >
+                    {a.name.charAt(0).toUpperCase()}
+                  </span>
+                  {a.name}
+                  {a.partySize > 1 && (
+                    <span className="text-xs text-zinc-500">+{a.partySize - 1}</span>
+                  )}
+                </span>
+              ))}
+            </div>
+          </Card>
+        )}
 
         <Card>
           <h2 className="mb-4 font-semibold">Choose tickets</h2>
@@ -445,6 +495,24 @@ function PublicEventPageInner({
                   At least one of email or phone is needed so you can find your
                   order later.
                 </p>
+                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+                  <input
+                    type="checkbox"
+                    checked={showOnWall}
+                    onChange={(e) => setShowOnWall(e.target.checked)}
+                    className="mt-1 h-4 w-4 shrink-0"
+                  />
+                  <span className="text-sm">
+                    <span className="font-medium">
+                      Show me on the &ldquo;Who&rsquo;s going&rdquo; wall 🎉
+                    </span>
+                    <br />
+                    <span className="text-zinc-500">
+                      Your first name and party size appear publicly so friends
+                      can see you&rsquo;re going.
+                    </span>
+                  </span>
+                </label>
                 <Field label="How will you pay?">
                   <select
                     className={inputCls}

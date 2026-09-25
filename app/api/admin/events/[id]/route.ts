@@ -21,7 +21,31 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   if (!event) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
-  return NextResponse.json({ event });
+  // Top inviters: orders that brought in other buyers via ?invite= links.
+  const referred = await db.order.groupBy({
+    by: ["invitedBy"],
+    where: { eventId: id, invitedBy: { not: null } },
+    _count: { invitedBy: true },
+    orderBy: { _count: { invitedBy: "desc" } },
+    take: 10,
+  });
+  const inviterIds = referred.map((r) => r.invitedBy as string);
+  const inviters = await db.order.findMany({
+    where: { eventId: id, inviteCode: { in: inviterIds } },
+    select: { inviteCode: true, buyerName: true },
+  });
+  const inviterName = new Map(
+    inviters.map((o) => [o.inviteCode as string, o.buyerName])
+  );
+  const topInviters = referred.map((r) => ({
+    name: inviterName.get(r.invitedBy as string) || "Unknown",
+    inviteCode: r.invitedBy,
+    joins: r._count.invitedBy,
+  }));
+  const wallCount = await db.order.count({
+    where: { eventId: id, status: "CONFIRMED", showOnWall: true },
+  });
+  return NextResponse.json({ event, topInviters, wallCount });
 }
 
 const EDITABLE = [

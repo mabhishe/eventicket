@@ -34,6 +34,8 @@ export async function POST(req: NextRequest) {
       buyerPhone: String(body.buyerPhone || "").trim() || undefined,
       payMethod: payMethod as "ETRANSFER" | "ZELLE" | "CASH",
       notes: String(body.notes || "").trim() || undefined,
+      inviteCode: String(body.inviteCode || "").trim() || undefined,
+      showOnWall: body.showOnWall === true,
       items: items.map((it: Record<string, unknown>) => ({
         ticketTypeId: String(it.ticketTypeId),
         qty: Number(it.qty),
