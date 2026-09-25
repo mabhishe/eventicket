@@ -118,6 +118,12 @@ export default function ManageEventPage({
   const [bulkNames, setBulkNames] = useState("");
   const [bulkBusy, setBulkBusy] = useState(false);
   const [showBulk, setShowBulk] = useState(false);
+  // inline sponsor editing
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editLink, setEditLink] = useState("");
+  const [editTier, setEditTier] = useState<string>("SILVER");
+  const [editBusy, setEditBusy] = useState(false);
 
   function parseGallery(raw: string | null): string[] {
     try {
@@ -450,6 +456,49 @@ export default function ManageEventPage({
       setError(d.error || "Could not update tier");
       return;
     }
+    await loadSponsors(id);
+  }
+
+  function startEditSponsor(s: SponsorAd) {
+    setEditingId(s.id);
+    setEditName(s.name);
+    setEditLink(s.linkUrl || "");
+    setEditTier(s.tier);
+    setError(null);
+  }
+
+  async function saveSponsorEdit(
+    e: React.FormEvent<HTMLFormElement>,
+    adId: string
+  ) {
+    e.preventDefault();
+    if (!id) return;
+    if (!editName.trim()) {
+      setError("Sponsor name is required");
+      return;
+    }
+    const file = (
+      e.currentTarget.elements.namedItem("editFile") as HTMLInputElement
+    )?.files?.[0];
+    setError(null);
+    setEditBusy(true);
+    const form = new FormData();
+    form.append("id", adId);
+    form.append("name", editName.trim());
+    form.append("tier", editTier);
+    form.append("linkUrl", editLink.trim());
+    if (file) form.append("file", file);
+    const res = await fetch(`/api/admin/events/${id}/sponsors`, {
+      method: "PATCH",
+      body: form,
+    });
+    const d = await res.json();
+    setEditBusy(false);
+    if (!res.ok) {
+      setError(d.error || "Could not save sponsor");
+      return;
+    }
+    setEditingId(null);
     await loadSponsors(id);
   }
 
@@ -834,7 +883,71 @@ export default function ManageEventPage({
                       {TIER_LABELS[tier]} ({items.length})
                     </p>
                     <div className="space-y-2">
-                      {items.map((s) => (
+                      {items.map((s) =>
+                        editingId === s.id ? (
+                          <form
+                            key={s.id}
+                            onSubmit={(e) => saveSponsorEdit(e, s.id)}
+                            className="space-y-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"
+                          >
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <Field label="Sponsor name">
+                                <input
+                                  className={inputCls}
+                                  value={editName}
+                                  onChange={(e) => setEditName(e.target.value)}
+                                />
+                              </Field>
+                              <Field label="Tier">
+                                <select
+                                  className={inputCls}
+                                  value={editTier}
+                                  onChange={(e) => setEditTier(e.target.value)}
+                                >
+                                  {SPONSOR_TIERS.map((t) => (
+                                    <option key={t} value={t}>
+                                      {TIER_SINGULAR[t]}
+                                    </option>
+                                  ))}
+                                </select>
+                              </Field>
+                            </div>
+                            <Field label="Website link (optional)">
+                              <input
+                                className={inputCls}
+                                value={editLink}
+                                onChange={(e) => setEditLink(e.target.value)}
+                                placeholder="https://example.com"
+                              />
+                            </Field>
+                            <Field
+                              label={
+                                s.imageUrl
+                                  ? "Replace logo (leave empty to keep current)"
+                                  : "Add a logo (optional)"
+                              }
+                            >
+                              <input
+                                type="file"
+                                name="editFile"
+                                accept="image/jpeg,image/png,image/webp,image/gif"
+                                className="text-sm"
+                              />
+                            </Field>
+                            <div className="flex gap-2">
+                              <button className={btnPrimary} disabled={editBusy}>
+                                {editBusy ? "Saving…" : "Save changes"}
+                              </button>
+                              <button
+                                type="button"
+                                className={btnSecondary}
+                                onClick={() => setEditingId(null)}
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </form>
+                        ) : (
                         <div
                           key={s.id}
                           className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-3 py-2 dark:border-zinc-800"
@@ -878,6 +991,12 @@ export default function ManageEventPage({
                               ))}
                             </select>
                             <button
+                              className={btnSecondary}
+                              onClick={() => startEditSponsor(s)}
+                            >
+                              Edit
+                            </button>
+                            <button
                               className={btnDanger}
                               onClick={() => deleteSponsor(s.id)}
                             >
@@ -885,7 +1004,8 @@ export default function ManageEventPage({
                             </button>
                           </div>
                         </div>
-                      ))}
+                        )
+                      )}
                     </div>
                   </div>
                 );

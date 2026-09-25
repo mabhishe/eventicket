@@ -153,19 +153,76 @@ export async function PATCH(
   const auth = await requireApiUser(req, ["ADMIN"]);
   if (!auth.ok) return auth.error;
   const { id } = await params;
-  const body = await req.json().catch(() => ({}));
-  const adId = String(body.id || "");
-  const tier = body.tier;
-  if (!adId) return NextResponse.json({ error: "id is required" }, { status: 400 });
-  if (!isValidTier(tier)) {
-    return NextResponse.json(
-      { error: "tier must be GOLD, SILVER, BRONZE or MENTION" },
-      { status: 400 }
-    );
+
+  // Accept multipart (logo replacement) or JSON (tier/name/link only).
+  const ct = req.headers.get("content-type") || "";
+  let get: (k: string) => string | null;
+  let file: File | null = null;
+  if (ct.includes("multipart/form-data")) {
+    const form = await req.formData();
+    get = (k: string) => {
+      const v = form.get(k);
+      return v == null ? null : String(v);
+    };
+    const f = form.get("file");
+    if (f instanceof File && f.size > 0) file = f;
+  } else {
+    const body = await req.json().catch(() => ({}));
+    get = (k: string) => (body[k] == null ? null : String(body[k]));
   }
+
+  const adId = (get("id") || "").trim();
+  if (!adId) return NextResponse.json({ error: "id is required" }, { status: 400 });
   const ad = await db.sponsorAd.findFirst({ where: { id: adId, eventId: id } });
   if (!ad) return NextResponse.json({ error: "Sponsor ad not found" }, { status: 404 });
-  const updated = await db.sponsorAd.update({ where: { id: ad.id }, data: { tier } });
+
+  const data: { tier?: string; name?: string; linkUrl?: string | null; imageUrl?: string | null } = {};
+  const tier = get("tier");
+  if (tier != null) {
+    if (!isValidTier(tier)) {
+      return NextResponse.json(
+        { error: "tier must be GOLD, SILVER, BRONZE or MENTION" },
+        { status: 400 }
+      );
+    }
+    data.tier = tier;
+  }
+  const name = get("name");
+  if (name != null) {
+    if (!name.trim()) {
+      return NextResponse.json({ error: "Sponsor name is required" }, { status: 400 });
+    }
+    data.name = name.trim();
+  }
+  const linkRaw = get("linkUrl");
+  if (linkRaw != null) {
+    const linkUrl = cleanLink(linkRaw);
+    if (linkRaw.trim() && !linkUrl) {
+      return NextResponse.json(
+        { error: "That website link doesn't look valid — try https://example.com" },
+        { status: 400 }
+      );
+    }
+    data.linkUrl = linkUrl;
+  }
+  if (file) {
+    const stored = await storeFile(id, file);
+    if (stored.error) return NextResponse.json({ error: stored.error }, { status: 400 });
+    data.imageUrl = stored.url!;
+  }
+
+  const updated = await db.sponsorAd.update({ where: { id: ad.id }, data });
+  // Clean up the old logo file when it was replaced.
+  if (file && ad.imageUrl) {
+    const m = ad.imageUrl.match(/^\/uploads\/([^/]+)\/([^/]+)$/);
+    if (m && m[1] === id) {
+      try {
+        await fs.unlink(path.join(eventDir(id), m[2]));
+      } catch {
+        /* file already gone */
+      }
+    }
+  }
   return NextResponse.json({ ad: updated });
 }
 
