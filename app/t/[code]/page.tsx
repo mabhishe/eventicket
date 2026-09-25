@@ -40,6 +40,13 @@ export default async function TicketPage({ params }: Ctx) {
     month: "long",
     day: "numeric",
   }).format(new Date(e.date));
+  let bannerUrl: string | null = null;
+  try {
+    const g = JSON.parse(e.imageUrls || "[]");
+    if (Array.isArray(g)) bannerUrl = g.find((x) => typeof x === "string") || null;
+  } catch {
+    bannerUrl = null;
+  }
 
   return (
     <Container>
@@ -111,6 +118,8 @@ export default async function TicketPage({ params }: Ctx) {
             inviteCode={inviteCode}
             friendCount={friendCount}
             eventDateLabel={dateLabel}
+            bannerUrl={bannerUrl}
+            logoUrl={e.logoUrl}
           />
         </div>
         <SponsorsStrip ads={e.sponsorAds || []} />

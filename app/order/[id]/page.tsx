@@ -55,6 +55,13 @@ export default async function OrderPage({ params }: Ctx) {
     month: "long",
     day: "numeric",
   }).format(new Date(e.date));
+  let bannerUrl: string | null = null;
+  try {
+    const g = JSON.parse(e.imageUrls || "[]");
+    if (Array.isArray(g)) bannerUrl = g.find((x) => typeof x === "string") || null;
+  } catch {
+    bannerUrl = null;
+  }
 
   // "Buy more tickets" starts a fresh order with the buyer's details filled in.
   const buyMoreUrl =
@@ -266,6 +273,8 @@ export default async function OrderPage({ params }: Ctx) {
               inviteCode={inviteCode}
               friendCount={friendCount}
               eventDateLabel={dateLabel}
+              bannerUrl={bannerUrl}
+              logoUrl={e.logoUrl}
             />
           </div>
         )}

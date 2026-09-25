@@ -14,12 +14,16 @@ export function InviteCard({
   inviteCode,
   friendCount,
   eventDateLabel,
+  bannerUrl,
+  logoUrl,
 }: {
   eventTitle: string;
   eventSlug: string;
   inviteCode: string;
   friendCount: number;
   eventDateLabel: string;
+  bannerUrl?: string | null;
+  logoUrl?: string | null;
 }) {
   const [copied, setCopied] = useState(false);
   const invitePath = `/e/${eventSlug}?invite=${inviteCode}`;
@@ -39,9 +43,34 @@ export function InviteCard({
   const waHref = `https://wa.me/?text=${encodeURIComponent(`${shareText} ${typeof window !== "undefined" ? window.location.origin + invitePath : invitePath}`)}`;
 
   return (
-    <Card className="text-center">
-      <p className="text-2xl">🎉</p>
-      <h2 className="mt-1 text-lg font-bold">I&rsquo;m going!</h2>
+    <Card className="overflow-hidden text-center">
+      {bannerUrl ? (
+        <div className="relative -mx-5 -mt-5 mb-4">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={bannerUrl}
+            alt={`${eventTitle} banner`}
+            className="h-36 w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+          {logoUrl && (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={logoUrl}
+              alt={`${eventTitle} logo`}
+              className="absolute bottom-2 left-4 h-12 w-12 rounded-xl border border-white/30 bg-white object-contain"
+            />
+          )}
+          <p className="absolute bottom-3 left-20 right-4 text-left text-lg font-bold text-white drop-shadow">
+            🎉 I&rsquo;m going!
+          </p>
+        </div>
+      ) : (
+        <>
+          <p className="text-2xl">🎉</p>
+          <h2 className="mt-1 text-lg font-bold">I&rsquo;m going!</h2>
+        </>
+      )}
       <p className="mt-1 text-sm text-zinc-500">
         {eventTitle} · {eventDateLabel}
       </p>
