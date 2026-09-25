@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { promises as fs } from "fs";
+import path from "path";
 import { db } from "@/lib/db";
 import { requireApiUser } from "@/lib/auth";
 import { issueTickets, ensureOrderRefCode } from "@/lib/orders";
@@ -8,6 +10,11 @@ import {
   orderQrPngBuffer,
   appUrl,
 } from "@/lib/email";
+import {
+  sendWhatsAppTemplate,
+  normalizePhone,
+  ticketsTemplateName,
+} from "@/lib/whatsapp";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -37,7 +44,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     data: { status: "CONFIRMED" },
   });
   const tickets = await issueTickets(id);
-  // Tickets email with the group QR + entry code (never fails the confirm).
+  // Tickets notifications: email (QR attached) + WhatsApp (QR as image).
+  // Neither may fail the confirmation.
   try {
     const full = await db.order.findUnique({
       where: { id },
@@ -46,38 +54,61 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         items: { include: { ticketType: true } },
       },
     });
-    if (full?.buyerEmail && full.event) {
+    if (full?.event) {
       const groupCode = await ensureOrderRefCode(id);
       const qr = await orderQrPngBuffer(groupCode);
-      await sendEmail({
-        to: full.buyerEmail,
-        subject: `You're in! Tickets for ${full.event.title}`,
-        html: ticketsIssuedHtml(
-          {
-            id: full.id,
-            buyerName: full.buyerName,
-            buyerEmail: full.buyerEmail,
-            payMethod: full.payMethod,
-            refCode: full.refCode,
-            totalCents: full.totalCents,
-            currency: full.event.currency,
-            items: full.items.map((it) => ({
-              qty: it.qty,
-              name: it.ticketType.name,
-              holderName: it.holderName,
-            })),
-          },
-          full.event,
-          groupCode,
-          `${appUrl()}/order/${full.id}`
-        ),
-        attachments: [
-          { filename: `group-qr-${groupCode}.png`, content: qr.toString("base64") },
-        ],
-      });
+      const orderUrl = `${appUrl()}/order/${full.id}`;
+      // Public QR image for the WhatsApp template's image header.
+      let qrImageUrl: string | null = null;
+      try {
+        const qrDir = path.join(process.cwd(), "public", "uploads", "qr");
+        await fs.mkdir(qrDir, { recursive: true });
+        await fs.writeFile(path.join(qrDir, `${full.id}.png`), qr);
+        const base = appUrl();
+        if (base) qrImageUrl = `${base}/uploads/qr/${full.id}.png`;
+      } catch (e) {
+        console.error("[confirm] QR file write failed", e instanceof Error ? e.message : e);
+      }
+      const mailInfo = {
+        id: full.id,
+        buyerName: full.buyerName,
+        buyerEmail: full.buyerEmail,
+        payMethod: full.payMethod,
+        refCode: full.refCode,
+        totalCents: full.totalCents,
+        currency: full.event.currency,
+        items: full.items.map((it) => ({
+          qty: it.qty,
+          name: it.ticketType.name,
+          holderName: it.holderName,
+        })),
+      };
+      if (full.buyerEmail) {
+        await sendEmail({
+          to: full.buyerEmail,
+          subject: `You're in! Tickets for ${full.event.title}`,
+          html: ticketsIssuedHtml(mailInfo, full.event, groupCode, orderUrl),
+          attachments: [
+            { filename: `group-qr-${groupCode}.png`, content: qr.toString("base64") },
+          ],
+        });
+      }
+      const waTo = normalizePhone(full.buyerPhone);
+      if (waTo) {
+        await sendWhatsAppTemplate({
+          to: waTo,
+          template: ticketsTemplateName(),
+          ...(qrImageUrl ? { headerImageUrl: qrImageUrl } : {}),
+          bodyParams: [
+            full.buyerName.split(" ")[0],
+            full.event.title,
+            groupCode,
+          ],
+        });
+      }
     }
   } catch (e) {
-    console.error("[confirm] tickets email failed", e instanceof Error ? e.message : e);
+    console.error("[confirm] tickets notifications failed", e instanceof Error ? e.message : e);
   }
   return NextResponse.json({ order: updated, tickets });
 }

@@ -204,12 +204,66 @@ Caddyfile           # Reverse proxy config
 | `APP_NAME` | No | Brand name (default `EventPass`) |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | No | First-run admin; both or neither (min 8 chars). Otherwise a random password is generated once. |
 | `RESEND_API_KEY` / `EMAIL_FROM` | No | Transactional email (order confirmation + tickets with QR). Both or neither; when unset, email is skipped and everything else works. `EMAIL_FROM` must be a sender verified in Resend, e.g. `EventPass <tickets@events.aicloudconsult.com>`. |
+| `WHATSAPP_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` | No | WhatsApp notifications via Meta's Cloud API (order confirmation + tickets with QR image). Both or neither; when unset, WhatsApp is skipped. See "WhatsApp setup" below. |
 
 ## Docs
 
 - [`AUDIT.md`](AUDIT.md) — what was built and verified, round by round
 - [`DEPLOY.md`](DEPLOY.md) — production deployment checklist
 - [`LOCAL.md`](LOCAL.md) — running it on your laptop
+
+## WhatsApp setup
+
+Notifications go through Meta's official WhatsApp Business Cloud API. One-time
+setup (all in Meta's Business Manager — only the organizer can do this):
+
+1. Create/verify a Meta Business account, then add a **WhatsApp Business
+   Account** with a dedicated phone number (it can't already be on WhatsApp).
+2. In WhatsApp Manager → API Setup, copy the **Phone Number ID**.
+3. Create a system user with the `whatsapp_business_messaging` permission and
+   generate a long-lived access token → `WHATSAPP_TOKEN`.
+4. Create the two message templates below (category **Utility**, language
+   `en_US`) and wait for Meta's approval. Template text must match exactly —
+   the app fills `{{1}}`…`{{6}}` positionally.
+
+**Template 1** — name `eventpass_order_confirmation`, no header:
+
+```text
+Hi {{1}}, your order for {{2}} is in! 🎉
+
+{{3}}
+Total due: {{4}}
+
+How to pay: {{5}}
+Put this code in your transfer message: {{6}}
+
+We'll send your QR code here once your payment is confirmed.
+```
+
+Params: buyer first name, event title, event date, total due, payment
+instructions, order ref code.
+
+**Template 2** — name `eventpass_tickets_issued`, header **Image**:
+
+```text
+Hi {{1}}, you're in! 🎟️
+
+Your payment for {{2}} is confirmed. Show the QR code above at the door — one scan per person, for entry and the food line.
+
+Your group code: {{3}}
+```
+
+Params: buyer first name, event title, group entry code. The app sends the
+order's QR PNG as the header image.
+
+Notes:
+
+- Messages only go to buyers who entered a phone number at checkout
+  (10-digit North American numbers get `+1` automatically).
+- Meta bills per template message (roughly a few cents in Canada); there is
+  no monthly fee for the API itself.
+- Phone numbers stay private to the organizer: templates are 1:1 messages,
+  nothing is posted anywhere public.
 
 ## Notes
 

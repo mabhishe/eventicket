@@ -6,6 +6,12 @@ import {
   orderConfirmationHtml,
   appUrl,
 } from "@/lib/email";
+import {
+  sendWhatsAppTemplate,
+  normalizePhone,
+  orderTemplateName,
+} from "@/lib/whatsapp";
+import { formatCents } from "@/lib/money";
 
 /** Public endpoint: a guest places an order (status PENDING_PAYMENT). */
 export async function POST(req: NextRequest) {
@@ -49,11 +55,18 @@ export async function POST(req: NextRequest) {
         holderName: it.holderName ? String(it.holderName) : null,
       })),
     });
-    // Confirmation email (fire-and-forget safe: never fails the order).
-    if (order.buyerEmail) {
-      try {
-        const event = await db.event.findUnique({ where: { id: order.eventId } });
-        if (event) {
+    // Confirmation email + WhatsApp (never fail the order).
+    const event = await db.event.findUnique({ where: { id: order.eventId } });
+    if (event) {
+      const orderUrl = `${appUrl()}/order/${order.id}`;
+      const dateLabel = new Intl.DateTimeFormat("en-CA", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }).format(new Date(event.date));
+      if (order.buyerEmail) {
+        try {
           await sendEmail({
             to: order.buyerEmail,
             subject: `Order received — ${event.title}`,
@@ -73,12 +86,40 @@ export async function POST(req: NextRequest) {
                 })),
               },
               event,
-              `${appUrl()}/order/${order.id}`
+              orderUrl
             ),
           });
+        } catch (e) {
+          console.error("[orders] confirmation email failed", e instanceof Error ? e.message : e);
         }
-      } catch (e) {
-        console.error("[orders] confirmation email failed", e instanceof Error ? e.message : e);
+      }
+      const waTo = normalizePhone(order.buyerPhone);
+      if (waTo) {
+        try {
+          const total = formatCents(order.totalCents, event.currency);
+          const payLine =
+            order.payMethod === "ETRANSFER" && event.etransferEmail
+              ? `send ${total} by Interac e-Transfer to ${event.etransferEmail}`
+              : order.payMethod === "ZELLE" && event.zelleHandle
+                ? `send ${total} by Zelle to ${event.zelleHandle}`
+                : order.payMethod === "CASH" && event.cashNote
+                  ? event.cashNote
+                  : `pay ${total} as instructed by the organizer`;
+          await sendWhatsAppTemplate({
+            to: waTo,
+            template: orderTemplateName(),
+            bodyParams: [
+              order.buyerName.split(" ")[0],
+              event.title,
+              dateLabel,
+              total,
+              payLine,
+              order.refCode || "—",
+            ],
+          });
+        } catch (e) {
+          console.error("[orders] WhatsApp confirmation failed", e instanceof Error ? e.message : e);
+        }
       }
     }
     return NextResponse.json({ order }, { status: 201 });
