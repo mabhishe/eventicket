@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { checkRateLimit, clientIp } from "@/lib/rateLimit";
+
+// Abuse protection on the stat beacons: 60 per minute per IP.
+const STATS_LIMIT = { limit: 60, windowMs: 60 * 1000 };
 
 /**
  * Public beacon: records sponsor impressions and clicks.
@@ -8,6 +12,13 @@ import { db } from "@/lib/db";
  * is clicked. Only counts ads on PUBLISHED events.
  */
 export async function POST(req: NextRequest) {
+  const rl = checkRateLimit(`sponsor-stats:${clientIp(req)}`, STATS_LIMIT);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Too many requests. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+    );
+  }
   let body: { impressions?: unknown; clicks?: unknown };
   try {
     body = await req.json();

@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyPassword, createSession } from "@/lib/auth";
+import { checkRateLimit, clientIp } from "@/lib/rateLimit";
+
+// Brute-force protection: 5 login attempts per 15 minutes per IP.
+const LOGIN_LIMIT = { limit: 5, windowMs: 15 * 60 * 1000 };
 
 export async function POST(req: NextRequest) {
+  const rl = checkRateLimit(`login:${clientIp(req)}`, LOGIN_LIMIT);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Too many login attempts. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+    );
+  }
   let body: { email?: string; password?: string };
   try {
     body = await req.json();

@@ -43,26 +43,37 @@ const tone: Record<string, "amber" | "green" | "red" | "zinc"> = {
   CANCELLED: "red",
 };
 
+const PAGE_SIZE = 50;
+
 function OrdersInner() {
   const searchParams = useSearchParams();
   const highlight = searchParams.get("highlight");
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState("PENDING_PAYMENT");
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   const [buyerQuery, setBuyerQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const q = filter === "ALL" ? "" : `?status=${filter}`;
+    const q =
+      filter === "ALL"
+        ? `?page=${page}&pageSize=${PAGE_SIZE}`
+        : `?status=${filter}&page=${page}&pageSize=${PAGE_SIZE}`;
     const res = await fetch(`/api/admin/orders${q}`);
     const data = await res.json();
-    if (res.ok) setOrders(data.orders);
-    else setError(data.error || "Could not load orders");
-  }, [filter]);
+    if (res.ok) {
+      setOrders(data.orders);
+      setTotal(data.total ?? 0);
+    } else setError(data.error || "Could not load orders");
+  }, [filter, page]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   async function act(id: string, action: "confirm" | "cancel") {
     if (
@@ -94,7 +105,10 @@ function OrdersInner() {
             {["PENDING_PAYMENT", "CONFIRMED", "CANCELLED", "ALL"].map((s) => (
               <button
                 key={s}
-                onClick={() => setFilter(s)}
+                onClick={() => {
+                  setPage(1);
+                  setFilter(s);
+                }}
                 className={
                   filter === s
                     ? "rounded-lg bg-zinc-900 px-3 py-2.5 text-xs font-semibold text-white dark:bg-zinc-100 dark:text-zinc-900"
@@ -246,6 +260,29 @@ function OrdersInner() {
           </div>
         );
       })()}
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between">
+          <p className="text-xs text-zinc-500">
+            Page {page} of {totalPages} · {total} orders
+          </p>
+          <div className="flex gap-2">
+            <button
+              className={btnSecondary + " text-xs"}
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              ← Prev
+            </button>
+            <button
+              className={btnSecondary + " text-xs"}
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+      )}
     </Container>
   );
 }

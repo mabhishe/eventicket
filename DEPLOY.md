@@ -126,22 +126,47 @@ guests in.
 
 ## 9. Backups
 
-The whole database is one file: `./data/app.db` on the server. Back it up
-regularly:
+Backups are automatic: the `backup` sidecar in `docker-compose.yml` takes an
+hourly `sqlite3 .backup` snapshot of the live database into `./backups` on
+the server (timestamped `app-YYYYMMDDTHHMMSSZ.db`) and deletes backups older
+than 7 days. `./backups` is created automatically on first start.
 
+### Restore from backup
+
+1. Stop the app and the backup sidecar so nothing writes while you restore:
+   ```bash
+   docker compose stop app backup
+   ```
+2. Copy the backup you want over the live database file:
+   ```bash
+   cp backups/app-<timestamp>.db data/app.db
+   ```
+3. Start everything again:
+   ```bash
+   docker compose start
+   ```
+4. Open the site and confirm the data looks right (e.g. **Orders** and
+   **Reports**).
+
+The manual alternative (no sidecar running) is a plain file copy while the
+app is stopped:
 ```bash
+docker compose stop app
 cp /opt/event-ticketing/data/app.db ~/event-backup-$(date +%F).db
+docker compose start
 ```
 
 ## 10. Updating later
 
 ```bash
 cd /opt/event-ticketing
-# copy in the new code, then:
+# copy in the new code (or git pull), then:
 docker compose up -d --build
 ```
 
 Migrations run automatically on start; the database file is untouched.
+Remember the rule: **git pull + `prisma migrate deploy` + restart** —
+pulling new code without applying migrations leaves the app broken.
 
 ## Troubleshooting
 

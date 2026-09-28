@@ -251,19 +251,52 @@ export async function createOrder(input: NewOrderInput) {
       invitedBy = referrer.inviteCode;
     }
   }
-  // Retry on the (extremely unlikely) refCode/inviteCode collision.
+  // The capacity check + order creation run inside ONE transaction so two
+  // concurrent buyers cannot oversell the same seats. The pre-check above is
+  // kept for a fast friendly failure; the authoritative check is re-run here,
+  // inside the transaction, against the rows this transaction will see.
+  // SQLite serializes write transactions, so the re-check + insert are atomic.
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
-      return await db.order.create({
-        data: {
-          ...data,
-          refCode: newTicketCode(6),
-          inviteCode: newTicketCode(8),
-          invitedBy,
-        },
-        include: {
-          items: { include: { ticketType: true, mealOption: true } },
-        },
+      return await db.$transaction(async (tx) => {
+        const takenItems = await tx.orderItem.findMany({
+          where: {
+            order: {
+              eventId: input.eventId,
+              status: { in: ["PENDING_PAYMENT", "CONFIRMED"] },
+            },
+          },
+          select: { ticketTypeId: true, qty: true },
+        });
+        const taken: Record<string, number> = {};
+        for (const it of takenItems) {
+          taken[it.ticketTypeId] = (taken[it.ticketTypeId] ?? 0) + it.qty;
+        }
+        for (const item of input.items) {
+          const type = typeById.get(item.ticketTypeId);
+          if (!type) throw new Error("Unknown ticket type");
+          const left = Math.max(
+            0,
+            type.quantityTotal - (taken[item.ticketTypeId] ?? 0)
+          );
+          if (item.qty > left) {
+            throw new Error(
+              `Only ${left} × ${type.name} left (requested ${item.qty})`
+            );
+          }
+        }
+        return tx.order.create({
+          data: {
+            ...data,
+            // Retry on the (extremely unlikely) refCode/inviteCode collision.
+            refCode: newTicketCode(6),
+            inviteCode: newTicketCode(8),
+            invitedBy,
+          },
+          include: {
+            items: { include: { ticketType: true, mealOption: true } },
+          },
+        });
       });
     } catch (e) {
       if (

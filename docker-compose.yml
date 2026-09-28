@@ -27,6 +27,25 @@ services:
       - app
     restart: unless-stopped
 
+  # Hourly SQLite backup sidecar. Takes a consistent sqlite3 .backup snapshot
+  # of the live database (shared via the ./data bind mount) into ./backups and
+  # prunes backups older than 7 days. See scripts/backup.sh and DEPLOY.md §9.
+  backup:
+    image: alpine:3.21
+    command:
+      - sh
+      - -c
+      - "apk add --no-cache sqlite3 >/dev/null && while true; do /scripts/backup.sh; sleep 3600; done"
+    environment:
+      DB_PATH: /app/data/app.db
+      BACKUP_DIR: /backups
+    volumes:
+      # Read-only view of the live DB; sqlite3 .backup snapshots it safely.
+      - ./data:/app/data:ro
+      - ./backups:/backups
+      - ./scripts:/scripts:ro
+    restart: unless-stopped
+
 volumes:
   caddy_data: {}
   caddy_config: {}

@@ -12,9 +12,20 @@ import {
   orderTemplateName,
 } from "@/lib/whatsapp";
 import { formatCents } from "@/lib/money";
+import { checkRateLimit, clientIp } from "@/lib/rateLimit";
+
+// Seat-squatting protection: 10 orders per hour per IP.
+const ORDER_LIMIT = { limit: 10, windowMs: 60 * 60 * 1000 };
 
 /** Public endpoint: a guest places an order (status PENDING_PAYMENT). */
 export async function POST(req: NextRequest) {
+  const rl = checkRateLimit(`order:${clientIp(req)}`, ORDER_LIMIT);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Too many orders. Please try again later." },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+    );
+  }
   let body: Record<string, unknown>;
   try {
     body = await req.json();

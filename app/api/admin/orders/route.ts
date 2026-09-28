@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireApiUser } from "@/lib/auth";
 
-/** List orders, optionally filtered by event and/or status. */
+/** List orders, optionally filtered by event and/or status. Paginated. */
 export async function GET(req: NextRequest) {
   const auth = await requireApiUser(req, ["ADMIN", "SELLER"]);
   if (!auth.ok) return auth.error;
@@ -10,20 +10,31 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const eventId = searchParams.get("eventId");
   const status = searchParams.get("status");
+  const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10) || 1);
+  const pageSize = Math.min(
+    200,
+    Math.max(1, parseInt(searchParams.get("pageSize") || "50", 10) || 50)
+  );
 
-  const orders = await db.order.findMany({
-    where: {
-      ...(eventId ? { eventId } : {}),
-      ...(status ? { status: status as never } : {}),
-    },
-    orderBy: { createdAt: "desc" },
-    take: 200,
-    include: {
-      event: { select: { title: true } },
-      seller: { select: { name: true } },
-      items: { include: { ticketType: true, mealOption: true } },
-      _count: { select: { tickets: true } },
-    },
-  });
-  return NextResponse.json({ orders });
+  const where = {
+    ...(eventId ? { eventId } : {}),
+    ...(status ? { status: status as never } : {}),
+  };
+
+  const [orders, total] = await Promise.all([
+    db.order.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      include: {
+        event: { select: { title: true } },
+        seller: { select: { name: true } },
+        items: { include: { ticketType: true, mealOption: true } },
+        _count: { select: { tickets: true } },
+      },
+    }),
+    db.order.count({ where }),
+  ]);
+  return NextResponse.json({ orders, page, pageSize, total });
 }
