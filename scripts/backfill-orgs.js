@@ -11,6 +11,23 @@
  *   ORG_NAME="AiCloudConsult" DATABASE_URL="file:./dev.db" node scripts/backfill-orgs.js
  */
 const { PrismaClient } = require("@prisma/client");
+const fs = require("fs");
+const path = require("path");
+
+// Load .env like the app does, so this script always targets the same
+// database — no DATABASE_URL juggling needed.
+(function loadEnv() {
+  if (process.env.DATABASE_URL) return;
+  const envPath = path.join(__dirname, "..", ".env");
+  if (!fs.existsSync(envPath)) return;
+  for (const line of fs.readFileSync(envPath, "utf8").split("\n")) {
+    const m = line.match(/^\s*DATABASE_URL\s*=\s*"?([^"\r\n]+)"?\s*$/);
+    if (m) {
+      process.env.DATABASE_URL = m[1];
+      break;
+    }
+  }
+})();
 
 const db = new PrismaClient();
 
