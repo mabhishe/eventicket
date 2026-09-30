@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, btnPrimary, ErrorNote } from "@/components/ui";
+import { Card, ErrorNote } from "@/components/ui";
 
 type Status = {
   plan: "FREE" | "PRO";
@@ -36,24 +36,6 @@ export default function PlanCard() {
       })
       .catch(() => setError("Could not load plan"));
   }, []);
-
-  async function upgrade() {
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/billing/checkout", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Could not start checkout");
-        setBusy(false);
-        return;
-      }
-      window.location.href = data.url;
-    } catch {
-      setError("Could not start checkout");
-      setBusy(false);
-    }
-  }
 
   async function manage() {
     setBusy(true);
@@ -108,18 +90,12 @@ export default function PlanCard() {
           </ul>
           {st.plan === "FREE" ? (
             <div>
-              <button
-                className={btnPrimary}
-                onClick={upgrade}
-                disabled={busy}
-              >
-                {busy
-                  ? "Starting checkout…"
-                  : `Upgrade to Pro — $${(st.proPriceCents / 100).toFixed(0)}/mo`}
-              </button>
+              <p className="inline-block rounded-lg bg-amber-100 px-4 py-2 font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                Pro — coming soon
+              </p>
               <p className="mt-2 text-xs text-zinc-500">
-                Unlimited events, tickets and team seats. Secure checkout by
-                Stripe.
+                Pro will bring unlimited events, tickets and team seats, with
+                the EventPass badge removed. Online upgrade opens at launch.
               </p>
             </div>
           ) : (

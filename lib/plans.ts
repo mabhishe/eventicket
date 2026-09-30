@@ -1,9 +1,12 @@
 /**
  * Plan tiers (Phase 3).
  *
- * FREE: 1 published event at a time, 100 tickets per event, 2 team seats,
+ * FREE: 1 published event at a time, 500 tickets per event, 2 team seats,
  *       "Powered by EventPass" badge shown on public pages.
- * PRO:  unlimited events / tickets / seats, badge removed, priority support.
+ * PRO (coming soon): unlimited events / tickets / seats, badge removed.
+ *
+ * Platform admins can override any limit per organization
+ * (Organization.max*Override); null override = plan default.
  *
  * All limits are enforced server-side; the UI only mirrors them.
  */
@@ -20,15 +23,17 @@ export const PLANS: Record<
     maxTicketsPerEvent: number | null;
     maxSeats: number | null;
     showBadge: boolean;
+    comingSoon: boolean;
   }
 > = {
   FREE: {
     name: "Free",
     priceCents: 0,
     maxActiveEvents: 1,
-    maxTicketsPerEvent: 100,
+    maxTicketsPerEvent: 500,
     maxSeats: 2,
     showBadge: true,
+    comingSoon: false,
   },
   PRO: {
     name: "Pro",
@@ -37,6 +42,7 @@ export const PLANS: Record<
     maxTicketsPerEvent: null,
     maxSeats: null,
     showBadge: false,
+    comingSoon: true, // Stripe wiring lands later; plan is grantable by platform admins now
   },
 };
 
@@ -44,12 +50,52 @@ export function planOf(org: { plan?: string | null } | null): PlanId {
   return org?.plan === "PRO" ? "PRO" : "FREE";
 }
 
+type OrgLimits = {
+  plan: PlanId;
+  maxActiveEvents: number | null;
+  maxTicketsPerEvent: number | null;
+  maxSeats: number | null;
+  showBadge: boolean;
+};
+
+/** Effective limits for an org: plan defaults with platform-admin overrides applied. */
+export function effectiveLimits(org: {
+  plan?: string | null;
+  maxEventsOverride?: number | null;
+  maxTicketsOverride?: number | null;
+  maxSeatsOverride?: number | null;
+}): OrgLimits {
+  const plan = planOf(org);
+  const base = PLANS[plan];
+  return {
+    plan,
+    maxActiveEvents: org.maxEventsOverride ?? base.maxActiveEvents,
+    maxTicketsPerEvent: org.maxTicketsOverride ?? base.maxTicketsPerEvent,
+    maxSeats: org.maxSeatsOverride ?? base.maxSeats,
+    showBadge: base.showBadge,
+  };
+}
+
+async function loadOrg(organizationId: string) {
+  return db.organization.findUnique({
+    where: { id: organizationId },
+    select: {
+      plan: true,
+      maxEventsOverride: true,
+      maxTicketsOverride: true,
+      maxSeatsOverride: true,
+    },
+  });
+}
+
 /** True when the org may publish one more event right now. */
 export async function canPublishEvent(
   organizationId: string,
   plan: PlanId
 ): Promise<{ ok: boolean; reason?: string }> {
-  const limit = PLANS[plan].maxActiveEvents;
+  const org = await loadOrg(organizationId);
+  const limits = effectiveLimits(org ?? { plan });
+  const limit = limits.maxActiveEvents;
   if (limit == null) return { ok: true };
   const active = await db.event.count({
     where: { organizationId, status: "PUBLISHED" },
@@ -57,7 +103,7 @@ export async function canPublishEvent(
   if (active >= limit) {
     return {
       ok: false,
-      reason: `Your ${PLANS[plan].name} plan allows ${limit} published event at a time. Upgrade to Pro for unlimited events.`,
+      reason: `Your ${PLANS[limits.plan].name} plan allows ${limit} published event at a time.`,
     };
   }
   return { ok: true };
@@ -68,13 +114,15 @@ export async function canAddSeat(
   organizationId: string,
   plan: PlanId
 ): Promise<{ ok: boolean; reason?: string }> {
-  const limit = PLANS[plan].maxSeats;
+  const org = await loadOrg(organizationId);
+  const limits = effectiveLimits(org ?? { plan });
+  const limit = limits.maxSeats;
   if (limit == null) return { ok: true };
   const seats = await db.membership.count({ where: { organizationId } });
   if (seats >= limit) {
     return {
       ok: false,
-      reason: `Your ${PLANS[plan].name} plan allows ${limit} team seats. Upgrade to Pro for unlimited seats.`,
+      reason: `Your ${PLANS[limits.plan].name} plan allows ${limit} team seats.`,
     };
   }
   return { ok: true };
@@ -89,7 +137,19 @@ export async function canSellTickets(
   plan: PlanId,
   qty: number
 ): Promise<{ ok: boolean; reason?: string }> {
-  const limit = PLANS[plan].maxTicketsPerEvent;
+  const event = await db.event.findUnique({
+    where: { id: eventId },
+    select: {
+      organization: {
+        select: {
+          plan: true,
+          maxTicketsOverride: true,
+        },
+      },
+    },
+  });
+  const limits = effectiveLimits(event?.organization ?? { plan });
+  const limit = limits.maxTicketsPerEvent;
   if (limit == null) return { ok: true };
   const sold = await db.ticket.count({
     where: { ticketType: { eventId }, status: { not: "CANCELLED" } },
@@ -97,7 +157,7 @@ export async function canSellTickets(
   if (sold + qty > limit) {
     return {
       ok: false,
-      reason: `This event has reached the ${limit}-ticket limit on the ${PLANS[plan].name} plan. Ask the organizer to upgrade to Pro.`,
+      reason: `This event has reached the ${limit}-ticket limit on the ${PLANS[limits.plan].name} plan.`,
     };
   }
   return { ok: true };

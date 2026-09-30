@@ -1,4 +1,6 @@
 /** Phase 3 billing verification: plan caps, badge, billing guards. */
+// Pin the DB to the same file the app uses (next dev auto-loads .env; plain node does not).
+process.env.DATABASE_URL = "file:/home/hatch/workspace/event-ticketing/prisma/dev.db";
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
 
@@ -53,7 +55,13 @@ async function req(method, path, jar, body) {
   const { spawn } = require("child_process");
   const srv = spawn("npx", ["next", "dev", "-p", "3100"], {
     cwd: process.cwd(),
-    env: { ...process.env, SESSION_SECRET: "testsecret", APP_URL: "http://localhost:3100" },
+    env: {
+      ...process.env,
+      DATABASE_URL: "file:/home/hatch/workspace/event-ticketing/prisma/dev.db",
+      SESSION_SECRET: "testsecret",
+      APP_URL: "http://localhost:3100",
+      PLATFORM_ADMIN_EMAILS: "platform@test.local",
+    },
     stdio: "ignore",
   });
   await new Promise((r) => setTimeout(r, 14000));
@@ -95,20 +103,20 @@ async function req(method, path, jar, body) {
     r = await req("POST", "/api/admin/users", jar, { name: "T3", email: "t3@test.local", password: "password123", role: "ORG_STAFF" });
     ok("free: 3rd seat blocked 402", r.res.status === 402 && r.data?.upgradeRequired === true, `${r.res.status} ${JSON.stringify(r.data)}`);
 
-    // 4. Ticket cap: create ticket type with 150 capacity, order 101 tickets -> blocked
-    const tt = await db.ticketType.create({ data: { eventId: e1, name: "GA", priceCents: 1000, quantityTotal: 150, sortOrder: 0 } });
-    const items101 = [{ ticketTypeId: tt.id, qty: 101 }];
+    // 4. Ticket cap: create ticket type with 600 capacity, order 501 tickets -> blocked
+    const tt = await db.ticketType.create({ data: { eventId: e1, name: "GA", priceCents: 1000, quantityTotal: 600, sortOrder: 0 } });
+    const items501 = [{ ticketTypeId: tt.id, qty: 501 }];
     r = await req("POST", "/api/orders", null, {
-      eventId: e1, buyerName: "Buyer B", buyerEmail: "b@x.com", payMethod: "CASH", items: items101,
+      eventId: e1, buyerName: "Buyer B", buyerEmail: "b@x.com", payMethod: "CASH", items: items501,
     });
-    ok("free: 101-ticket order blocked", !r.res.ok && /100-ticket limit/.test(r.data?.error || ""), `${r.res.status} ${JSON.stringify(r.data)}`);
+    ok("free: 501-ticket order blocked", !r.res.ok && /500-ticket limit/.test(r.data?.error || ""), `${r.res.status} ${JSON.stringify(r.data)}`);
 
-    // 5. 100 tickets ok on FREE
-    const items100 = [{ ticketTypeId: tt.id, qty: 100 }];
+    // 5. 500 tickets ok on FREE
+    const items500 = [{ ticketTypeId: tt.id, qty: 500 }];
     r = await req("POST", "/api/orders", null, {
-      eventId: e1, buyerName: "Buyer C", buyerEmail: "c@x.com", payMethod: "CASH", items: items100,
+      eventId: e1, buyerName: "Buyer C", buyerEmail: "c@x.com", payMethod: "CASH", items: items500,
     });
-    ok("free: 100-ticket order ok", r.res.status === 200 || r.res.status === 201, `${r.res.status} ${JSON.stringify(r.data)}`);
+    ok("free: 500-ticket order ok", r.res.status === 200 || r.res.status === 201, `${r.res.status} ${JSON.stringify(r.data)}`);
 
     // 6. Billing status shows FREE + usage
     r = await req("GET", "/api/billing/status", jar);
@@ -160,6 +168,43 @@ async function req(method, path, jar, body) {
     const jar2 = (r2.setCookie || "").split(",").map((c) => c.split(";")[0]).join("; ");
     r2 = await req("POST", "/api/billing/checkout", jar2);
     ok("door role blocked from checkout", r2.res.status === 403, r2.res.status);
+
+    // 14. Platform admin: org owner (not a platform admin) gets 403
+    r = await req("GET", "/api/platform/orgs", jar);
+    ok("non-platform-admin blocked from platform api", r.res.status === 403, r.res.status);
+
+    // Platform admin user (listed in PLATFORM_ADMIN_EMAILS for this server)
+    const pa = await db.user.create({
+      data: { name: "Platform", email: "platform@test.local", passwordHash: pw, emailVerified: true,
+        memberships: { create: { organizationId: orgId, role: "ORG_OWNER" } } },
+    });
+    let r3 = await req("POST", "/api/auth/login", null, { email: "platform@test.local", password: "password123" });
+    const jar3 = (r3.setCookie || "").split(",").map((c) => c.split(";")[0]).join("; ");
+    r3 = await req("GET", "/api/platform/orgs", jar3);
+    ok("platform admin lists orgs", r3.res.status === 200 && r3.data?.organizations?.length >= 1, r3.res.status);
+
+    // 15. Platform admin grants PRO via API
+    r3 = await req("PATCH", `/api/platform/orgs/${orgId}`, jar3, { plan: "PRO" });
+    ok("platform admin sets plan PRO", r3.res.status === 200 && r3.data?.organization?.plan === "PRO", `${r3.res.status} ${JSON.stringify(r3.data)}`);
+
+    // 16. Platform admin sets a ticket override; enforcement respects it
+    await db.organization.update({ where: { id: orgId }, data: { plan: "FREE" } });
+    r3 = await req("PATCH", `/api/platform/orgs/${orgId}`, jar3, { maxTicketsOverride: 10 });
+    ok("platform admin sets ticket override", r3.res.status === 200 && r3.data?.organization?.maxTicketsOverride === 10, `${r3.res.status} ${JSON.stringify(r3.data)}`);
+    const e3 = await mkEvent("Event Three");
+    await db.event.update({ where: { id: e3 }, data: { status: "PUBLISHED" } });
+    const tt3 = await db.ticketType.create({ data: { eventId: e3, name: "GA3", priceCents: 1000, quantityTotal: 50, sortOrder: 0 } });
+    r = await req("POST", "/api/orders", null, {
+      eventId: e3, buyerName: "Buyer E", buyerEmail: "e@x.com", payMethod: "CASH",
+      items: [{ ticketTypeId: tt3.id, qty: 11 }],
+    });
+    ok("override enforced: 11 blocked at limit 10", !r.res.ok && /10-ticket limit/.test(r.data?.error || ""), `${r.res.status} ${JSON.stringify(r.data)}`);
+    r3 = await req("GET", "/api/billing/status", jar);
+    ok("billing status shows override", r3.data?.limits?.maxTicketsPerEvent === 10, JSON.stringify(r3.data?.limits));
+
+    // 17. Invalid override rejected
+    r3 = await req("PATCH", `/api/platform/orgs/${orgId}`, jar3, { plan: "ENTERPRISE" });
+    ok("invalid plan rejected", r3.res.status === 400, r3.res.status);
 
     console.log(`\n${pass} passed, ${fail} failed`);
   } finally {

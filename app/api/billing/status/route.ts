@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireOrgApiUser } from "@/lib/auth";
-import { PLANS, planOf } from "@/lib/plans";
+import { PLANS, effectiveLimits } from "@/lib/plans";
 
 /** Current plan + usage for the active org. Any signed-in team member. */
 export async function GET(req: NextRequest) {
@@ -20,11 +20,15 @@ export async function GET(req: NextRequest) {
       plan: true,
       subscriptionStatus: true,
       stripeCustomerId: true,
+      maxEventsOverride: true,
+      maxTicketsOverride: true,
+      maxSeatsOverride: true,
     },
   });
   if (!org) return NextResponse.json({ error: "No organization" }, { status: 404 });
 
-  const plan = planOf(org);
+  const limits = effectiveLimits(org);
+  const plan = limits.plan;
   const [activeEvents, seats, ticketsSold] = await Promise.all([
     db.event.count({ where: { organizationId: orgId, status: "PUBLISHED" } }),
     db.membership.count({ where: { organizationId: orgId } }),
@@ -42,10 +46,10 @@ export async function GET(req: NextRequest) {
     subscriptionStatus: org.subscriptionStatus || "NONE",
     hasBillingAccount: !!org.stripeCustomerId,
     limits: {
-      maxActiveEvents: PLANS[plan].maxActiveEvents,
-      maxTicketsPerEvent: PLANS[plan].maxTicketsPerEvent,
-      maxSeats: PLANS[plan].maxSeats,
-      showBadge: PLANS[plan].showBadge,
+      maxActiveEvents: limits.maxActiveEvents,
+      maxTicketsPerEvent: limits.maxTicketsPerEvent,
+      maxSeats: limits.maxSeats,
+      showBadge: limits.showBadge,
     },
     usage: { activeEvents, seats, ticketsSold },
     proPriceCents: PLANS.PRO.priceCents,

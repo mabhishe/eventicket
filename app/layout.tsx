@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { getSession, resolveActiveMembership } from "@/lib/auth";
+import { isPlatformAdmin } from "@/lib/platform";
+import { db } from "@/lib/db";
 import NavMenuClient from "@/components/nav-menu";
 
 const geistSans = Geist({
@@ -40,6 +42,14 @@ async function Nav() {
     if (manager) links.push({ href: "/admin/reports", label: "Reports" });
     if (manager) links.push({ href: "/admin/settings", label: "Settings" });
     links.push({ href: "/admin/password", label: "Password" });
+    // Platform admins (EventPass operators) get the cross-org admin panel.
+    const me = await db.user.findUnique({
+      where: { id: session.userId },
+      select: { email: true },
+    });
+    if (isPlatformAdmin(me?.email)) {
+      links.push({ href: "/admin/platform", label: "Platform" });
+    }
   } else {
     links.push({ href: "/login", label: "Sign in" });
     links.push({ href: "/signup", label: "Create account" });

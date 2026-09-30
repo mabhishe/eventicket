@@ -6,7 +6,7 @@ export const metadata = { title: "Pricing — EventPass" };
 
 const FREE_FEATURES = [
   "1 published event at a time",
-  "Up to 100 tickets per event",
+  "Up to 500 tickets per event",
   "2 team seats",
   "QR tickets, door check-in, food collection",
   "Sponsor ads + social share cards",
@@ -50,7 +50,12 @@ export default function PricingPage() {
           </Link>
         </Card>
         <Card>
-          <h2 className="text-lg font-bold">Pro</h2>
+          <h2 className="text-lg font-bold">
+            Pro{" "}
+            <span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+              Coming soon
+            </span>
+          </h2>
           <p className="mt-1 text-3xl font-extrabold">
             {price}
             <span className="text-sm font-normal text-zinc-500">
@@ -65,16 +70,15 @@ export default function PricingPage() {
               </li>
             ))}
           </ul>
+          <p className="mt-6 text-sm text-zinc-500">
+            Pro launches soon — start free today, upgrade when it&apos;s here.
+          </p>
           <Link
             href="/signup"
-            className="mt-6 inline-block rounded-lg bg-zinc-900 px-4 py-2 font-semibold text-white dark:bg-zinc-100 dark:text-zinc-900"
+            className="mt-2 inline-block rounded-lg border border-zinc-300 px-4 py-2 font-semibold dark:border-zinc-700"
           >
-            Start free, upgrade anytime
+            Start free
           </Link>
-          <p className="mt-2 text-xs text-zinc-500">
-            Upgrade from your organization settings. Cancel anytime via the
-            Stripe customer portal.
-          </p>
         </Card>
       </div>
     </Container>

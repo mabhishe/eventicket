@@ -86,6 +86,10 @@ model Organization {
   stripeCustomerId String?
   stripeSubscriptionId String?
   subscriptionStatus String?  @default("NONE") // NONE | ACTIVE | PAST_DUE | CANCELED
+  // Platform-admin overrides (null = use plan default)
+  maxEventsOverride  Int?
+  maxTicketsOverride Int?
+  maxSeatsOverride   Int?
   createdAt        DateTime @default(now())
   memberships      Membership[]
   events           Event[]
