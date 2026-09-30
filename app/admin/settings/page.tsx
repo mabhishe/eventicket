@@ -10,6 +10,7 @@ import {
   btnPrimary,
   ErrorNote,
 } from "@/components/ui";
+import PlanCard from "@/components/plan-card";
 
 const TIMEZONES = [
   "America/Toronto",
@@ -183,6 +184,9 @@ export default function OrgSettingsPage() {
           </button>
         </div>
       </form>
+      <div className="mt-6">
+        <PlanCard />
+      </div>
     </Container>
   );
 }

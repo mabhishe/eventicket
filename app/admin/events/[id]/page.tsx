@@ -72,6 +72,7 @@ export default function ManageEventPage({
   const [id, setId] = useState<string | null>(null);
   const [event, setEvent] = useState<EventData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [upgradeNeeded, setUpgradeNeeded] = useState(false);
 
   // details form
   const [title, setTitle] = useState("");
@@ -178,6 +179,7 @@ export default function ManageEventPage({
   async function patch(patchData: Record<string, unknown>) {
     if (!id) return;
     setError(null);
+    setUpgradeNeeded(false);
     const res = await fetch(`/api/admin/events/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -186,6 +188,7 @@ export default function ManageEventPage({
     const data = await res.json();
     if (!res.ok) {
       setError(data.error || "Could not save");
+      setUpgradeNeeded(!!data.upgradeRequired);
       return;
     }
     await load(id);
@@ -550,6 +553,15 @@ export default function ManageEventPage({
         }
       />
       <ErrorNote message={error} />
+      {upgradeNeeded && (
+        <p className="mt-2 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+          This is a Free-plan limit.{" "}
+          <Link href="/admin/settings" className="font-semibold underline">
+            Upgrade to Pro
+          </Link>{" "}
+          for unlimited events.
+        </p>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

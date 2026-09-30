@@ -45,6 +45,7 @@ export default function UsersPage() {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("ORG_STAFF");
   const [error, setError] = useState<string | null>(null);
+  const [upgradeNeeded, setUpgradeNeeded] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/admin/users");
@@ -60,6 +61,7 @@ export default function UsersPage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setUpgradeNeeded(false);
     const res = await fetch("/api/admin/users", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -68,6 +70,7 @@ export default function UsersPage() {
     const data = await res.json();
     if (!res.ok) {
       setError(data.error || "Could not create user");
+      setUpgradeNeeded(!!data.upgradeRequired);
       return;
     }
     setName("");
@@ -84,6 +87,15 @@ export default function UsersPage() {
         sub="Sellers confirm payments and sell at the door. Door staff check guests in."
       />
       <ErrorNote message={error} />
+      {upgradeNeeded && (
+        <p className="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+          This is a Free-plan limit.{" "}
+          <a href="/admin/settings" className="font-semibold underline">
+            Upgrade to Pro
+          </a>{" "}
+          for unlimited team seats.
+        </p>
+      )}
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <h2 className="mb-3 font-semibold">Everyone</h2>

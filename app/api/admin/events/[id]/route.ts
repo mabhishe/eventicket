@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireOrgApiUser } from "@/lib/auth";
+import { canPublishEvent, planOf } from "@/lib/plans";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -129,6 +130,18 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
         return NextResponse.json(
           { error: "Verify your email before publishing events" },
           { status: 403 }
+        );
+      }
+      // Phase 3: plan limit on simultaneously published events.
+      const org = await db.organization.findUnique({
+        where: { id: orgId },
+        select: { plan: true },
+      });
+      const gate = await canPublishEvent(orgId, planOf(org));
+      if (!gate.ok) {
+        return NextResponse.json(
+          { error: gate.reason, upgradeRequired: true },
+          { status: 402 }
         );
       }
     }

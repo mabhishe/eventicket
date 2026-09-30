@@ -62,7 +62,10 @@ export default function RootLayout({
           <Nav />
           <main className="flex-1">{children}</main>
           <footer className="border-t border-zinc-200 py-4 text-center text-xs text-zinc-500 dark:border-zinc-800">
-            {process.env.APP_NAME || "EventPass"} — community event ticketing
+            {process.env.APP_NAME || "EventPass"} — community event ticketing ·{" "}
+            <a href="/pricing" className="underline">
+              Pricing
+            </a>
           </footer>
         </div>
       </body>

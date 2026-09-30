@@ -84,6 +84,8 @@ model Organization {
   cashNote         String?
   plan             String   @default("FREE") // FREE | PRO
   stripeCustomerId String?
+  stripeSubscriptionId String?
+  subscriptionStatus String?  @default("NONE") // NONE | ACTIVE | PAST_DUE | CANCELED
   createdAt        DateTime @default(now())
   memberships      Membership[]
   events           Event[]

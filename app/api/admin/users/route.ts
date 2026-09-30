@@ -7,6 +7,7 @@ import {
   createVerificationToken,
 } from "@/lib/auth";
 import { sendEmail, verifyEmailHtml, appUrl } from "@/lib/email";
+import { canAddSeat, planOf } from "@/lib/plans";
 
 /** List team members (memberships) of the active organization. */
 export async function GET(req: NextRequest) {
@@ -73,6 +74,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       { error: "Only an owner can add another owner" },
       { status: 403 }
+    );
+  }
+
+  // Phase 3: plan limit on team seats.
+  const org = await db.organization.findUnique({
+    where: { id: orgId },
+    select: { plan: true },
+  });
+  const seatGate = await canAddSeat(orgId, planOf(org));
+  if (!seatGate.ok) {
+    return NextResponse.json(
+      { error: seatGate.reason, upgradeRequired: true },
+      { status: 402 }
     );
   }
 

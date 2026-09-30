@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { db } from "./db";
+import { canSellTickets, planOf } from "./plans";
 import { newTicketCode } from "./tickets";
 
 /**
@@ -170,7 +171,11 @@ export type NewOrderInput = {
 export async function createOrder(input: NewOrderInput) {
   const event = await db.event.findUnique({
     where: { id: input.eventId },
-    include: { ticketTypes: true, mealOptions: true },
+    include: {
+      ticketTypes: true,
+      mealOptions: true,
+      organization: { select: { plan: true } },
+    },
   });
   if (!event) throw new Error("Event not found");
   if (input.status !== "CONFIRMED" && event.status !== "PUBLISHED") {
@@ -181,6 +186,15 @@ export async function createOrder(input: NewOrderInput) {
     throw new Error("An email or phone number is required");
   }
   if (!input.items.length) throw new Error("No tickets selected");
+
+  // Phase 3: plan cap on tickets per event.
+  const totalQty = input.items.reduce((n, i) => n + i.qty, 0);
+  const gate = await canSellTickets(
+    input.eventId,
+    planOf(event.organization),
+    totalQty
+  );
+  if (!gate.ok) throw new Error(gate.reason);
 
   const avail = await ticketAvailability(input.eventId);
   const typeById = new Map(event.ticketTypes.map((t) => [t.id, t]));
@@ -338,13 +352,30 @@ export async function addOrderItems(
 ) {
   const order = await db.order.findUnique({
     where: { id: orderId },
-    include: { event: { include: { ticketTypes: true, mealOptions: true } } },
+    include: {
+      event: {
+        include: {
+          ticketTypes: true,
+          mealOptions: true,
+          organization: { select: { plan: true } },
+        },
+      },
+    },
   });
   if (!order) throw new Error("Order not found");
   if (order.status !== "PENDING_PAYMENT") {
     throw new Error("Only unpaid orders can be changed");
   }
   if (!items.length) throw new Error("No tickets selected");
+
+  // Phase 3: plan cap on tickets per event.
+  const totalQty = items.reduce((n, i) => n + i.qty, 0);
+  const gate = await canSellTickets(
+    order.eventId,
+    planOf(order.event.organization),
+    totalQty
+  );
+  if (!gate.ok) throw new Error(gate.reason);
 
   const event = order.event;
   const avail = await ticketAvailability(order.eventId);

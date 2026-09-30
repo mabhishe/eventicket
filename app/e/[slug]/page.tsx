@@ -84,6 +84,7 @@ function PublicEventPageInner({
   const [payMethod, setPayMethod] = useState("ETRANSFER");
   const [busy, setBusy] = useState(false);
   const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [showBadge, setShowBadge] = useState(false);
   const [showOnWall, setShowOnWall] = useState(false);
   const [attendeeWall, setAttendeeWall] = useState<
     { name: string; partySize: number }[]
@@ -112,6 +113,7 @@ function PublicEventPageInner({
       }
       setEvent(data.event);
       setAvail(data.availability || {});
+      setShowBadge(data.showBadge !== false);
       setAttendeeWall(data.attendeeWall || []);
     });
   }, [params]);
@@ -550,6 +552,14 @@ function PublicEventPageInner({
             Find my tickets
           </a>
         </p>
+        {showBadge && (
+          <p className="mt-4 text-center text-xs text-zinc-400">
+            Powered by{" "}
+            <a href="/" className="font-semibold underline">
+              EventPass
+            </a>
+          </p>
+        )}
       </div>
     </Container>
   );
