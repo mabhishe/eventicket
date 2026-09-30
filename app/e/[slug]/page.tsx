@@ -8,6 +8,7 @@ import {
   PageTitle,
   Field,
   inputCls,
+  labelCls,
   btnPrimary,
   ErrorNote,
 } from "@/components/ui";
@@ -63,6 +64,54 @@ type ProgramItem = {
   description: string | null;
 };
 
+function StepNum({ n }: { n: number }) {
+  return (
+    <span
+      aria-hidden
+      className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-orange-700 align-middle text-xs font-bold text-white"
+    >
+      {n}
+    </span>
+  );
+}
+
+function MealPills({
+  options,
+  value,
+  onChange,
+  accent,
+}: {
+  options: MealOption[];
+  value: string;
+  onChange: (id: string) => void;
+  accent?: string;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((m) => {
+        const active = value === m.id;
+        return (
+          <button
+            key={m.id}
+            type="button"
+            onClick={() => onChange(m.id)}
+            aria-pressed={active}
+            className={`rounded-full border px-3.5 py-2 text-sm font-medium transition ${
+              active
+                ? "border-transparent text-white"
+                : "border-stone-300 text-stone-600 hover:border-stone-400 dark:border-stone-700 dark:text-stone-300"
+            }`}
+            style={active ? { backgroundColor: accent || "#c2410c" } : undefined}
+          >
+            {active ? "✓ " : ""}
+            {m.name}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function PublicEventPageInner({
   params,
 }: {
@@ -78,6 +127,9 @@ function PublicEventPageInner({
   const [attendeeMeals, setAttendeeMeals] = useState<Record<string, string>>(
     {}
   );
+  const [sameMeal, setSameMeal] = useState<Record<string, string>>({});
+  const [sameMealOn, setSameMealOn] = useState<Record<string, boolean>>({});
+  const [agreed, setAgreed] = useState(false);
   const [buyerName, setBuyerName] = useState("");
   const [buyerEmail, setBuyerEmail] = useState("");
   const [buyerPhone, setBuyerPhone] = useState("");
@@ -169,12 +221,31 @@ function PublicEventPageInner({
     setBusy(true);
     setError(null);
 
+    const slotsByType: Record<string, Slot[]> = {};
     for (const s of slots) {
-      if (s.includesMeal && mealsRequired && !attendeeMeals[s.key]) {
-        setError(`Please choose a meal for every ${s.typeName} guest.`);
+      (slotsByType[s.ticketTypeId] ||= []).push(s);
+    }
+    for (const typeSlots of Object.values(slotsByType)) {
+      const t0 = typeSlots[0];
+      if (!t0.includesMeal || !mealsRequired) continue;
+      if (sameMealOn[t0.ticketTypeId]) {
+        if (!sameMeal[t0.ticketTypeId]) {
+          setError(`Please choose the meal for ${t0.typeName} guests.`);
+          setBusy(false);
+          return;
+        }
+        continue;
+      }
+      if (typeSlots.some((s) => !attendeeMeals[s.key])) {
+        setError(`Please choose a meal for every ${t0.typeName} guest.`);
         setBusy(false);
         return;
       }
+    }
+    if (!agreed) {
+      setError("Please agree to the Terms of Service and Privacy Policy.");
+      setBusy(false);
+      return;
     }
     if (!buyerName.trim()) {
       setError("Please enter your name.");
@@ -192,7 +263,9 @@ function PublicEventPageInner({
     const items = slots.map((s) => ({
       ticketTypeId: s.ticketTypeId,
       qty: 1,
-      mealOptionId: attendeeMeals[s.key] || null,
+      mealOptionId:
+        (sameMealOn[s.ticketTypeId] ? sameMeal[s.ticketTypeId] : attendeeMeals[s.key]) ||
+        null,
       holderName: (names[s.key] || "").trim() || null,
     }));
     const res = await fetch("/api/orders", {
@@ -357,7 +430,9 @@ function PublicEventPageInner({
         )}
 
         <Card>
-          <h2 className="mb-4 font-semibold">Choose tickets</h2>
+          <h2 className="mb-4 text-lg font-bold">
+            <StepNum n={1} /> Choose tickets
+          </h2>
           <div className="space-y-4">
             {event.ticketTypes.map((t) => {
               const left = avail[t.id]?.left ?? t.quantityTotal;
@@ -411,10 +486,62 @@ function PublicEventPageInner({
 
           {slots.length > 0 && (
             <div className="mt-6 border-t border-stone-200 pt-6 dark:border-stone-800">
-              <h3 className="mb-1 font-semibold">Who&rsquo;s coming?</h3>
+              <h3 className="mb-1 text-lg font-bold">
+                <StepNum n={2} /> Who&rsquo;s coming?
+              </h3>
               <p className="mb-4 text-sm text-stone-500">
                 Add each guest&rsquo;s name and meal choice.
               </p>
+              {mealsRequired &&
+                event.ticketTypes
+                  .filter((t) => t.includesMeal && (qty[t.id] || 0) > 0)
+                  .map((t) => (
+                    <div
+                      key={t.id}
+                      className="mb-4 rounded-xl bg-orange-50/70 p-3 dark:bg-stone-800/60"
+                    >
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium">
+                          Meal for each {t.name}
+                        </p>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={!!sameMealOn[t.id]}
+                          onClick={() =>
+                            setSameMealOn({
+                              ...sameMealOn,
+                              [t.id]: !sameMealOn[t.id],
+                            })
+                          }
+                          className="flex items-center gap-2 text-sm text-stone-600 dark:text-stone-300"
+                        >
+                          <span
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
+                              sameMealOn[t.id] ? "bg-orange-700" : "bg-stone-300 dark:bg-stone-600"
+                            }`}
+                          >
+                            <span
+                              className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+                                sameMealOn[t.id] ? "translate-x-6" : "translate-x-1"
+                              }`}
+                            />
+                          </span>
+                          Same meal for all
+                        </button>
+                      </div>
+                      {sameMealOn[t.id] && (
+                        <MealPills
+                          options={event.mealOptions}
+                          value={sameMeal[t.id] || ""}
+                          onChange={(id) =>
+                            setSameMeal({ ...sameMeal, [t.id]: id })
+                          }
+                          accent={accent}
+                        />
+                      )}
+                    </div>
+                  ))}
               <div className="space-y-3">
                 {slots.map((s, i) => (
                   <div
@@ -435,27 +562,23 @@ function PublicEventPageInner({
                           }
                         />
                       </Field>
-                      {s.includesMeal && mealsRequired && (
-                        <Field label="Meal choice">
-                          <select
-                            className={inputCls}
-                            value={attendeeMeals[s.key] || ""}
-                            onChange={(e) =>
-                              setAttendeeMeals({
-                                ...attendeeMeals,
-                                [s.key]: e.target.value,
-                              })
-                            }
-                            required
-                          >
-                            <option value="">Select a meal…</option>
-                            {event.mealOptions.map((m) => (
-                              <option key={m.id} value={m.id}>
-                                {m.name}
-                              </option>
-                            ))}
-                          </select>
-                        </Field>
+                      {s.includesMeal && mealsRequired && !sameMealOn[s.ticketTypeId] && (
+                        <div>
+                          <span className={labelCls}>Meal choice</span>
+                          <div className="mt-1">
+                            <MealPills
+                              options={event.mealOptions}
+                              value={attendeeMeals[s.key] || ""}
+                              onChange={(id) =>
+                                setAttendeeMeals({
+                                  ...attendeeMeals,
+                                  [s.key]: id,
+                                })
+                              }
+                              accent={accent}
+                            />
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -463,10 +586,13 @@ function PublicEventPageInner({
               </div>
 
               <form
+                id="checkout-form"
                 onSubmit={submit}
                 className="mt-6 space-y-4 border-t border-stone-200 pt-6 dark:border-stone-800"
               >
-                <h3 className="font-semibold">Your details</h3>
+                <h3 className="text-lg font-bold">
+                  <StepNum n={3} /> Your details
+                </h3>
                 <Field label="Full name">
                   <input
                     className={inputCls}
@@ -515,6 +641,9 @@ function PublicEventPageInner({
                     </span>
                   </span>
                 </label>
+                <h3 className="pt-2 text-lg font-bold">
+                  <StepNum n={4} /> Payment
+                </h3>
                 <Field label="How will you pay?">
                   <select
                     className={inputCls}
@@ -528,6 +657,26 @@ function PublicEventPageInner({
                     ))}
                   </select>
                 </Field>
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={agreed}
+                    onChange={(e) => setAgreed(e.target.checked)}
+                    className="mt-1 h-4 w-4 shrink-0 accent-orange-700"
+                  />
+                  <span className="text-sm text-stone-600 dark:text-stone-300">
+                    I agree to EventPass&rsquo;s{" "}
+                    <a href="/terms" className="font-medium underline">
+                      Terms of Service
+                    </a>{" "}
+                    and{" "}
+                    <a href="/privacy" className="font-medium underline">
+                      Privacy Policy
+                    </a>
+                    . Payment is made directly to the organizer — not to
+                    EventPass.
+                  </span>
+                </label>
                 <ErrorNote message={error} />
                 <button
                   className={btnPrimary + " w-full"}
@@ -546,6 +695,34 @@ function PublicEventPageInner({
             </div>
           )}
         </Card>
+        {slots.length > 0 && (
+          <>
+            <div className="h-20" aria-hidden />
+            <div className="fixed inset-x-0 bottom-0 z-40 border-t border-stone-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-stone-800 dark:bg-stone-900/95">
+              <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs text-stone-500">Total</p>
+                  <p className="text-lg font-bold text-stone-900 dark:text-stone-50">
+                    {formatCents(totalCents, event.currency)}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className={btnPrimary}
+                  style={payBtnStyle}
+                  disabled={busy}
+                  onClick={() =>
+                    (
+                      document.getElementById("checkout-form") as HTMLFormElement | null
+                    )?.requestSubmit()
+                  }
+                >
+                  {busy ? "Placing order…" : "Place order"}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
         <p className="mt-6 text-center text-sm text-stone-500">
           Already ordered?{" "}
           <a href="/find-tickets" className="font-semibold underline">
