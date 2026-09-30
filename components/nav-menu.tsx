@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { signOut } from "@/app/actions";
+import OrgSwitcher from "@/components/org-switcher";
 
 export default function NavMenuClient({
   appName,
@@ -22,6 +23,7 @@ export default function NavMenuClient({
         </Link>
         {/* Desktop nav */}
         <nav className="hidden items-center gap-4 text-sm sm:flex">
+          {signedIn && <OrgSwitcher />}
           {links.map((l) => (
             <Link key={l.href} href={l.href} className="hover:underline">
               {l.label}
@@ -40,6 +42,11 @@ export default function NavMenuClient({
       </div>
       {open && (
         <nav className="border-t border-zinc-200 text-sm sm:hidden dark:border-zinc-800">
+          {signedIn && (
+            <div className="border-b border-zinc-100 px-4 py-3 dark:border-zinc-800">
+              <OrgSwitcher />
+            </div>
+          )}
           {links.map((l) => (
             <Link
               key={l.href}
