@@ -119,6 +119,19 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     if (!existing) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
+    // Phase 2: only verified organizers may publish events.
+    if (data.status === "PUBLISHED" && existing.status !== "PUBLISHED") {
+      const me = await db.user.findUnique({
+        where: { id: auth.user.id },
+        select: { emailVerified: true },
+      });
+      if (!me?.emailVerified) {
+        return NextResponse.json(
+          { error: "Verify your email before publishing events" },
+          { status: 403 }
+        );
+      }
+    }
     const event = await db.event.update({ where: { id }, data });
     return NextResponse.json({ event });
   } catch {

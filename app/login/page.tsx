@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { Container, Card, Field, inputCls, btnPrimary, ErrorNote } from "@/components/ui";
@@ -78,6 +79,14 @@ function LoginForm() {
               {busy ? "Signing in…" : "Sign in"}
             </button>
           </form>
+          <div className="mt-4 flex items-center justify-between text-sm">
+            <Link href="/forgot-password" className="underline text-zinc-500">
+              Forgot password?
+            </Link>
+            <Link href="/signup" className="underline text-zinc-500">
+              Create account
+            </Link>
+          </div>
         </Card>
       </div>
     </Container>

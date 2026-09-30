@@ -45,15 +45,28 @@ enum TicketStatus {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  name         String
-  email        String   @unique
-  passwordHash String
-  role         Role     @default(SELLER) // platform-level role; per-org access comes from Membership
-  createdAt    DateTime @default(now())
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  passwordHash  String
+  role          Role     @default(SELLER) // platform-level role; per-org access comes from Membership
+  emailVerified Boolean  @default(false) // true once the email address is confirmed
+  createdAt     DateTime @default(now())
   soldOrders   Order[]  @relation("SellerOrders")
   events       Event[]  @relation("CreatedEvents")
   memberships  Membership[]
+  verificationTokens VerificationToken[]
+}
+
+model VerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique // sha256 of the raw token — a DB leak must not grant resets
+  type      String    // "VERIFY_EMAIL" | "RESET_PASSWORD"
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 }
 
 model Organization {

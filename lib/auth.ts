@@ -309,3 +309,67 @@ export async function getOrgEventBySlug(orgId: string, slug: string) {
     where: { slug, organizationId: orgId },
   });
 }
+
+/* ------------------------------------------------------------------ */
+/* Phase 2 (self-serve): email verification + password reset tokens   */
+/* ------------------------------------------------------------------ */
+
+import crypto from "crypto";
+
+const VERIFY_EMAIL_TTL_HOURS = 24;
+const RESET_PASSWORD_TTL_HOURS = 1;
+
+function sha256(s: string): string {
+  return crypto.createHash("sha256").update(s).digest("hex");
+}
+
+export type VerificationTokenType = "VERIFY_EMAIL" | "RESET_PASSWORD";
+
+/**
+ * Create a single-use token for email verification or password reset.
+ * Returns the RAW token (sent to the user); only its sha256 is stored.
+ */
+export async function createVerificationToken(
+  userId: string,
+  type: VerificationTokenType
+): Promise<string> {
+  const raw = crypto.randomBytes(32).toString("hex");
+  const ttlHours =
+    type === "VERIFY_EMAIL" ? VERIFY_EMAIL_TTL_HOURS : RESET_PASSWORD_TTL_HOURS;
+  // Invalidate older unused tokens of the same type so only the newest works.
+  await db.verificationToken.updateMany({
+    where: { userId, type, usedAt: null },
+    data: { usedAt: new Date() },
+  });
+  await db.verificationToken.create({
+    data: {
+      userId,
+      tokenHash: sha256(raw),
+      type,
+      expiresAt: new Date(Date.now() + ttlHours * 3600 * 1000),
+    },
+  });
+  return raw;
+}
+
+/**
+ * Consume a token: returns the userId when the token is valid, unused and
+ * unexpired, and marks it used. Returns null otherwise (no information leak
+ * about which check failed).
+ */
+export async function consumeVerificationToken(
+  rawToken: string,
+  type: VerificationTokenType
+): Promise<string | null> {
+  const token = await db.verificationToken.findUnique({
+    where: { tokenHash: sha256(rawToken) },
+  });
+  if (!token || token.type !== type || token.usedAt || token.expiresAt < new Date()) {
+    return null;
+  }
+  await db.verificationToken.update({
+    where: { id: token.id },
+    data: { usedAt: new Date() },
+  });
+  return token.userId;
+}

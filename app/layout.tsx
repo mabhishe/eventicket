@@ -41,7 +41,8 @@ async function Nav() {
     if (manager) links.push({ href: "/admin/settings", label: "Settings" });
     links.push({ href: "/admin/password", label: "Password" });
   } else {
-    links.push({ href: "/login", label: "Staff sign in" });
+    links.push({ href: "/login", label: "Sign in" });
+    links.push({ href: "/signup", label: "Create account" });
   }
   return <NavMenuClient appName={appName} links={links} signedIn={!!session} />;
 }

@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireOrgApiUser, hashPassword, ORG_ROLES } from "@/lib/auth";
+import {
+  requireOrgApiUser,
+  hashPassword,
+  ORG_ROLES,
+  createVerificationToken,
+} from "@/lib/auth";
+import { sendEmail, verifyEmailHtml, appUrl } from "@/lib/email";
 
 /** List team members (memberships) of the active organization. */
 export async function GET(req: NextRequest) {
@@ -129,6 +135,22 @@ export async function POST(req: NextRequest) {
       },
       select: { id: true, name: true, email: true },
     });
+    // New team members verify their email like self-serve signups do.
+    const inviteToken = await createVerificationToken(user.id, "VERIFY_EMAIL");
+    const base = appUrl();
+    const inviteSent = base
+      ? await sendEmail({
+          to: email,
+          subject: "Verify your email",
+          html: verifyEmailHtml(name, `${base}/verify-email?token=${inviteToken}`),
+        })
+      : false;
+    if (!inviteSent) {
+      await db.user.update({
+        where: { id: user.id },
+        data: { emailVerified: true },
+      });
+    }
     return NextResponse.json(
       {
         user: {

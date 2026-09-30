@@ -196,3 +196,31 @@ export function ticketsIssuedHtml(
 export function appUrl(): string {
   return (process.env.APP_URL || "").replace(/\/$/, "");
 }
+
+/** "Verify your email" — sent after signup / team invite. */
+export function verifyEmailHtml(name: string, verifyUrl: string): string {
+  const body = `
+<p style="margin:0 0 8px;font-size:20px;font-weight:700;">Confirm your email, ${name.split(" ")[0]} ✉️</p>
+<p style="margin:0 0 16px;font-size:14px;color:#52525b;">One quick step before you can publish events: confirm this email address belongs to you.</p>
+<p style="margin:0 0 16px;"><a href="${verifyUrl}" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px;">Verify my email</a></p>
+<p style="margin:0;font-size:12px;color:#71717a;">This link expires in 24 hours. If you didn't create an account, you can ignore this email.</p>`;
+  return shell({
+    accent: "#16a34a",
+    preheader: "Confirm your email to start publishing events.",
+    body,
+  });
+}
+
+/** "Reset your password" — single-use, expires in 1 hour. */
+export function resetPasswordHtml(name: string, resetUrl: string): string {
+  const body = `
+<p style="margin:0 0 8px;font-size:20px;font-weight:700;">Reset your password</p>
+<p style="margin:0 0 16px;font-size:14px;color:#52525b;">Hi ${name.split(" ")[0]}, someone requested a password reset for your account. Click below to choose a new one.</p>
+<p style="margin:0 0 16px;"><a href="${resetUrl}" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px;">Choose a new password</a></p>
+<p style="margin:0;font-size:12px;color:#71717a;">This link expires in 1 hour and can only be used once. If you didn't ask for this, you can ignore this email — your password stays the same.</p>`;
+  return shell({
+    accent: "#16a34a",
+    preheader: "Choose a new password for your account.",
+    body,
+  });
+}
