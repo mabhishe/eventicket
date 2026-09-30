@@ -103,7 +103,7 @@ function fmtDate(d: Date): string {
   }).format(d);
 }
 
-function shell(opts: {
+export function shell(opts: {
   accent: string;
   preheader: string;
   body: string;

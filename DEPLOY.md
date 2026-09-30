@@ -69,6 +69,10 @@ APP_NAME=EventPass
 # start — save it and change it right after signing in.
 ADMIN_EMAIL=you@example.com
 ADMIN_PASSWORD=<redacted>
+
+# A long random string that authorizes the reminder cron (section 10).
+# Generate: openssl rand -hex 32
+CRON_SECRET=<redacted>
 ```
 
 `DATABASE_URL` is already set to the right value inside
@@ -156,7 +160,28 @@ cp /opt/event-ticketing/data/app.db ~/event-backup-$(date +%F).db
 docker compose start
 ```
 
-## 10. Updating later
+## 10. Reminder cron (scheduled emails + nightly payment nudges)
+
+The messaging center's scheduled event reminders and the 8pm payment-nudge
+emails are sent by `GET /api/cron/reminders`, which must be called hourly.
+It is protected by `CRON_SECRET` (set in section 5). On the server, add a
+cron entry for the deploy user:
+
+```bash
+crontab -e
+# add this line (paste your actual CRON_SECRET value — cron has no shell env):
+0 * * * * curl -s -H "Authorization: Bearer PASTE_CRON_SECRET_HERE" https://events.aicloudconsult.com/api/cron/reminders
+```
+
+Notes:
+- Emails only go out once `RESEND_API_KEY` + `EMAIL_FROM` are set (section 5).
+  Without them the dispatcher runs but sends nothing.
+- WhatsApp reminders only send if the organization configured a custom
+  WhatsApp template for that message (Meta requires pre-approved templates).
+- The endpoint returns `{ ok, remindersSent, nudgesSent }` JSON so you can
+  verify it in the server logs.
+
+## 11. Updating later
 
 ```bash
 cd /opt/event-ticketing

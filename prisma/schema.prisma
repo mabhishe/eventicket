@@ -93,6 +93,9 @@ model Organization {
   createdAt        DateTime @default(now())
   memberships      Membership[]
   events           Event[]
+  messageTemplates MessageTemplate[]
+  scheduledReminders ScheduledReminder[]
+  messageLogs      MessageLog[]
 }
 
 model Membership {
@@ -133,6 +136,8 @@ model Event {
   sponsorAds     SponsorAd[]
   programItems   ProgramItem[]
   orders         Order[]
+  scheduledReminders ScheduledReminder[]
+  messageLogs      MessageLog[]
 }
 
 model TicketType {
@@ -234,4 +239,51 @@ model Ticket {
   checkedInAt  DateTime?
   foodCollectedAt DateTime?
   createdAt    DateTime     @default(now())
+}
+
+model MessageTemplate {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  key            String   // ORDER_RECEIVED | TICKETS_ISSUED | PAYMENT_REMINDER | EVENT_REMINDER | ORG_WELCOME
+  channel        String   // EMAIL | WHATSAPP
+  subject        String?  // email only
+  body           String   // email: html/text with {{variables}}; whatsapp: human-readable text (params mapped separately)
+  templateName   String?  // whatsapp only: approved Meta template name
+  bodyParams     String?  // whatsapp only: JSON array of {{variable}} expressions for {{1}}, {{2}}...
+  updatedAt      DateTime @updatedAt
+
+  @@unique([organizationId, key, channel])
+}
+
+model ScheduledReminder {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  eventId        String
+  event          Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  offsetMinutes  Int      // send this many minutes before the event starts
+  channel        String   // EMAIL | WHATSAPP
+  enabled        Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  @@index([eventId, enabled])
+}
+
+model MessageLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  eventId        String?
+  event          Event?   @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  kind           String   // TEMPLATE | REMINDER | BROADCAST | PAYMENT_NUDGE
+  channel        String   // EMAIL | WHATSAPP
+  recipient      String   // email or phone
+  templateKey    String?
+  orderId        String?  // when the message is about a specific order (dedup + audit)
+  status         String   @default("SENT") // SENT | SKIPPED | FAILED
+  sentAt         DateTime @default(now())
+
+  @@index([organizationId, sentAt])
+  @@index([eventId, kind, sentAt])
 }

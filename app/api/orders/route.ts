@@ -2,16 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { createOrder } from "@/lib/orders";
 import { db } from "@/lib/db";
 import {
-  sendEmail,
   orderConfirmationHtml,
   appUrl,
 } from "@/lib/email";
 import {
-  sendWhatsAppTemplate,
   normalizePhone,
-  orderTemplateName,
 } from "@/lib/whatsapp";
-import { formatCents } from "@/lib/money";
+import {
+  sendTemplatedEmail,
+  sendTemplatedWhatsApp,
+  orderVars,
+  orderReceivedWaFallback,
+} from "@/lib/messaging";
 import { checkRateLimit, clientIp } from "@/lib/rateLimit";
 
 // Seat-squatting protection: 10 orders per hour per IP.
@@ -69,19 +71,48 @@ export async function POST(req: NextRequest) {
     // Confirmation email + WhatsApp (never fail the order).
     const event = await db.event.findUnique({ where: { id: order.eventId } });
     if (event) {
-      const orderUrl = `${appUrl()}/order/${order.id}`;
-      const dateLabel = new Intl.DateTimeFormat("en-CA", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }).format(new Date(event.date));
-      if (order.buyerEmail) {
+      const org = event.organizationId
+        ? await db.organization.findUnique({
+            where: { id: event.organizationId },
+            select: { id: true, name: true },
+          })
+        : null;
+      const orgId = org?.id || "";
+      const vars = orderVars(
+        {
+          id: order.id,
+          buyerName: order.buyerName,
+          buyerEmail: order.buyerEmail,
+          buyerPhone: order.buyerPhone,
+          refCode: order.refCode,
+          entryCode: null,
+          totalCents: order.totalCents,
+          payMethod: order.payMethod,
+        },
+        {
+          id: event.id,
+          slug: event.slug,
+          title: event.title,
+          date: event.date,
+          venue: event.venue,
+          currency: event.currency,
+          etransferEmail: event.etransferEmail,
+          zelleHandle: event.zelleHandle,
+        },
+        org?.name || ""
+      );
+      if (order.buyerEmail && orgId) {
         try {
-          await sendEmail({
+          await sendTemplatedEmail({
+            organizationId: orgId,
+            templateKey: "ORDER_RECEIVED",
             to: order.buyerEmail,
-            subject: `Order received — ${event.title}`,
-            html: orderConfirmationHtml(
+            vars,
+            eventId: event.id,
+            orderId: order.id,
+            kind: "TEMPLATE",
+            // Rich default kept until the org customizes the template.
+            richHtml: orderConfirmationHtml(
               {
                 id: order.id,
                 buyerName: order.buyerName,
@@ -97,7 +128,7 @@ export async function POST(req: NextRequest) {
                 })),
               },
               event,
-              orderUrl
+              `${appUrl()}/order/${order.id}`
             ),
           });
         } catch (e) {
@@ -105,28 +136,36 @@ export async function POST(req: NextRequest) {
         }
       }
       const waTo = normalizePhone(order.buyerPhone);
-      if (waTo) {
+      if (waTo && orgId) {
         try {
-          const total = formatCents(order.totalCents, event.currency);
-          const payLine =
-            order.payMethod === "ETRANSFER" && event.etransferEmail
-              ? `send ${total} by Interac e-Transfer to ${event.etransferEmail}`
-              : order.payMethod === "ZELLE" && event.zelleHandle
-                ? `send ${total} by Zelle to ${event.zelleHandle}`
-                : order.payMethod === "CASH" && event.cashNote
-                  ? event.cashNote
-                  : `pay ${total} as instructed by the organizer`;
-          await sendWhatsAppTemplate({
+          await sendTemplatedWhatsApp({
+            organizationId: orgId,
+            templateKey: "ORDER_RECEIVED",
             to: waTo,
-            template: orderTemplateName(),
-            bodyParams: [
-              order.buyerName.split(" ")[0],
-              event.title,
-              dateLabel,
-              total,
-              payLine,
-              order.refCode || "—",
-            ],
+            vars,
+            eventId: event.id,
+            orderId: order.id,
+            kind: "TEMPLATE",
+            fallback: orderReceivedWaFallback(
+              {
+                id: order.id,
+                buyerName: order.buyerName,
+                refCode: order.refCode,
+                totalCents: order.totalCents,
+                payMethod: order.payMethod,
+              },
+              {
+                id: event.id,
+                slug: event.slug,
+                title: event.title,
+                date: event.date,
+                venue: event.venue,
+                currency: event.currency,
+                etransferEmail: event.etransferEmail,
+                zelleHandle: event.zelleHandle,
+              },
+              waTo
+            ),
           });
         } catch (e) {
           console.error("[orders] WhatsApp confirmation failed", e instanceof Error ? e.message : e);

@@ -5,7 +5,11 @@ import { db } from "@/lib/db";
 import { requireOrgApiUser } from "@/lib/auth";
 import { issueTickets, ensureOrderRefCode } from "@/lib/orders";
 import {
-  sendEmail,
+  sendTemplatedEmail,
+  sendTemplatedWhatsApp,
+  orderVars,
+} from "@/lib/messaging";
+import {
   ticketsIssuedHtml,
   orderQrPngBuffer,
   appUrl,
@@ -87,10 +91,39 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         })),
       };
       if (full.buyerEmail) {
-        await sendEmail({
+        const org = await db.organization.findUnique({
+          where: { id: orgId },
+          select: { id: true, name: true },
+        });
+        await sendTemplatedEmail({
+          organizationId: orgId,
+          templateKey: "TICKETS_ISSUED",
           to: full.buyerEmail,
-          subject: `You're in! Tickets for ${full.event.title}`,
-          html: ticketsIssuedHtml(mailInfo, full.event, groupCode, orderUrl),
+          vars: orderVars(
+            {
+              id: full.id,
+              buyerName: full.buyerName,
+              buyerEmail: full.buyerEmail,
+              buyerPhone: full.buyerPhone,
+              refCode: full.refCode,
+              entryCode: groupCode,
+              totalCents: full.totalCents,
+            },
+            {
+              id: full.event.id,
+              slug: full.event.slug,
+              title: full.event.title,
+              date: full.event.date,
+              venue: full.event.venue,
+              currency: full.event.currency,
+            },
+            org?.name || ""
+          ),
+          eventId: full.event.id,
+          orderId: full.id,
+          kind: "TEMPLATE",
+          // Rich default (with QR attached) kept until the org customizes.
+          richHtml: ticketsIssuedHtml(mailInfo, full.event, groupCode, orderUrl),
           attachments: [
             { filename: `group-qr-${groupCode}.png`, content: qr.toString("base64") },
           ],
@@ -98,15 +131,46 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       }
       const waTo = normalizePhone(full.buyerPhone);
       if (waTo) {
-        await sendWhatsAppTemplate({
+        const org = await db.organization.findUnique({
+          where: { id: orgId },
+          select: { name: true },
+        });
+        await sendTemplatedWhatsApp({
+          organizationId: orgId,
+          templateKey: "TICKETS_ISSUED",
           to: waTo,
-          template: ticketsTemplateName(),
-          ...(qrImageUrl ? { headerImageUrl: qrImageUrl } : {}),
-          bodyParams: [
-            full.buyerName.split(" ")[0],
-            full.event.title,
-            groupCode,
-          ],
+          vars: orderVars(
+            {
+              id: full.id,
+              buyerName: full.buyerName,
+              refCode: full.refCode,
+              entryCode: groupCode,
+              totalCents: full.totalCents,
+            },
+            {
+              id: full.event.id,
+              slug: full.event.slug,
+              title: full.event.title,
+              date: full.event.date,
+              venue: full.event.venue,
+              currency: full.event.currency,
+            },
+            org?.name || ""
+          ),
+          eventId: full.event.id,
+          orderId: full.id,
+          kind: "TEMPLATE",
+          fallback: async () =>
+            sendWhatsAppTemplate({
+              to: waTo,
+              template: ticketsTemplateName(),
+              ...(qrImageUrl ? { headerImageUrl: qrImageUrl } : {}),
+              bodyParams: [
+                full.buyerName.split(" ")[0],
+                full.event.title,
+                groupCode,
+              ],
+            }),
         });
       }
     }
