@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+import { requireOrgUser } from "@/lib/auth";
 import { formatCents } from "@/lib/money";
 import {
   Container,
@@ -34,9 +34,15 @@ function fmtDate(d: Date) {
 }
 
 export default async function AdminDashboard() {
-  const user = await requireUser(["ADMIN", "SELLER"]);
+  const { user, orgId, orgRole } = await requireOrgUser([
+    "ORG_OWNER",
+    "ORG_ADMIN",
+    "ORG_STAFF",
+  ]);
+  const canManage = orgRole === "ORG_OWNER" || orgRole === "ORG_ADMIN";
 
   const events = await db.event.findMany({
+    where: { organizationId: orgId },
     orderBy: { date: "desc" },
     include: {
       ticketTypes: true,
@@ -45,7 +51,7 @@ export default async function AdminDashboard() {
   });
 
   const pendingOrders = await db.order.findMany({
-    where: { status: "PENDING_PAYMENT" },
+    where: { status: "PENDING_PAYMENT", event: { organizationId: orgId } },
     orderBy: { createdAt: "desc" },
     take: 20,
     include: {
@@ -61,7 +67,7 @@ export default async function AdminDashboard() {
         sub="Create events, confirm payments, and issue tickets."
         action={
           <div className="flex gap-2">
-            {user.role === "ADMIN" && (
+            {canManage && (
               <Link href="/admin/events/new" className={btnPrimary}>
                 New event
               </Link>
@@ -78,7 +84,7 @@ export default async function AdminDashboard() {
         <Card>
           <p className="text-sm text-zinc-500">
             No events yet.{" "}
-            {user.role === "ADMIN" && (
+            {canManage && (
               <Link href="/admin/events/new" className="underline">
                 Create your first event
               </Link>

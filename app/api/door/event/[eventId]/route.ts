@@ -1,18 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireApiUser } from "@/lib/auth";
+import { requireOrgApiUser } from "@/lib/auth";
 import { ticketAvailability } from "@/lib/orders";
 
 type Ctx = { params: Promise<{ eventId: string }> };
 
 /** Door console data: event, ticket types with live availability, meal counts. */
 export async function GET(req: NextRequest, { params }: Ctx) {
-  const auth = await requireApiUser(req, ["ADMIN", "DOOR"]);
+  const auth = await requireOrgApiUser(req, ["ORG_OWNER", "ORG_ADMIN", "ORG_DOOR"]);
   if (!auth.ok) return auth.error;
+  const { orgId } = auth.user;
   const { eventId } = await params;
 
-  const event = await db.event.findUnique({
-    where: { id: eventId },
+  const event = await db.event.findFirst({
+    where: { id: eventId, organizationId: orgId },
     include: {
       ticketTypes: { orderBy: { sortOrder: "asc" } },
       mealOptions: { orderBy: { sortOrder: "asc" } },

@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireApiUser } from "@/lib/auth";
+import { requireOrgApiUser } from "@/lib/auth";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function POST(req: NextRequest, { params }: Ctx) {
-  const auth = await requireApiUser(req, ["ADMIN"]);
+  const auth = await requireOrgApiUser(req, ["ORG_OWNER", "ORG_ADMIN"]);
   if (!auth.ok) return auth.error;
+  const { orgId } = auth.user;
   const { id } = await params;
 
-  const event = await db.event.findUnique({ where: { id } });
+  const event = await db.event.findFirst({ where: { id, organizationId: orgId } });
   if (!event) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }

@@ -33,8 +33,8 @@ function LoginForm() {
         setBusy(false);
         return;
       }
-      const role = data.user.role as string;
-      router.push(role === "DOOR" ? "/door" : "/admin");
+      const orgRole = data.user.orgRole as string | null;
+      router.push(orgRole === "ORG_DOOR" ? "/door" : "/admin");
       router.refresh();
     } catch {
       setError(

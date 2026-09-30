@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { getSession } from "@/lib/auth";
+import { getSession, resolveActiveMembership } from "@/lib/auth";
 import NavMenuClient from "@/components/nav-menu";
 
 const geistSans = Geist({
@@ -24,12 +24,21 @@ async function Nav() {
   const appName = process.env.APP_NAME || "EventPass";
   const links: { href: string; label: string }[] = [];
   if (session) {
-    if (session.role === "ADMIN" || session.role === "SELLER")
-      links.push({ href: "/admin", label: "Organizer" });
-    if (session.role === "ADMIN" || session.role === "DOOR")
-      links.push({ href: "/door", label: "Door" });
-    if (session.role === "ADMIN")
-      links.push({ href: "/admin/reports", label: "Reports" });
+    const membership = await resolveActiveMembership(session.userId);
+    const orgRole = membership?.role;
+    const staff =
+      orgRole === "ORG_OWNER" ||
+      orgRole === "ORG_ADMIN" ||
+      orgRole === "ORG_STAFF";
+    const door =
+      orgRole === "ORG_OWNER" ||
+      orgRole === "ORG_ADMIN" ||
+      orgRole === "ORG_DOOR";
+    const manager = orgRole === "ORG_OWNER" || orgRole === "ORG_ADMIN";
+    if (staff) links.push({ href: "/admin", label: "Organizer" });
+    if (door) links.push({ href: "/door", label: "Door" });
+    if (manager) links.push({ href: "/admin/reports", label: "Reports" });
+    if (manager) links.push({ href: "/admin/settings", label: "Settings" });
     links.push({ href: "/admin/password", label: "Password" });
   } else {
     links.push({ href: "/login", label: "Staff sign in" });

@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireApiUser } from "@/lib/auth";
+import { requireOrgApiUser } from "@/lib/auth";
 
 /** Sales report for one event (or all events when no eventId). */
 export async function GET(req: NextRequest) {
-  const auth = await requireApiUser(req, ["ADMIN"]);
+  const auth = await requireOrgApiUser(req, ["ORG_OWNER", "ORG_ADMIN"]);
   if (!auth.ok) return auth.error;
+  const { orgId } = auth.user;
 
   const { searchParams } = new URL(req.url);
   const eventId = searchParams.get("eventId");
 
   const where = {
     status: "CONFIRMED" as const,
+    event: { organizationId: orgId },
     ...(eventId ? { eventId } : {}),
   };
 

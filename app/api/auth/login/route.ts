@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { verifyPassword, createSession } from "@/lib/auth";
+import { verifyPassword, createSession, resolveActiveMembership } from "@/lib/auth";
 import { checkRateLimit, clientIp } from "@/lib/rateLimit";
 
 // Brute-force protection: 5 login attempts per 15 minutes per IP.
@@ -36,7 +36,18 @@ export async function POST(req: NextRequest) {
     );
   }
   await createSession(user.id, user.role);
+  // Phase 1 (multi-tenant): pick the org the user works as so every
+  // subsequent admin call is org-scoped.
+  const membership = await resolveActiveMembership(user.id);
   return NextResponse.json({
-    user: { id: user.id, name: user.name, email: user.email, role: user.role },
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      orgId: membership?.organizationId || null,
+      orgRole: membership?.role || null,
+      orgName: membership?.orgName || null,
+    },
   });
 }

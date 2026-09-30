@@ -41,9 +41,26 @@ async function main() {
   const generated = !password;
 
   const passwordHash = await bcrypt.hash(finalPassword, 10);
-  await db.user.create({
+  const user = await db.user.create({
     data: { name: "Administrator", email: finalEmail, passwordHash, role: "ADMIN" },
   });
+
+  // Phase 1 (multi-tenant): the first admin gets their own organization and an
+  // ORG_OWNER membership so the app is usable immediately after first run.
+  const orgName = (process.env.ORG_NAME || "My Organization").trim() || "My Organization";
+  const slugBase =
+    orgName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) ||
+    "org";
+  const org = await db.organization.create({
+    data: {
+      name: orgName,
+      slug: `${slugBase}-${crypto.randomBytes(3).toString("hex")}`,
+    },
+  });
+  await db.membership.create({
+    data: { userId: user.id, organizationId: org.id, role: "ORG_OWNER" },
+  });
+  console.log(`  Organization "${org.name}" created for the first admin.`);
 
   console.log("=".repeat(64));
   console.log("  FIRST-RUN ADMIN ACCOUNT CREATED");

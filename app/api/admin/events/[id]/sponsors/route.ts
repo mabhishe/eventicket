@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import fs from "fs/promises";
 import { randomUUID } from "crypto";
-import { requireApiUser } from "@/lib/auth";
+import { requireOrgApiUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { isValidTier, normalizeTier, sortSponsorAds } from "@/lib/sponsors";
 
@@ -58,9 +58,17 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireApiUser(req, ["ADMIN"]);
+  const auth = await requireOrgApiUser(req, ["ORG_OWNER", "ORG_ADMIN"]);
   if (!auth.ok) return auth.error;
+  const { orgId } = auth.user;
   const { id } = await params;
+  const eventOk = await db.event.findFirst({
+    where: { id, organizationId: orgId },
+    select: { id: true },
+  });
+  if (!eventOk) {
+    return NextResponse.json({ error: "Event not found" }, { status: 404 });
+  }
   const ads = await db.sponsorAd.findMany({ where: { eventId: id } });
   return NextResponse.json({ ads: sortSponsorAds(ads) });
 }
@@ -69,10 +77,11 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireApiUser(req, ["ADMIN"]);
+  const auth = await requireOrgApiUser(req, ["ORG_OWNER", "ORG_ADMIN"]);
   if (!auth.ok) return auth.error;
+  const { orgId } = auth.user;
   const { id } = await params;
-  const event = await db.event.findUnique({ where: { id } });
+  const event = await db.event.findFirst({ where: { id, organizationId: orgId } });
   if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 });
 
   const form = await req.formData();
@@ -150,9 +159,17 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireApiUser(req, ["ADMIN"]);
+  const auth = await requireOrgApiUser(req, ["ORG_OWNER", "ORG_ADMIN"]);
   if (!auth.ok) return auth.error;
+  const { orgId } = auth.user;
   const { id } = await params;
+  const eventOk = await db.event.findFirst({
+    where: { id, organizationId: orgId },
+    select: { id: true },
+  });
+  if (!eventOk) {
+    return NextResponse.json({ error: "Event not found" }, { status: 404 });
+  }
 
   // Accept multipart (logo replacement) or JSON (tier/name/link only).
   const ct = req.headers.get("content-type") || "";
@@ -230,13 +247,21 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const auth = await requireApiUser(req, ["ADMIN"]);
+  const auth = await requireOrgApiUser(req, ["ORG_OWNER", "ORG_ADMIN"]);
   if (!auth.ok) return auth.error;
+  const { orgId } = auth.user;
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
   const adId = String(body.id || "");
   if (!adId) return NextResponse.json({ error: "id is required" }, { status: 400 });
 
+  const eventOk = await db.event.findFirst({
+    where: { id, organizationId: orgId },
+    select: { id: true },
+  });
+  if (!eventOk) {
+    return NextResponse.json({ error: "Event not found" }, { status: 404 });
+  }
   const ad = await db.sponsorAd.findFirst({ where: { id: adId, eventId: id } });
   if (!ad) return NextResponse.json({ error: "Sponsor ad not found" }, { status: 404 });
 

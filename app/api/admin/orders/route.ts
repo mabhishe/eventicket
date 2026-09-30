@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireApiUser } from "@/lib/auth";
+import { requireOrgApiUser } from "@/lib/auth";
 
 /** List orders, optionally filtered by event and/or status. Paginated. */
 export async function GET(req: NextRequest) {
-  const auth = await requireApiUser(req, ["ADMIN", "SELLER"]);
+  const auth = await requireOrgApiUser(req, ["ORG_OWNER", "ORG_ADMIN", "ORG_STAFF"]);
   if (!auth.ok) return auth.error;
+  const { orgId } = auth.user;
 
   const { searchParams } = new URL(req.url);
   const eventId = searchParams.get("eventId");
@@ -17,6 +18,7 @@ export async function GET(req: NextRequest) {
   );
 
   const where = {
+    event: { organizationId: orgId },
     ...(eventId ? { eventId } : {}),
     ...(status ? { status: status as never } : {}),
   };

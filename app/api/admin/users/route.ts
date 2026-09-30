@@ -1,28 +1,50 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireApiUser, hashPassword } from "@/lib/auth";
+import { requireOrgApiUser, hashPassword, ORG_ROLES } from "@/lib/auth";
 
+/** List team members (memberships) of the active organization. */
 export async function GET(req: NextRequest) {
-  const auth = await requireApiUser(req, ["ADMIN"]);
+  const auth = await requireOrgApiUser(req, ["ORG_OWNER", "ORG_ADMIN"]);
   if (!auth.ok) return auth.error;
+  const { orgId } = auth.user;
 
-  const users = await db.user.findMany({
+  const memberships = await db.membership.findMany({
+    where: { organizationId: orgId },
     orderBy: { createdAt: "asc" },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
-      createdAt: true,
-      _count: { select: { soldOrders: true } },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          createdAt: true,
+          _count: { select: { soldOrders: true } },
+        },
+      },
     },
   });
+  const users = memberships.map((m) => ({
+    id: m.id,
+    userId: m.user.id,
+    name: m.user.name,
+    email: m.user.email,
+    role: m.role,
+    createdAt: m.createdAt,
+    _count: m.user._count,
+  }));
   return NextResponse.json({ users });
 }
 
+/**
+ * Add someone to the team: creates a new login when the email is unknown,
+ * otherwise attaches the existing user to this organization.
+ * Body: { name, email, password?, role } — role is an ORG_* role.
+ * Only an ORG_OWNER may grant ORG_OWNER.
+ */
 export async function POST(req: NextRequest) {
-  const auth = await requireApiUser(req, ["ADMIN"]);
+  const auth = await requireOrgApiUser(req, ["ORG_OWNER", "ORG_ADMIN"]);
   if (!auth.ok) return auth.error;
+  const { orgId, orgRole } = auth.user;
 
   let body: Record<string, unknown>;
   try {
@@ -35,27 +57,90 @@ export async function POST(req: NextRequest) {
   const email = String(body.email || "").trim().toLowerCase();
   const password = String(body.password || "");
   const role = String(body.role || "");
-  if (!name || !email || password.length < 8) {
+  if (!name || !email || !(ORG_ROLES as readonly string[]).includes(role)) {
     return NextResponse.json(
-      { error: "Name, email and a password of 8+ characters are required" },
+      { error: "Name, email and a valid role are required" },
       { status: 400 }
     );
   }
-  if (!["ADMIN", "SELLER", "DOOR"].includes(role)) {
-    return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+  if (role === "ORG_OWNER" && orgRole !== "ORG_OWNER") {
+    return NextResponse.json(
+      { error: "Only an owner can add another owner" },
+      { status: 403 }
+    );
   }
 
+  const existingUser = await db.user.findUnique({ where: { email } });
+  if (existingUser) {
+    const existingMembership = await db.membership.findUnique({
+      where: {
+        userId_organizationId: { userId: existingUser.id, organizationId: orgId },
+      },
+    });
+    if (existingMembership) {
+      return NextResponse.json(
+        { error: "This person is already on the team" },
+        { status: 400 }
+      );
+    }
+    if (name && name !== existingUser.name) {
+      await db.user.update({ where: { id: existingUser.id }, data: { name } });
+    }
+    const membership = await db.membership.create({
+      data: {
+        userId: existingUser.id,
+        organizationId: orgId,
+        role: role as (typeof ORG_ROLES)[number],
+      },
+    });
+    return NextResponse.json(
+      {
+        user: {
+          id: membership.id,
+          userId: existingUser.id,
+          name: existingUser.name,
+          email: existingUser.email,
+          role: membership.role,
+        },
+      },
+      { status: 201 }
+    );
+  }
+
+  if (password.length < 8) {
+    return NextResponse.json(
+      { error: "A password of 8+ characters is required for a new login" },
+      { status: 400 }
+    );
+  }
   try {
     const user = await db.user.create({
       data: {
         name,
         email,
         passwordHash: await hashPassword(password),
-        role: role as "ADMIN" | "SELLER" | "DOOR",
+        role: "SELLER",
+        memberships: {
+          create: {
+            organizationId: orgId,
+            role: role as (typeof ORG_ROLES)[number],
+          },
+        },
       },
-      select: { id: true, name: true, email: true, role: true },
+      select: { id: true, name: true, email: true },
     });
-    return NextResponse.json({ user }, { status: 201 });
+    return NextResponse.json(
+      {
+        user: {
+          id: user.id,
+          userId: user.id,
+          name: user.name,
+          email: user.email,
+          role,
+        },
+      },
+      { status: 201 }
+    );
   } catch {
     return NextResponse.json(
       { error: "Could not create user (email may be taken)" },

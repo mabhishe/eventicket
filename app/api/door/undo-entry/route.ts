@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireApiUser } from "@/lib/auth";
+import { requireOrgApiUser } from "@/lib/auth";
 import { partyProgress, partyRoster } from "@/lib/door";
 
 /**
@@ -8,8 +8,9 @@ import { partyProgress, partyRoster } from "@/lib/door";
  * can be reset — this is the fix for "scanned twice but only one entered".
  */
 export async function POST(req: NextRequest) {
-  const auth = await requireApiUser(req, ["ADMIN", "DOOR"]);
+  const auth = await requireOrgApiUser(req, ["ORG_OWNER", "ORG_ADMIN", "ORG_DOOR"]);
   if (!auth.ok) return auth.error;
+  const { orgId } = auth.user;
 
   let body: Record<string, unknown>;
   try {
@@ -22,8 +23,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "ticketId required" }, { status: 400 });
   }
 
-  const ticket = await db.ticket.findUnique({
-    where: { id: ticketId },
+  const ticket = await db.ticket.findFirst({
+    where: { id: ticketId, order: { event: { organizationId: orgId } } },
     select: { id: true, orderId: true, status: true, holderName: true },
   });
   if (!ticket) {

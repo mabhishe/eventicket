@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireApiUser } from "@/lib/auth";
+import { requireOrgApiUser } from "@/lib/auth";
 
 /** Door: search tickets by code, buyer name, or holder name within an event. */
 export async function GET(req: NextRequest) {
-  const auth = await requireApiUser(req, ["ADMIN", "DOOR"]);
+  const auth = await requireOrgApiUser(req, ["ORG_OWNER", "ORG_ADMIN", "ORG_DOOR"]);
   if (!auth.ok) return auth.error;
+  const { orgId } = auth.user;
 
   const { searchParams } = new URL(req.url);
   const eventId = searchParams.get("eventId");
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
 
   const tickets = await db.ticket.findMany({
     where: {
-      order: { eventId, status: "CONFIRMED" },
+      order: { eventId, status: "CONFIRMED", event: { organizationId: orgId } },
       status: { not: "CANCELLED" },
       OR: [
         { code: { contains: q.toUpperCase() } },

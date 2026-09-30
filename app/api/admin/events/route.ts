@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireApiUser } from "@/lib/auth";
+import { requireOrgApiUser } from "@/lib/auth";
 
 function slugify(title: string): string {
   const base =
@@ -13,10 +13,12 @@ function slugify(title: string): string {
 }
 
 export async function GET(req: NextRequest) {
-  const auth = await requireApiUser(req, ["ADMIN", "SELLER"]);
+  const auth = await requireOrgApiUser(req, ["ORG_OWNER", "ORG_ADMIN", "ORG_STAFF"]);
   if (!auth.ok) return auth.error;
+  const { orgId } = auth.user;
 
   const events = await db.event.findMany({
+    where: { organizationId: orgId },
     orderBy: { date: "desc" },
     include: {
       _count: { select: { orders: true, ticketTypes: true } },
@@ -27,8 +29,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireApiUser(req, ["ADMIN"]);
+  const auth = await requireOrgApiUser(req, ["ORG_OWNER", "ORG_ADMIN"]);
   if (!auth.ok) return auth.error;
+  const { orgId } = auth.user;
 
   let body: Record<string, unknown>;
   try {
@@ -62,6 +65,7 @@ export async function POST(req: NextRequest) {
       zelleHandle: String(body.zelleHandle || "").trim() || null,
       cashNote: String(body.cashNote || "").trim() || null,
       requireEntryBeforeFood: body.requireEntryBeforeFood === true,
+      organizationId: orgId,
       createdById: auth.user.id,
     },
   });

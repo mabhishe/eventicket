@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireApiUser } from "@/lib/auth";
+import { requireOrgApiUser } from "@/lib/auth";
 
 type Ctx = { params: Promise<{ id: string }> };
 
 export async function GET(req: NextRequest, { params }: Ctx) {
-  const auth = await requireApiUser(req, ["ADMIN", "SELLER"]);
+  const auth = await requireOrgApiUser(req, ["ORG_OWNER", "ORG_ADMIN", "ORG_STAFF"]);
   if (!auth.ok) return auth.error;
+  const { orgId } = auth.user;
   const { id } = await params;
 
-  const event = await db.event.findUnique({
-    where: { id },
+  const event = await db.event.findFirst({
+    where: { id, organizationId: orgId },
     include: {
       ticketTypes: { orderBy: { sortOrder: "asc" } },
       mealOptions: { orderBy: { sortOrder: "asc" } },
@@ -63,8 +64,9 @@ const EDITABLE = [
 ] as const;
 
 export async function PATCH(req: NextRequest, { params }: Ctx) {
-  const auth = await requireApiUser(req, ["ADMIN"]);
+  const auth = await requireOrgApiUser(req, ["ORG_OWNER", "ORG_ADMIN"]);
   if (!auth.ok) return auth.error;
+  const { orgId } = auth.user;
   const { id } = await params;
 
   let body: Record<string, unknown>;
@@ -111,6 +113,12 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   }
 
   try {
+    const existing = await db.event.findFirst({
+      where: { id, organizationId: orgId },
+    });
+    if (!existing) {
+      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    }
     const event = await db.event.update({ where: { id }, data });
     return NextResponse.json({ event });
   } catch {

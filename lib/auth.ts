@@ -124,3 +124,188 @@ export async function requireApiUser(
     user: { id: user.id, name: user.name, email: user.email, role: user.role },
   };
 }
+
+/* ------------------------------------------------------------------ */
+/* Phase 1 (multi-tenant): organization-scoped authorization           */
+/* ------------------------------------------------------------------ */
+
+const ORG_COOKIE_NAME = "active_org";
+
+/** Org-level roles, in decreasing privilege order. */
+export const ORG_ROLES = ["ORG_OWNER", "ORG_ADMIN", "ORG_STAFF", "ORG_DOOR"] as const;
+export type OrgRole = (typeof ORG_ROLES)[number];
+
+function cookieFlags() {
+  const appUrl = process.env.APP_URL || "";
+  const secure = appUrl
+    ? appUrl.startsWith("https://")
+    : process.env.NODE_ENV === "production";
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: 60 * 60 * 24 * 7,
+    secure,
+  };
+}
+
+export async function setActiveOrgCookie(orgId: string): Promise<void> {
+  const store = await cookies();
+  store.set(ORG_COOKIE_NAME, orgId, cookieFlags());
+}
+
+export async function clearActiveOrgCookie(): Promise<void> {
+  const store = await cookies();
+  store.delete(ORG_COOKIE_NAME);
+}
+
+export async function getActiveOrgId(): Promise<string | null> {
+  const store = await cookies();
+  return store.get(ORG_COOKIE_NAME)?.value || null;
+}
+
+export type OrgMembershipInfo = {
+  membershipId: string;
+  organizationId: string;
+  role: OrgRole;
+  orgName: string;
+  orgSlug: string;
+};
+
+/**
+ * Resolve which organization the user is "working as".
+ * The active_org cookie wins when it names one of their orgs;
+ * otherwise the oldest membership is used (and the cookie is synced).
+ */
+export async function resolveActiveMembership(
+  userId: string
+): Promise<OrgMembershipInfo | null> {
+  const memberships = await db.membership.findMany({
+    where: { userId },
+    include: { organization: { select: { name: true, slug: true } } },
+    orderBy: { createdAt: "asc" },
+  });
+  if (memberships.length === 0) return null;
+  const cookieOrg = await getActiveOrgId();
+  const match =
+    (cookieOrg && memberships.find((m) => m.organizationId === cookieOrg)) ||
+    memberships[0];
+  const info: OrgMembershipInfo = {
+    membershipId: match.id,
+    organizationId: match.organizationId,
+    role: match.role as OrgRole,
+    orgName: match.organization.name,
+    orgSlug: match.organization.slug,
+  };
+  if (cookieOrg !== info.organizationId) {
+    await setActiveOrgCookie(info.organizationId);
+  }
+  return info;
+}
+
+export type OrgApiUser = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  orgId: string;
+  orgRole: OrgRole;
+  orgName: string;
+};
+
+/**
+ * API-route guard: like requireApiUser, but scoped to the user's active
+ * organization. Returns { user } with orgId/orgRole, or { error }.
+ */
+export async function requireOrgApiUser(
+  _req: NextRequest,
+  allowedOrgRoles?: OrgRole[]
+): Promise<
+  { ok: true; user: OrgApiUser } | { ok: false; error: NextResponse }
+> {
+  const session = await getSession();
+  if (!session) {
+    return {
+      ok: false,
+      error: NextResponse.json({ error: "Not signed in" }, { status: 401 }),
+    };
+  }
+  const membership = await resolveActiveMembership(session.userId);
+  if (!membership) {
+    return {
+      ok: false,
+      error: NextResponse.json(
+        { error: "No organization — contact your administrator" },
+        { status: 403 }
+      ),
+    };
+  }
+  if (allowedOrgRoles && !allowedOrgRoles.includes(membership.role)) {
+    return {
+      ok: false,
+      error: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    };
+  }
+  const user = await db.user.findUnique({ where: { id: session.userId } });
+  if (!user) {
+    return {
+      ok: false,
+      error: NextResponse.json({ error: "Not signed in" }, { status: 401 }),
+    };
+  }
+  return {
+    ok: true,
+    user: {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      orgId: membership.organizationId,
+      orgRole: membership.role,
+      orgName: membership.orgName,
+    },
+  };
+}
+
+/**
+ * Server-component guard: like requireUser, but returns the active org
+ * context. Redirects to /login when unauthorized.
+ */
+export async function requireOrgUser(allowedOrgRoles?: OrgRole[]) {
+  const session = await getSession();
+  if (!session) redirect("/login");
+  const membership = await resolveActiveMembership(session.userId);
+  if (!membership) redirect("/login?error=no-org");
+  if (allowedOrgRoles && !allowedOrgRoles.includes(membership.role)) {
+    redirect("/login?error=forbidden");
+  }
+  const user = await db.user.findUnique({ where: { id: session.userId } });
+  if (!user) redirect("/login");
+  return {
+    user,
+    orgId: membership.organizationId,
+    orgRole: membership.role,
+    orgName: membership.orgName,
+    orgSlug: membership.orgSlug,
+  };
+}
+
+/**
+ * Load an event only if it belongs to the given org.
+ * Use in every org-scoped route that takes an event id — a cross-org id
+ * returns null (callers map it to 404) so orgs can never see each other.
+ */
+export async function getOrgEvent(orgId: string, eventId: string) {
+  return db.event.findFirst({
+    where: { id: eventId, organizationId: orgId },
+  });
+}
+
+/**
+ * Load an event by slug only if it belongs to the given org.
+ */
+export async function getOrgEventBySlug(orgId: string, slug: string) {
+  return db.event.findFirst({
+    where: { slug, organizationId: orgId },
+  });
+}

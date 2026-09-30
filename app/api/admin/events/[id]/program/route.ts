@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireApiUser } from "@/lib/auth";
+import { requireOrgApiUser } from "@/lib/auth";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -8,9 +8,14 @@ const orderBy = [{ sortOrder: "asc" }, { createdAt: "asc" }] as const;
 
 /** Admin: list program/schedule items for an event. */
 export async function GET(_req: NextRequest, { params }: Ctx) {
-  const auth = await requireApiUser(_req, ["ADMIN"]);
+  const auth = await requireOrgApiUser(_req, ["ORG_OWNER", "ORG_ADMIN"]);
   if (!auth.ok) return auth.error;
+  const { orgId } = auth.user;
   const { id } = await params;
+  const event = await db.event.findFirst({
+    where: { id, organizationId: orgId },
+  });
+  if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 });
   const items = await db.programItem.findMany({
     where: { eventId: id },
     orderBy: [...orderBy],
@@ -20,10 +25,11 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 
 /** Admin: add a program/schedule item. Body: { timeLabel, title, description? } */
 export async function POST(req: NextRequest, { params }: Ctx) {
-  const auth = await requireApiUser(req, ["ADMIN"]);
+  const auth = await requireOrgApiUser(req, ["ORG_OWNER", "ORG_ADMIN"]);
   if (!auth.ok) return auth.error;
+  const { orgId } = auth.user;
   const { id } = await params;
-  const event = await db.event.findUnique({ where: { id } });
+  const event = await db.event.findFirst({ where: { id, organizationId: orgId } });
   if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 });
 
   const body = await req.json().catch(() => ({}));

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireApiUser } from "@/lib/auth";
+import { requireOrgApiUser } from "@/lib/auth";
 
 type Ctx = { params: Promise<{ id: string; itemId: string }> };
 
@@ -10,9 +10,17 @@ async function getItem(id: string, itemId: string) {
 
 /** Admin: edit a program item, or move it (body: { move: "up" | "down" }). */
 export async function PATCH(req: NextRequest, { params }: Ctx) {
-  const auth = await requireApiUser(req, ["ADMIN"]);
+  const auth = await requireOrgApiUser(req, ["ORG_OWNER", "ORG_ADMIN"]);
   if (!auth.ok) return auth.error;
+  const { orgId } = auth.user;
   const { id, itemId } = await params;
+  const eventOk = await db.event.findFirst({
+    where: { id, organizationId: orgId },
+    select: { id: true },
+  });
+  if (!eventOk) {
+    return NextResponse.json({ error: "Event not found" }, { status: 404 });
+  }
   const item = await getItem(id, itemId);
   if (!item) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -54,9 +62,17 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 
 /** Admin: delete a program item. */
 export async function DELETE(req: NextRequest, { params }: Ctx) {
-  const auth = await requireApiUser(req, ["ADMIN"]);
+  const auth = await requireOrgApiUser(req, ["ORG_OWNER", "ORG_ADMIN"]);
   if (!auth.ok) return auth.error;
+  const { orgId } = auth.user;
   const { id, itemId } = await params;
+  const eventOk = await db.event.findFirst({
+    where: { id, organizationId: orgId },
+    select: { id: true },
+  });
+  if (!eventOk) {
+    return NextResponse.json({ error: "Event not found" }, { status: 404 });
+  }
   const item = await getItem(id, itemId);
   if (!item) return NextResponse.json({ error: "Not found" }, { status: 404 });
   await db.programItem.delete({ where: { id: itemId } });

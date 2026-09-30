@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
+import { requireOrgUser } from "@/lib/auth";
 import { Container, Card, PageTitle } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -16,10 +16,10 @@ function fmtDate(d: Date) {
 }
 
 export default async function DoorPicker() {
-  await requireUser(["ADMIN", "DOOR"]);
+  const { orgId } = await requireOrgUser(["ORG_OWNER", "ORG_ADMIN", "ORG_DOOR"]);
 
   const events = await db.event.findMany({
-    where: { status: { in: ["PUBLISHED", "CLOSED"] } },
+    where: { status: { in: ["PUBLISHED", "CLOSED"] }, organizationId: orgId },
     orderBy: { date: "desc" },
     take: 20,
     include: {

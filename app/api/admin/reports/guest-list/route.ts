@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireApiUser } from "@/lib/auth";
+import { requireOrgApiUser } from "@/lib/auth";
 
 function cell(v: string | null | undefined): string {
   let s = v ?? "";
@@ -12,15 +12,18 @@ function cell(v: string | null | undefined): string {
 
 /** ADMIN: download the guest list for an event as CSV. */
 export async function GET(req: NextRequest) {
-  const auth = await requireApiUser(req, ["ADMIN"]);
+  const auth = await requireOrgApiUser(req, ["ORG_OWNER", "ORG_ADMIN"]);
   if (!auth.ok) return auth.error;
+  const { orgId } = auth.user;
 
   const { searchParams } = new URL(req.url);
   const eventId = searchParams.get("eventId");
   if (!eventId) {
     return NextResponse.json({ error: "eventId is required" }, { status: 400 });
   }
-  const event = await db.event.findUnique({ where: { id: eventId } });
+  const event = await db.event.findFirst({
+    where: { id: eventId, organizationId: orgId },
+  });
   if (!event) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }

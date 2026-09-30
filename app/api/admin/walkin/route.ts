@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireApiUser } from "@/lib/auth";
+import { requireOrgApiUser } from "@/lib/auth";
 import { createOrder, issueTickets } from "@/lib/orders";
 
 /**
@@ -8,8 +8,9 @@ import { createOrder, issueTickets } from "@/lib/orders";
  * tickets immediately. Optionally checks them in right away.
  */
 export async function POST(req: NextRequest) {
-  const auth = await requireApiUser(req, ["ADMIN", "SELLER", "DOOR"]);
+  const auth = await requireOrgApiUser(req, ["ORG_OWNER", "ORG_ADMIN", "ORG_STAFF", "ORG_DOOR"]);
   if (!auth.ok) return auth.error;
+  const { orgId } = auth.user;
 
   let body: Record<string, unknown>;
   try {
@@ -25,6 +26,13 @@ export async function POST(req: NextRequest) {
       { error: "eventId and items are required" },
       { status: 400 }
     );
+  }
+  const eventOk = await db.event.findFirst({
+    where: { id: eventId, organizationId: orgId },
+    select: { id: true },
+  });
+  if (!eventOk) {
+    return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
   try {

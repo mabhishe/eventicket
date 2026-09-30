@@ -13,6 +13,13 @@ enum Role {
   DOOR
 }
 
+enum OrgRole {
+  ORG_OWNER
+  ORG_ADMIN
+  ORG_STAFF
+  ORG_DOOR
+}
+
 enum EventStatus {
   DRAFT
   PUBLISHED
@@ -42,10 +49,43 @@ model User {
   name         String
   email        String   @unique
   passwordHash String
-  role         Role     @default(SELLER)
+  role         Role     @default(SELLER) // platform-level role; per-org access comes from Membership
   createdAt    DateTime @default(now())
   soldOrders   Order[]  @relation("SellerOrders")
   events       Event[]  @relation("CreatedEvents")
+  memberships  Membership[]
+}
+
+model Organization {
+  id               String   @id @default(cuid())
+  name             String
+  slug             String   @unique
+  logoUrl          String?
+  tagline          String?
+  supportEmail     String?
+  supportPhone     String?
+  timezone         String   @default("America/Toronto")
+  brandColor       String?
+  etransferEmail   String?
+  zelleHandle      String?
+  cashNote         String?
+  plan             String   @default("FREE") // FREE | PRO
+  stripeCustomerId String?
+  createdAt        DateTime @default(now())
+  memberships      Membership[]
+  events           Event[]
+}
+
+model Membership {
+  id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role           OrgRole      @default(ORG_STAFF)
+  createdAt      DateTime     @default(now())
+
+  @@unique([userId, organizationId])
 }
 
 model Event {
@@ -64,6 +104,8 @@ model Event {
   imageUrls      String      @default("[]")
   brandColor     String?
   requireEntryBeforeFood Boolean @default(false) // food line needs an entry scan first
+  organizationId String? // nullable during migration; backfilled by scripts/backfill-orgs.ts
+  organization   Organization? @relation(fields: [organizationId], references: [id])
   createdById    String
   createdBy      User        @relation("CreatedEvents", fields: [createdById], references: [id])
   createdAt      DateTime    @default(now())

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireApiUser } from "@/lib/auth";
+import { requireOrgApiUser } from "@/lib/auth";
 import {
   resolveScanCode,
   partyProgress,
@@ -18,8 +18,9 @@ import {
  * When the event requires entry before food, unadmitted guests are refused.
  */
 export async function POST(req: NextRequest) {
-  const auth = await requireApiUser(req, ["ADMIN", "DOOR"]);
+  const auth = await requireOrgApiUser(req, ["ORG_OWNER", "ORG_ADMIN", "ORG_DOOR"]);
   if (!auth.ok) return auth.error;
+  const { orgId } = auth.user;
 
   let body: Record<string, unknown>;
   try {
@@ -53,6 +54,15 @@ export async function POST(req: NextRequest) {
           eventId: resolved.orderEventId,
         };
 
+  // The scanned code's event must belong to this org — otherwise the
+  // code is treated as not found (no cross-org information leak).
+  const eventOk = await db.event.findFirst({
+    where: { id: info.eventId, organizationId: orgId },
+    select: { id: true },
+  });
+  if (!eventOk) {
+    return NextResponse.json({ error: "Code not found" }, { status: 404 });
+  }
   if (eventId && info.eventId !== eventId) {
     return NextResponse.json(
       { error: `This code is for "${info.title}", not this event` },

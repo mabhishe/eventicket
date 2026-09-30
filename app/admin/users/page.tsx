@@ -21,9 +21,21 @@ type User = {
 };
 
 const roleTone: Record<string, "blue" | "zinc" | "amber"> = {
-  ADMIN: "blue",
-  SELLER: "zinc",
+  ORG_OWNER: "blue",
+  ORG_ADMIN: "blue",
+  ORG_STAFF: "zinc",
   DOOR: "amber",
+  ORG_DOOR: "amber",
+};
+
+const roleLabel: Record<string, string> = {
+  ORG_OWNER: "Owner",
+  ORG_ADMIN: "Admin",
+  ORG_STAFF: "Staff",
+  ORG_DOOR: "Door",
+  ADMIN: "Admin",
+  SELLER: "Staff",
+  DOOR: "Door",
 };
 
 export default function UsersPage() {
@@ -31,7 +43,7 @@ export default function UsersPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("SELLER");
+  const [role, setRole] = useState("ORG_STAFF");
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -61,7 +73,7 @@ export default function UsersPage() {
     setName("");
     setEmail("");
     setPassword("");
-    setRole("SELLER");
+    setRole("ORG_STAFF");
     await load();
   }
 
@@ -87,7 +99,7 @@ export default function UsersPage() {
                     {u.email} · {u._count.soldOrders} orders sold
                   </p>
                 </div>
-                <Badge tone={roleTone[u.role] ?? "zinc"}>{u.role}</Badge>
+                <Badge tone={roleTone[u.role] ?? "zinc"}>{roleLabel[u.role] ?? u.role}</Badge>
               </div>
             ))}
           </div>
@@ -112,14 +124,13 @@ export default function UsersPage() {
                 required
               />
             </Field>
-            <Field label="Password (8+ characters)">
+            <Field label="Password (8+ characters, blank if they already have a login)">
               <input
                 className={inputCls}
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 minLength={8}
-                required
               />
             </Field>
             <Field label="Role">
@@ -128,9 +139,10 @@ export default function UsersPage() {
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
               >
-                <option value="SELLER">Seller</option>
-                <option value="DOOR">Door staff</option>
-                <option value="ADMIN">Admin</option>
+                <option value="ORG_STAFF">Staff — sell &amp; confirm payments</option>
+                <option value="ORG_DOOR">Door staff — check guests in</option>
+                <option value="ORG_ADMIN">Admin — manage events &amp; team</option>
+                <option value="ORG_OWNER">Owner — everything</option>
               </select>
             </Field>
             <button className={btnPrimary}>Add user</button>

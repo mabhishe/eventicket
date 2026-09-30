@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import { mkdir, writeFile, unlink } from "fs/promises";
 import path from "path";
 import { db } from "@/lib/db";
-import { requireApiUser } from "@/lib/auth";
+import { requireOrgApiUser } from "@/lib/auth";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -42,11 +42,12 @@ function parseImageUrls(raw: string | null): string[] {
  * Form fields: file (image), kind ("logo" | "image").
  */
 export async function POST(req: NextRequest, { params }: Ctx) {
-  const auth = await requireApiUser(req, ["ADMIN"]);
+  const auth = await requireOrgApiUser(req, ["ORG_OWNER", "ORG_ADMIN"]);
   if (!auth.ok) return auth.error;
+  const { orgId } = auth.user;
   const { id } = await params;
 
-  const event = await db.event.findUnique({ where: { id } });
+  const event = await db.event.findFirst({ where: { id, organizationId: orgId } });
   if (!event) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
@@ -120,11 +121,12 @@ export async function POST(req: NextRequest, { params }: Ctx) {
  * The first image is used as the event page banner.
  */
 export async function PATCH(req: NextRequest, { params }: Ctx) {
-  const auth = await requireApiUser(req, ["ADMIN"]);
+  const auth = await requireOrgApiUser(req, ["ORG_OWNER", "ORG_ADMIN"]);
   if (!auth.ok) return auth.error;
+  const { orgId } = auth.user;
   const { id } = await params;
 
-  const event = await db.event.findUnique({ where: { id } });
+  const event = await db.event.findFirst({ where: { id, organizationId: orgId } });
   if (!event) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
@@ -166,11 +168,12 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 }
 
 export async function DELETE(req: NextRequest, { params }: Ctx) {
-  const auth = await requireApiUser(req, ["ADMIN"]);
+  const auth = await requireOrgApiUser(req, ["ORG_OWNER", "ORG_ADMIN"]);
   if (!auth.ok) return auth.error;
+  const { orgId } = auth.user;
   const { id } = await params;
 
-  const event = await db.event.findUnique({ where: { id } });
+  const event = await db.event.findFirst({ where: { id, organizationId: orgId } });
   if (!event) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
