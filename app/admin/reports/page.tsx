@@ -93,7 +93,7 @@ export default function ReportsPage() {
               ["Food collected", String(s.foodCollected)],
             ].map(([label, value]) => (
               <Card key={label}>
-                <p className="text-xs uppercase tracking-wide text-zinc-500">
+                <p className="text-xs uppercase tracking-wide text-stone-500">
                   {label}
                 </p>
                 <p className="text-2xl font-bold">{value}</p>
@@ -104,7 +104,7 @@ export default function ReportsPage() {
           {eventId && (
             <div className="mb-6">
               <a
-                className="inline-block rounded-lg border border-zinc-300 px-4 py-2 text-sm font-semibold dark:border-zinc-700"
+                className="inline-block rounded-lg border border-stone-300 px-4 py-2 text-sm font-semibold dark:border-stone-700"
                 href={`/api/admin/reports/guest-list?eventId=${eventId}`}
               >
                 Download guest list (CSV)
@@ -116,17 +116,17 @@ export default function ReportsPage() {
             <Card>
               <h2 className="mb-3 font-semibold">By ticket type</h2>
               {report!.byTicketType.length === 0 ? (
-                <p className="text-sm text-zinc-500">No sales yet.</p>
+                <p className="text-sm text-stone-500">No sales yet.</p>
               ) : (
                 <table className="w-full text-sm">
                   <tbody>
                     {report!.byTicketType.map((r) => (
                       <tr
                         key={r.name}
-                        className="border-b border-zinc-100 last:border-0 dark:border-zinc-800"
+                        className="border-b border-stone-100 last:border-0 dark:border-stone-800"
                       >
                         <td className="py-2">{r.name}</td>
-                        <td className="py-2 text-right text-zinc-500">
+                        <td className="py-2 text-right text-stone-500">
                           {r.qty} sold
                         </td>
                         <td className="py-2 text-right font-semibold">
@@ -141,17 +141,17 @@ export default function ReportsPage() {
             <Card>
               <h2 className="mb-3 font-semibold">By seller</h2>
               {report!.bySeller.length === 0 ? (
-                <p className="text-sm text-zinc-500">No sales yet.</p>
+                <p className="text-sm text-stone-500">No sales yet.</p>
               ) : (
                 <table className="w-full text-sm">
                   <tbody>
                     {report!.bySeller.map((r) => (
                       <tr
                         key={r.name}
-                        className="border-b border-zinc-100 last:border-0 dark:border-zinc-800"
+                        className="border-b border-stone-100 last:border-0 dark:border-stone-800"
                       >
                         <td className="py-2">{r.name}</td>
-                        <td className="py-2 text-right text-zinc-500">
+                        <td className="py-2 text-right text-stone-500">
                           {r.orders} orders
                         </td>
                         <td className="py-2 text-right font-semibold">
@@ -168,14 +168,14 @@ export default function ReportsPage() {
           <Card className="mt-6">
             <h2 className="mb-3 font-semibold">Meal counts</h2>
             {report!.meals.length === 0 ? (
-              <p className="text-sm text-zinc-500">
+              <p className="text-sm text-stone-500">
                 No meal choices on confirmed tickets.
               </p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left text-xs text-zinc-500">
+                    <tr className="text-left text-xs text-stone-500">
                       <th className="py-2 pr-2">Meal</th>
                       <th className="py-2 pr-2 text-right">Ordered</th>
                       <th className="py-2 pr-2 text-right">Served</th>
@@ -186,7 +186,7 @@ export default function ReportsPage() {
                     {report!.meals.map((m) => (
                       <tr
                         key={m.name}
-                        className="border-t border-zinc-100 dark:border-zinc-800"
+                        className="border-t border-stone-100 dark:border-stone-800"
                       >
                         <td className="py-2 pr-2">
                           {m.name}

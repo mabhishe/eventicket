@@ -15,7 +15,7 @@ export function Card({
 }) {
   return (
     <div
-      className={`rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 ${className}`}
+      className={`rounded-2xl border border-stone-200/70 bg-white p-5 shadow-[0_1px_3px_rgba(120,53,15,0.07)] dark:border-stone-800 dark:bg-stone-900 dark:shadow-none ${className}`}
     >
       {children}
     </div>
@@ -34,8 +34,14 @@ export function PageTitle({
   return (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-        {sub && <p className="mt-1 text-sm text-zinc-500">{sub}</p>}
+        <h1 className="text-2xl font-bold tracking-tight text-stone-900 dark:text-stone-50">
+          {title}
+        </h1>
+        {sub && (
+          <p className="mt-1 max-w-xl text-sm text-stone-500 dark:text-stone-400">
+            {sub}
+          </p>
+        )}
       </div>
       {action}
     </div>
@@ -44,19 +50,22 @@ export function PageTitle({
 
 export function Badge({
   children,
-  tone = "zinc",
+  tone = "stone",
 }: {
   children: ReactNode;
-  tone?: "zinc" | "green" | "amber" | "red" | "blue";
+  tone?: "stone" | "green" | "amber" | "red" | "blue" | "ember";
 }) {
   const tones: Record<string, string> = {
-    zinc: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
+    stone:
+      "bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-300",
     green:
       "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300",
     amber:
       "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
     red: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
     blue: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
+    ember:
+      "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300",
   };
   return (
     <span
@@ -68,19 +77,19 @@ export function Badge({
 }
 
 export const inputCls =
-  "w-full rounded-lg border border-zinc-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:focus:border-zinc-100 dark:focus:ring-zinc-100";
+  "w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-stone-900 outline-none placeholder:text-stone-400 focus:border-orange-700 focus:ring-2 focus:ring-orange-700/20 dark:border-stone-700 dark:bg-stone-900 dark:text-stone-100 dark:focus:border-orange-500 dark:focus:ring-orange-500/20";
 
 export const labelCls =
-  "mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500";
+  "mb-1 block text-xs font-semibold uppercase tracking-wide text-stone-500 dark:text-stone-400";
 
 export const btnPrimary =
-  "inline-flex items-center justify-center rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white";
+  "inline-flex items-center justify-center rounded-xl bg-orange-700 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(154,52,18,0.4)] hover:bg-orange-800 disabled:opacity-50 dark:bg-orange-600 dark:hover:bg-orange-500";
 
 export const btnSecondary =
-  "inline-flex items-center justify-center rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-semibold hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800";
+  "inline-flex items-center justify-center rounded-xl border border-stone-300 bg-white/50 px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-100 disabled:opacity-50 dark:border-stone-700 dark:bg-transparent dark:text-stone-200 dark:hover:bg-stone-800";
 
 export const btnDanger =
-  "inline-flex items-center justify-center rounded-lg border border-red-300 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950";
+  "inline-flex items-center justify-center rounded-xl border border-red-300 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950";
 
 export function Field({
   label,
@@ -100,7 +109,7 @@ export function Field({
 export function ErrorNote({ message }: { message: string | null }) {
   if (!message) return null;
   return (
-    <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
+    <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300">
       {message}
     </p>
   );

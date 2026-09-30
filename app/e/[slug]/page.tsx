@@ -143,7 +143,7 @@ function PublicEventPageInner({
     return (
       <Container>
         <ErrorNote message={error} />
-        {!error && <p className="text-zinc-500">Loading…</p>}
+        {!error && <p className="text-stone-500">Loading…</p>}
       </Container>
     );
   }
@@ -258,7 +258,7 @@ function PublicEventPageInner({
             <img
               src={event.logoUrl}
               alt={`${event.title} logo`}
-              className="h-20 w-20 shrink-0 rounded-2xl border border-zinc-200 object-contain dark:border-zinc-800"
+              className="h-20 w-20 shrink-0 rounded-2xl border border-stone-200 object-contain dark:border-stone-800"
             />
           )}
           <div className="min-w-0">
@@ -290,14 +290,14 @@ function PublicEventPageInner({
               {(event.programItems || []).map((p) => (
                 <li key={p.id} className="flex gap-3">
                   {p.timeLabel && (
-                    <span className="w-20 shrink-0 pt-0.5 text-xs font-semibold text-zinc-500">
+                    <span className="w-20 shrink-0 pt-0.5 text-xs font-semibold text-stone-500">
                       {p.timeLabel}
                     </span>
                   )}
                   <div className="min-w-0">
                     <p className="text-sm font-medium">{p.title}</p>
                     {p.description && (
-                      <p className="whitespace-pre-wrap text-sm text-zinc-500">
+                      <p className="whitespace-pre-wrap text-sm text-stone-500">
                         {p.description}
                       </p>
                     )}
@@ -326,7 +326,7 @@ function PublicEventPageInner({
           <Card className="mb-6">
             <h2 className="mb-1 font-semibold">
               Who&rsquo;s going 🎉{" "}
-              <span className="text-sm font-normal text-zinc-500">
+              <span className="text-sm font-normal text-stone-500">
                 ({attendeeWall.reduce((s, a) => s + a.partySize, 0)} attending)
               </span>
             </h2>
@@ -335,7 +335,7 @@ function PublicEventPageInner({
                 <span
                   key={i}
                   title={`${a.name} · party of ${a.partySize}`}
-                  className="inline-flex items-center gap-2 rounded-full border border-zinc-200 py-1 pl-1 pr-3 text-sm dark:border-zinc-800"
+                  className="inline-flex items-center gap-2 rounded-full border border-stone-200 py-1 pl-1 pr-3 text-sm dark:border-stone-800"
                 >
                   <span
                     aria-hidden
@@ -348,7 +348,7 @@ function PublicEventPageInner({
                   </span>
                   {a.name}
                   {a.partySize > 1 && (
-                    <span className="text-xs text-zinc-500">+{a.partySize - 1}</span>
+                    <span className="text-xs text-stone-500">+{a.partySize - 1}</span>
                   )}
                 </span>
               ))}
@@ -365,18 +365,18 @@ function PublicEventPageInner({
               return (
                 <div
                   key={t.id}
-                  className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
+                  className="rounded-lg border border-stone-200 p-4 dark:border-stone-800"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-medium">{t.name}</p>
                       {t.description && (
-                        <p className="text-sm text-zinc-500">{t.description}</p>
+                        <p className="text-sm text-stone-500">{t.description}</p>
                       )}
                       <p className="mt-1 text-sm font-semibold">
                         {formatCents(t.priceCents, event.currency)}
                       </p>
-                      <p className="text-xs text-zinc-400">
+                      <p className="text-xs text-stone-400">
                         {left > 0 ? `${left} left` : "Sold out"}
                       </p>
                     </div>
@@ -384,7 +384,7 @@ function PublicEventPageInner({
                       <button
                         type="button"
                         aria-label={`Remove one ${t.name}`}
-                        className="h-11 w-11 rounded-lg border border-zinc-300 text-xl dark:border-zinc-700"
+                        className="h-11 w-11 rounded-lg border border-stone-300 text-xl dark:border-stone-700"
                         disabled={q === 0}
                         onClick={() =>
                           setQty({ ...qty, [t.id]: Math.max(0, q - 1) })
@@ -396,7 +396,7 @@ function PublicEventPageInner({
                       <button
                         type="button"
                         aria-label={`Add one ${t.name}`}
-                        className="h-11 w-11 rounded-lg border border-zinc-300 text-xl dark:border-zinc-700"
+                        className="h-11 w-11 rounded-lg border border-stone-300 text-xl dark:border-stone-700"
                         disabled={left <= 0 || q >= Math.min(left, 10)}
                         onClick={() => setQty({ ...qty, [t.id]: q + 1 })}
                       >
@@ -410,16 +410,16 @@ function PublicEventPageInner({
           </div>
 
           {slots.length > 0 && (
-            <div className="mt-6 border-t border-zinc-200 pt-6 dark:border-zinc-800">
+            <div className="mt-6 border-t border-stone-200 pt-6 dark:border-stone-800">
               <h3 className="mb-1 font-semibold">Who&rsquo;s coming?</h3>
-              <p className="mb-4 text-sm text-zinc-500">
+              <p className="mb-4 text-sm text-stone-500">
                 Add each guest&rsquo;s name and meal choice.
               </p>
               <div className="space-y-3">
                 {slots.map((s, i) => (
                   <div
                     key={s.key}
-                    className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"
+                    className="rounded-lg border border-stone-200 p-3 dark:border-stone-800"
                   >
                     <p className="mb-2 text-sm font-medium">
                       Guest {i + 1} · {s.typeName}
@@ -464,7 +464,7 @@ function PublicEventPageInner({
 
               <form
                 onSubmit={submit}
-                className="mt-6 space-y-4 border-t border-zinc-200 pt-6 dark:border-zinc-800"
+                className="mt-6 space-y-4 border-t border-stone-200 pt-6 dark:border-stone-800"
               >
                 <h3 className="font-semibold">Your details</h3>
                 <Field label="Full name">
@@ -493,11 +493,11 @@ function PublicEventPageInner({
                     />
                   </Field>
                 </div>
-                <p className="-mt-2 text-xs text-zinc-500">
+                <p className="-mt-2 text-xs text-stone-500">
                   At least one of email or phone is needed so you can find your
                   order later.
                 </p>
-                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-stone-200 p-3 dark:border-stone-800">
                   <input
                     type="checkbox"
                     checked={showOnWall}
@@ -509,7 +509,7 @@ function PublicEventPageInner({
                       Show me on the &ldquo;Who&rsquo;s going&rdquo; wall 🎉
                     </span>
                     <br />
-                    <span className="text-zinc-500">
+                    <span className="text-stone-500">
                       Your first name and party size appear publicly so friends
                       can see you&rsquo;re going.
                     </span>
@@ -538,7 +538,7 @@ function PublicEventPageInner({
                     ? "Placing order…"
                     : `Place order — ${formatCents(totalCents, event.currency)}`}
                 </button>
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-stone-500">
                   You pay after placing the order. Your tickets are issued once
                   the organizer confirms your payment.
                 </p>
@@ -546,14 +546,14 @@ function PublicEventPageInner({
             </div>
           )}
         </Card>
-        <p className="mt-6 text-center text-sm text-zinc-500">
+        <p className="mt-6 text-center text-sm text-stone-500">
           Already ordered?{" "}
           <a href="/find-tickets" className="font-semibold underline">
             Find my tickets
           </a>
         </p>
         {showBadge && (
-          <p className="mt-4 text-center text-xs text-zinc-400">
+          <p className="mt-4 text-center text-xs text-stone-400">
             Powered by{" "}
             <a href="/" className="font-semibold underline">
               EventPass

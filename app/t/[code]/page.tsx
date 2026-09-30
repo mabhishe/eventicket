@@ -52,9 +52,9 @@ export default async function TicketPage({ params }: Ctx) {
     <Container>
       <div className="mx-auto max-w-sm">
         <Card className="text-center">
-          <p className="text-sm text-zinc-500">{e.title}</p>
+          <p className="text-sm text-stone-500">{e.title}</p>
           <h1 className="mt-1 text-xl font-bold">{ticket.ticketType.name}</h1>
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-stone-500">
             {new Intl.DateTimeFormat("en-CA", {
               weekday: "long",
               year: "numeric",
@@ -74,7 +74,7 @@ export default async function TicketPage({ params }: Ctx) {
           <p className="mt-3 font-mono text-2xl font-bold tracking-widest">
             {groupCode}
           </p>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-stone-500">
             Group pass · {partySize} {partySize === 1 ? "person" : "people"} ·
             scanned once per person at the door and food line
           </p>
@@ -94,10 +94,10 @@ export default async function TicketPage({ params }: Ctx) {
               <Badge tone="amber">{ticket.mealOption.name}</Badge>
             )}
           </div>
-          <p className="mt-3 text-sm text-zinc-500">
+          <p className="mt-3 text-sm text-stone-500">
             {ticket.holderName || ticket.order.buyerName}
           </p>
-          <p className="mt-1 text-xs text-zinc-400">
+          <p className="mt-1 text-xs text-stone-400">
             Show this QR at the door for check-in — one scan per person.
           </p>
           <div className="mt-4 flex justify-center">
@@ -107,7 +107,7 @@ export default async function TicketPage({ params }: Ctx) {
               text={`My ticket for ${e.title}`}
             />
           </div>
-          <p className="mt-2 font-mono text-xs text-zinc-400">
+          <p className="mt-2 font-mono text-xs text-stone-400">
             Ticket {ticket.code}
           </p>
         </Card>

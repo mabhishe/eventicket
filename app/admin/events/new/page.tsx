@@ -107,7 +107,7 @@ export default function NewEventPage() {
                 placeholder="What guests should know…"
               />
             </Field>
-            <div className="rounded-lg bg-zinc-50 p-4 dark:bg-zinc-800/50">
+            <div className="rounded-lg bg-stone-50 p-4 dark:bg-stone-800/50">
               <p className="mb-3 text-sm font-semibold">
                 How guests pay you (shown at checkout)
               </p>
@@ -138,7 +138,7 @@ export default function NewEventPage() {
                 </Field>
               </div>
             </div>
-            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-stone-200 p-4 dark:border-stone-800">
               <input
                 type="checkbox"
                 className="mt-1 h-5 w-5"
@@ -149,7 +149,7 @@ export default function NewEventPage() {
                 <span className="block text-sm font-medium">
                   Require entry scan before food is served
                 </span>
-                <span className="block text-xs text-zinc-500">
+                <span className="block text-xs text-stone-500">
                   Guests must be checked in at the door before the food line
                   will serve them. Off by default.
                 </span>

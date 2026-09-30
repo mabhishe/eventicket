@@ -49,7 +49,7 @@ export default function OrgSwitcher() {
 
   return (
     <div className="flex items-center gap-2 text-sm">
-      <span className="hidden text-xs uppercase tracking-wide text-zinc-400 md:inline">
+      <span className="hidden text-xs uppercase tracking-wide text-stone-400 md:inline">
         Working as
       </span>
       {orgs.length === 1 ? (
@@ -58,7 +58,7 @@ export default function OrgSwitcher() {
         </span>
       ) : (
         <select
-          className="max-w-44 cursor-pointer rounded-lg border border-zinc-300 bg-transparent px-2 py-1 text-sm font-medium dark:border-zinc-700"
+          className="max-w-44 cursor-pointer rounded-lg border border-stone-300 bg-transparent px-2 py-1 text-sm font-medium dark:border-stone-700"
           value={active.id}
           disabled={busy}
           onChange={(e) => switchOrg(e.target.value)}

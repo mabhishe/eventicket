@@ -37,7 +37,7 @@ type Order = {
   _count: { tickets: number };
 };
 
-const tone: Record<string, "amber" | "green" | "red" | "zinc"> = {
+const tone: Record<string, "amber" | "green" | "red" | "stone"> = {
   PENDING_PAYMENT: "amber",
   CONFIRMED: "green",
   CANCELLED: "red",
@@ -111,8 +111,8 @@ function OrdersInner() {
                 }}
                 className={
                   filter === s
-                    ? "rounded-lg bg-zinc-900 px-3 py-2.5 text-xs font-semibold text-white dark:bg-zinc-100 dark:text-zinc-900"
-                    : "rounded-lg border border-zinc-300 px-3 py-2.5 text-xs font-semibold dark:border-zinc-700"
+                    ? "rounded-lg bg-stone-900 px-3 py-2.5 text-xs font-semibold text-white dark:bg-stone-100 dark:text-stone-900"
+                    : "rounded-lg border border-stone-300 px-3 py-2.5 text-xs font-semibold dark:border-stone-700"
                 }
               >
                 {s.replace("_", " ")}
@@ -124,7 +124,7 @@ function OrdersInner() {
       <ErrorNote message={error} />
       <div className="mb-4">
         <input
-          className="w-full rounded-lg border border-zinc-300 px-3 py-2.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className="w-full rounded-lg border border-stone-300 px-3 py-2.5 text-sm dark:border-stone-700 dark:bg-stone-900"
           value={buyerQuery}
           onChange={(e) => setBuyerQuery(e.target.value)}
           placeholder="Search buyer by name, email, or phone…"
@@ -144,7 +144,7 @@ function OrdersInner() {
         if (visible.length === 0) {
           return (
             <Card>
-              <p className="text-sm text-zinc-500">
+              <p className="text-sm text-stone-500">
                 {q
                   ? "No orders match this buyer. Switch the status filter to ALL if the order may already be confirmed or cancelled."
                   : "No orders in this view."}
@@ -159,7 +159,7 @@ function OrdersInner() {
               key={o.id}
               className={
                 highlight === o.id
-                  ? "ring-2 ring-zinc-900 dark:ring-zinc-100"
+                  ? "ring-2 ring-stone-900 dark:ring-stone-100"
                   : ""
               }
             >
@@ -169,17 +169,17 @@ function OrdersInner() {
                     <p className="font-semibold">{o.buyerName}</p>
                     {o.refCode && (
                       <span
-                        className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono text-xs font-bold tracking-widest dark:bg-zinc-800"
+                        className="rounded bg-stone-100 px-1.5 py-0.5 font-mono text-xs font-bold tracking-widest dark:bg-stone-800"
                         title="Payment reference code — match it against the e-transfer message"
                       >
                         {o.refCode}
                       </span>
                     )}
-                    <Badge tone={tone[o.status] ?? "zinc"}>
+                    <Badge tone={tone[o.status] ?? "stone"}>
                       {o.status.replace("_", " ")}
                     </Badge>
                   </div>
-                  <p className="mt-1 text-sm text-zinc-500">
+                  <p className="mt-1 text-sm text-stone-500">
                     {o.event.title} ·{" "}
                     {o.items
                       .map(
@@ -189,7 +189,7 @@ function OrdersInner() {
                       )
                       .join(", ")}
                   </p>
-                  <p className="text-xs text-zinc-400">
+                  <p className="text-xs text-stone-400">
                     {o.payMethod}
                     {o.buyerEmail ? ` · ${o.buyerEmail}` : ""}
                     {o.buyerPhone ? ` · ${o.buyerPhone}` : ""}
@@ -199,7 +199,7 @@ function OrdersInner() {
                       : ""}
                   </p>
                   {o.notes && (
-                    <p className="mt-1 text-xs text-zinc-500">“{o.notes}”</p>
+                    <p className="mt-1 text-xs text-stone-500">“{o.notes}”</p>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
@@ -262,7 +262,7 @@ function OrdersInner() {
       })()}
       {totalPages > 1 && (
         <div className="mt-4 flex items-center justify-between">
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-stone-500">
             Page {page} of {totalPages} · {total} orders
           </p>
           <div className="flex gap-2">

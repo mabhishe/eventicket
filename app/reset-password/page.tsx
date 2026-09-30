@@ -43,7 +43,7 @@ function ResetForm() {
           <h1 className="mb-1 text-xl font-bold">Choose a new password</h1>
           {done ? (
             <>
-              <p className="mb-4 text-sm text-zinc-500">
+              <p className="mb-4 text-sm text-stone-500">
                 Your password has been updated. Sign in with your new password.
               </p>
               <Link href="/login" className={btnPrimary}>
@@ -51,7 +51,7 @@ function ResetForm() {
               </Link>
             </>
           ) : !token ? (
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm text-stone-500">
               This reset link is missing its token. Please use the link from
               your email.
             </p>

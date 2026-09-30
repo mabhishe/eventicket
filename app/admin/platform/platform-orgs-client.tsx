@@ -98,7 +98,7 @@ export default function PlatformOrgsClient() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-zinc-500">
+              <tr className="text-left text-stone-500">
                 <th className="py-2 pr-4">Organization</th>
                 <th className="py-2 pr-4">Plan</th>
                 <th className="py-2 pr-4">Events</th>
@@ -111,11 +111,11 @@ export default function PlatformOrgsClient() {
               {orgs.map((o) => (
                 <tr
                   key={o.id}
-                  className="border-t border-zinc-100 dark:border-zinc-800"
+                  className="border-t border-stone-100 dark:border-stone-800"
                 >
                   <td className="py-3 pr-4">
                     <div className="font-semibold">{o.name}</div>
-                    <div className="text-xs text-zinc-500">
+                    <div className="text-xs text-stone-500">
                       {o.ownerEmail || o.slug}
                     </div>
                   </td>
@@ -132,14 +132,14 @@ export default function PlatformOrgsClient() {
                         <option value="PRO">Pro</option>
                       </select>
                     ) : (
-                      <span className="rounded-full bg-zinc-100 px-2 py-1 text-xs font-semibold dark:bg-zinc-800">
+                      <span className="rounded-full bg-stone-100 px-2 py-1 text-xs font-semibold dark:bg-stone-800">
                         {o.plan}
                       </span>
                     )}
                   </td>
                   <td className="py-3 pr-4">{o.publishedEvents}</td>
                   <td className="py-3 pr-4">{o.seats}</td>
-                  <td className="py-3 pr-4 text-xs text-zinc-500">
+                  <td className="py-3 pr-4 text-xs text-stone-500">
                     {editing === o.id ? (
                       <div className="flex gap-2">
                         <Field label="Events">
@@ -227,7 +227,7 @@ export default function PlatformOrgsClient() {
             </tbody>
           </table>
           {!orgs.length && (
-            <p className="py-4 text-sm text-zinc-500">Loading…</p>
+            <p className="py-4 text-sm text-stone-500">Loading…</p>
           )}
         </div>
       </Card>

@@ -230,9 +230,9 @@ export function PendingOrderActions({
       </div>
 
       {mode === "add" && (
-        <div className="mt-4 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+        <div className="mt-4 border-t border-stone-200 pt-4 dark:border-stone-800">
           {!event ? (
-            <p className="text-sm text-zinc-500">Loading ticket options…</p>
+            <p className="text-sm text-stone-500">Loading ticket options…</p>
           ) : (
             <>
               <div className="space-y-3">
@@ -242,11 +242,11 @@ export function PendingOrderActions({
                   return (
                     <div
                       key={t.id}
-                      className="flex items-center justify-between rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"
+                      className="flex items-center justify-between rounded-lg border border-stone-200 p-3 dark:border-stone-800"
                     >
                       <div>
                         <p className="text-sm font-medium">{t.name}</p>
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-xs text-stone-500">
                           {formatCents(t.priceCents, event.currency)} ·{" "}
                           {left > 0 ? `${left} left` : "Sold out"}
                         </p>
@@ -255,7 +255,7 @@ export function PendingOrderActions({
                         <button
                           type="button"
                           aria-label={`Remove one ${t.name}`}
-                          className="h-11 w-11 rounded-lg border border-zinc-300 text-xl dark:border-zinc-700"
+                          className="h-11 w-11 rounded-lg border border-stone-300 text-xl dark:border-stone-700"
                           disabled={q === 0}
                           onClick={() =>
                             setQty({ ...qty, [t.id]: Math.max(0, q - 1) })
@@ -269,7 +269,7 @@ export function PendingOrderActions({
                         <button
                           type="button"
                           aria-label={`Add one ${t.name}`}
-                          className="h-11 w-11 rounded-lg border border-zinc-300 text-xl dark:border-zinc-700"
+                          className="h-11 w-11 rounded-lg border border-stone-300 text-xl dark:border-stone-700"
                           disabled={left <= 0 || q >= left}
                           onClick={() => setQty({ ...qty, [t.id]: q + 1 })}
                         >
@@ -283,7 +283,7 @@ export function PendingOrderActions({
               {slots.map((s, i) => (
                 <div
                   key={s.key}
-                  className="mt-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"
+                  className="mt-3 rounded-lg border border-stone-200 p-3 dark:border-stone-800"
                 >
                   <p className="mb-2 text-sm font-medium">
                     Guest {i + 1} · {s.typeName}
@@ -332,7 +332,7 @@ export function PendingOrderActions({
                     : `Add to order — ${formatCents(addTotal, event.currency)}`}
                 </button>
               )}
-              <p className="mt-2 text-xs text-zinc-500">
+              <p className="mt-2 text-xs text-stone-500">
                 Added tickets keep the same payment code — just update your
                 transfer amount.
               </p>
@@ -342,7 +342,7 @@ export function PendingOrderActions({
       )}
 
       {mode === "edit" && (
-        <div className="mt-4 space-y-4 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+        <div className="mt-4 space-y-4 border-t border-stone-200 pt-4 dark:border-stone-800">
           <Field label="Your name">
             <input
               className={inputCls}
@@ -374,9 +374,9 @@ export function PendingOrderActions({
               {items.map((i) => (
                 <div
                   key={i.id}
-                  className="flex items-center gap-2 rounded-lg border border-zinc-200 p-2 dark:border-zinc-800"
+                  className="flex items-center gap-2 rounded-lg border border-stone-200 p-2 dark:border-stone-800"
                 >
-                  <span className="min-w-0 flex-1 truncate text-xs text-zinc-500">
+                  <span className="min-w-0 flex-1 truncate text-xs text-stone-500">
                     {i.qty > 1 ? `${i.qty} × ` : ""}
                     {i.ticketType.name}
                     {i.mealOption ? ` · ${i.mealOption.name}` : ""}

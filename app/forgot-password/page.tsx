@@ -39,13 +39,13 @@ export default function ForgotPasswordPage() {
         <Card>
           <h1 className="mb-1 text-xl font-bold">Forgot your password?</h1>
           {done ? (
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm text-stone-500">
               If an account exists for <strong>{email}</strong>, we've emailed
               you a reset link. It expires in 1 hour.
             </p>
           ) : (
             <>
-              <p className="mb-4 text-sm text-zinc-500">
+              <p className="mb-4 text-sm text-stone-500">
                 Enter your email and we'll send you a reset link.
               </p>
               <ErrorNote message={error} />
@@ -66,7 +66,7 @@ export default function ForgotPasswordPage() {
               </form>
             </>
           )}
-          <p className="mt-4 text-sm text-zinc-500">
+          <p className="mt-4 text-sm text-stone-500">
             <Link href="/login" className="underline">
               Back to sign in
             </Link>

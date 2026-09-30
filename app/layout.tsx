@@ -67,13 +67,14 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full bg-zinc-50 text-zinc-900 dark:bg-black dark:text-zinc-100">
+      <body className="min-h-full text-stone-900 antialiased dark:text-stone-100">
         <div className="flex min-h-screen flex-col">
           <Nav />
           <main className="flex-1">{children}</main>
-          <footer className="border-t border-zinc-200 py-4 text-center text-xs text-zinc-500 dark:border-zinc-800">
-            {process.env.APP_NAME || "EventPass"} — community event ticketing ·{" "}
-            <a href="/pricing" className="underline">
+          <footer className="border-t border-stone-200/70 py-5 text-center text-xs text-stone-500 dark:border-stone-800 dark:text-stone-400">
+            {process.env.APP_NAME || "EventPass"} — made for community
+            gatherings ·{" "}
+            <a href="/pricing" className="font-medium underline decoration-orange-700/40 underline-offset-2 hover:text-orange-700">
               Pricing
             </a>
           </footer>

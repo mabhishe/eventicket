@@ -30,7 +30,7 @@ type SavedOrder = {
   items: { qty: number; ticketType: { name: string } }[];
 };
 
-const tone: Record<string, "amber" | "green" | "red" | "zinc"> = {
+const tone: Record<string, "amber" | "green" | "red" | "stone"> = {
   PENDING_PAYMENT: "amber",
   CONFIRMED: "green",
   CANCELLED: "red",
@@ -62,13 +62,13 @@ function OrderRow({
   return (
     <Link
       href={`/order/${orderId}`}
-      className="block rounded-lg border border-zinc-200 p-3 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+      className="block rounded-lg border border-stone-200 p-3 hover:bg-stone-50 dark:border-stone-800 dark:hover:bg-stone-900"
     >
       <div className="flex items-center justify-between gap-2">
         <p className="font-medium">{title}</p>
-        <Badge tone={tone[status] ?? "zinc"}>{status.replace("_", " ")}</Badge>
+        <Badge tone={tone[status] ?? "stone"}>{status.replace("_", " ")}</Badge>
       </div>
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-stone-500">
         {sub}
         {total ? ` · ${total}` : ""}
       </p>
@@ -188,9 +188,9 @@ export default function FindTicketsPage() {
           </form>
 
           {searched && (
-            <div className="mt-6 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+            <div className="mt-6 border-t border-stone-200 pt-4 dark:border-stone-800">
               {orders.length === 0 ? (
-                <p className="text-sm text-zinc-500">
+                <p className="text-sm text-stone-500">
                   No orders found with those details. Check the spelling, or
                   ask the organizer for help.
                 </p>

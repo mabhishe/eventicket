@@ -47,7 +47,7 @@ export default function SignupPage() {
       <div className="mx-auto max-w-md">
         <Card>
           <h1 className="mb-1 text-xl font-bold">Create your account</h1>
-          <p className="mb-4 text-sm text-zinc-500">
+          <p className="mb-4 text-sm text-stone-500">
             Start selling tickets for your events in minutes. Free to start.
           </p>
           <ErrorNote message={error} />
@@ -96,7 +96,7 @@ export default function SignupPage() {
               {busy ? "Creating account…" : "Create account"}
             </button>
           </form>
-          <p className="mt-4 text-sm text-zinc-500">
+          <p className="mt-4 text-sm text-stone-500">
             Already have an account?{" "}
             <Link href="/login" className="underline">
               Sign in

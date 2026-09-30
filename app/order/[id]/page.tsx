@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-const tone: Record<string, "amber" | "green" | "red" | "zinc"> = {
+const tone: Record<string, "amber" | "green" | "red" | "stone"> = {
   PENDING_PAYMENT: "amber",
   CONFIRMED: "green",
   CANCELLED: "red",
@@ -105,7 +105,7 @@ export default async function OrderPage({ params }: Ctx) {
                 <span>{formatCents(i.unitPriceCents * i.qty, e.currency)}</span>
               </div>
             ))}
-            <div className="flex justify-between border-t border-zinc-200 pt-2 font-semibold dark:border-zinc-800">
+            <div className="flex justify-between border-t border-stone-200 pt-2 font-semibold dark:border-stone-800">
               <span>Total</span>
               <span>{formatCents(order.totalCents, e.currency)}</span>
             </div>
@@ -127,13 +127,13 @@ export default async function OrderPage({ params }: Ctx) {
             <h2 className="mb-2 font-semibold">How to pay</h2>
             {order.refCode && order.payMethod !== "CASH" && (
               <div className="mb-3 rounded-xl bg-amber-500/10 p-4 text-center dark:bg-amber-500/10">
-                <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
                   Your payment code
                 </p>
                 <p className="font-mono text-3xl font-bold tracking-[0.25em]">
                   {order.refCode}
                 </p>
-                <p className="mt-1 text-xs text-zinc-500">
+                <p className="mt-1 text-xs text-stone-500">
                   Put this code in your transfer message so we can match your
                   payment instantly.
                 </p>
@@ -175,7 +175,7 @@ export default async function OrderPage({ params }: Ctx) {
                 in cash. {e.cashNote || "See the organizer at the event."}
               </p>
             )}
-            <p className="mt-3 text-sm text-zinc-500">
+            <p className="mt-3 text-sm text-stone-500">
               Keep this page — your tickets appear here as soon as the
               organizer confirms your payment. You can also show this page at
               the door.
@@ -186,7 +186,7 @@ export default async function OrderPage({ params }: Ctx) {
         {order.status === "CONFIRMED" && groupCode && groupQr && (
           <div className="mb-6">
             <Card className="text-center">
-              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+              <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
                 Entry + food pass
               </p>
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -203,7 +203,7 @@ export default async function OrderPage({ params }: Ctx) {
                 {order.tickets.length === 1 ? "person" : "people"} · one code
                 for your whole group
               </p>
-              <p className="mx-auto mt-1 max-w-sm text-xs text-zinc-500">
+              <p className="mx-auto mt-1 max-w-sm text-xs text-stone-500">
                 Show this at the door and at the food line — we scan it once
                 per person. After everyone is in, it stops working.
               </p>
@@ -219,7 +219,7 @@ export default async function OrderPage({ params }: Ctx) {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="font-semibold">Need more tickets?</h2>
-                  <p className="text-sm text-zinc-500">
+                  <p className="text-sm text-stone-500">
                     Paid orders are locked — buying more starts a new order
                     with its own payment code and group pass. Your details are
                     filled in for you.
@@ -240,7 +240,7 @@ export default async function OrderPage({ params }: Ctx) {
                     <p className="text-sm font-medium">
                       {t.holderName || order.buyerName}
                     </p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="text-xs text-stone-500">
                       {t.ticketType.name}
                       {t.mealOption ? ` · ${t.mealOption.name}` : ""}
                     </p>

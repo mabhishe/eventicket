@@ -33,7 +33,7 @@ export default function PricingPage() {
           <h2 className="text-lg font-bold">Free</h2>
           <p className="mt-1 text-3xl font-extrabold">
             $0
-            <span className="text-sm font-normal text-zinc-500"> / forever</span>
+            <span className="text-sm font-normal text-stone-500"> / forever</span>
           </p>
           <ul className="mt-4 space-y-2 text-sm">
             {FREE_FEATURES.map((f) => (
@@ -44,7 +44,7 @@ export default function PricingPage() {
           </ul>
           <Link
             href="/signup"
-            className="mt-6 inline-block rounded-lg border border-zinc-300 px-4 py-2 font-semibold dark:border-zinc-700"
+            className="mt-6 inline-block rounded-lg border border-stone-300 px-4 py-2 font-semibold dark:border-stone-700"
           >
             Start free
           </Link>
@@ -58,7 +58,7 @@ export default function PricingPage() {
           </h2>
           <p className="mt-1 text-3xl font-extrabold">
             {price}
-            <span className="text-sm font-normal text-zinc-500">
+            <span className="text-sm font-normal text-stone-500">
               {" "}
               CAD / month
             </span>
@@ -70,12 +70,12 @@ export default function PricingPage() {
               </li>
             ))}
           </ul>
-          <p className="mt-6 text-sm text-zinc-500">
+          <p className="mt-6 text-sm text-stone-500">
             Pro launches soon — start free today, upgrade when it&apos;s here.
           </p>
           <Link
             href="/signup"
-            className="mt-2 inline-block rounded-lg border border-zinc-300 px-4 py-2 font-semibold dark:border-zinc-700"
+            className="mt-2 inline-block rounded-lg border border-stone-300 px-4 py-2 font-semibold dark:border-stone-700"
           >
             Start free
           </Link>

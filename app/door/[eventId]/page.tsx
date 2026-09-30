@@ -78,7 +78,7 @@ function DietBadge({ tag }: { tag: string | null }) {
       </span>
     );
   return (
-    <span className="inline-block rounded-xl bg-zinc-400 px-6 py-3 text-3xl font-black tracking-wide text-white">
+    <span className="inline-block rounded-xl bg-stone-400 px-6 py-3 text-3xl font-black tracking-wide text-white">
       NO MEAL
     </span>
   );
@@ -86,7 +86,7 @@ function DietBadge({ tag }: { tag: string | null }) {
 
 function RosterView({ roster }: { roster: RosterPerson[] }) {
   return (
-    <div className="mt-4 border-t border-zinc-200 pt-3 text-left dark:border-zinc-700">
+    <div className="mt-4 border-t border-stone-200 pt-3 text-left dark:border-stone-700">
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide opacity-70">
         Party ({roster.length})
       </p>
@@ -94,7 +94,7 @@ function RosterView({ roster }: { roster: RosterPerson[] }) {
         {roster.map((p) => (
           <div
             key={p.id}
-            className="flex items-center justify-between gap-2 rounded-lg bg-white/70 px-3 py-2 dark:bg-zinc-900/70"
+            className="flex items-center justify-between gap-2 rounded-lg bg-white/70 px-3 py-2 dark:bg-stone-900/70"
           >
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">
@@ -103,11 +103,11 @@ function RosterView({ roster }: { roster: RosterPerson[] }) {
               <p className="text-xs opacity-70">{p.ticketType.name}</p>
             </div>
             <div className="flex shrink-0 gap-1">
-              <Badge tone={p.status === "CHECKED_IN" ? "green" : "zinc"}>
+              <Badge tone={p.status === "CHECKED_IN" ? "green" : "stone"}>
                 {p.status === "CHECKED_IN" ? "In" : "Not in"}
               </Badge>
               {p.mealOption && (
-                <Badge tone={p.foodCollectedAt ? "amber" : "zinc"}>
+                <Badge tone={p.foodCollectedAt ? "amber" : "stone"}>
                   {p.foodCollectedAt ? "Fed" : "Not fed"}
                 </Badge>
               )}
@@ -461,7 +461,7 @@ export default function DoorConsole({
     return (
       <Container>
         <ErrorNote message={error} />
-        {!error && <p className="text-zinc-500">Loading…</p>}
+        {!error && <p className="text-stone-500">Loading…</p>}
       </Container>
     );
   }
@@ -500,8 +500,8 @@ export default function DoorConsole({
             className={
               "shrink-0 rounded-lg px-5 py-3 text-sm font-semibold " +
               (tab === t
-                ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                : "border border-zinc-300 dark:border-zinc-700")
+                ? "bg-stone-900 text-white dark:bg-stone-100 dark:text-stone-900"
+                : "border border-stone-300 dark:border-stone-700")
             }
           >
             {label}
@@ -685,15 +685,15 @@ export default function DoorConsole({
               {results.map((t) => (
                 <div
                   key={t.id}
-                  className="rounded-lg border border-zinc-200 px-3 py-2 dark:border-zinc-800"
+                  className="rounded-lg border border-stone-200 px-3 py-2 dark:border-stone-800"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div>
                       <p className="text-sm font-medium">
                         {t.holderName || t.order.buyerName}{" "}
-                        <span className="font-mono text-zinc-500">{t.code}</span>
+                        <span className="font-mono text-stone-500">{t.code}</span>
                       </p>
-                      <p className="text-xs text-zinc-500">
+                      <p className="text-xs text-stone-500">
                         {t.ticketType.name}
                         {t.mealOption
                           ? ` · ${t.mealOption.name}${
@@ -764,7 +764,7 @@ export default function DoorConsole({
                 </div>
               ))}
               {query && results.length === 0 && (
-                <p className="text-sm text-zinc-500">No matching tickets.</p>
+                <p className="text-sm text-stone-500">No matching tickets.</p>
               )}
             </div>
           </Card>
@@ -775,7 +775,7 @@ export default function DoorConsole({
         <div className="mx-auto max-w-xl">
           <Card>
             <h2 className="mb-1 font-semibold">Sell at the door (cash)</h2>
-            <p className="mb-3 text-sm text-zinc-500">
+            <p className="mb-3 text-sm text-stone-500">
               Add each guest&rsquo;s name and meal choice.
             </p>
             <div className="space-y-3">
@@ -784,12 +784,12 @@ export default function DoorConsole({
                 return (
                   <div
                     key={t.id}
-                    className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"
+                    className="rounded-lg border border-stone-200 p-3 dark:border-stone-800"
                   >
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium">{t.name}</p>
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-xs text-stone-500">
                           {formatCents(t.priceCents, data.event.currency)} ·{" "}
                           {t.left} left
                         </p>
@@ -798,7 +798,7 @@ export default function DoorConsole({
                         <button
                           type="button"
                           aria-label={`Remove one ${t.name}`}
-                          className="h-11 w-11 rounded-lg border border-zinc-300 text-xl dark:border-zinc-700"
+                          className="h-11 w-11 rounded-lg border border-stone-300 text-xl dark:border-stone-700"
                           disabled={q === 0}
                           onClick={() =>
                             setWq({ ...wq, [t.id]: Math.max(0, q - 1) })
@@ -812,7 +812,7 @@ export default function DoorConsole({
                         <button
                           type="button"
                           aria-label={`Add one ${t.name}`}
-                          className="h-11 w-11 rounded-lg border border-zinc-300 text-xl dark:border-zinc-700"
+                          className="h-11 w-11 rounded-lg border border-stone-300 text-xl dark:border-stone-700"
                           disabled={t.left <= 0 || q >= t.left}
                           onClick={() => setWq({ ...wq, [t.id]: q + 1 })}
                         >
@@ -826,11 +826,11 @@ export default function DoorConsole({
             </div>
 
             {wSlots.length > 0 && (
-              <div className="mt-4 space-y-3 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+              <div className="mt-4 space-y-3 border-t border-stone-200 pt-4 dark:border-stone-800">
                 {wSlots.map((s, i) => (
                   <div
                     key={s.key}
-                    className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"
+                    className="rounded-lg border border-stone-200 p-3 dark:border-stone-800"
                   >
                     <p className="mb-2 text-sm font-medium">
                       Guest {i + 1} · {s.typeName}
@@ -898,14 +898,14 @@ export default function DoorConsole({
           <Card>
             <h2 className="mb-3 font-semibold">Meal counts (for the kitchen)</h2>
             {data.meals.length === 0 ? (
-              <p className="text-sm text-zinc-500">
+              <p className="text-sm text-stone-500">
                 No meal options for this event.
               </p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left text-xs text-zinc-500">
+                    <tr className="text-left text-xs text-stone-500">
                       <th className="py-2 pr-2">Meal</th>
                       <th className="py-2 pr-2 text-right">Ordered</th>
                       <th className="py-2 pr-2 text-right">Served</th>
@@ -916,7 +916,7 @@ export default function DoorConsole({
                     {data.meals.map((m) => (
                       <tr
                         key={m.name}
-                        className="border-t border-zinc-100 dark:border-zinc-800"
+                        className="border-t border-stone-100 dark:border-stone-800"
                       >
                         <td className="py-2 pr-2 font-medium">
                           {m.name}

@@ -7,7 +7,7 @@ export default function CheckEmailPage() {
       <div className="mx-auto max-w-md">
         <Card>
           <h1 className="mb-1 text-xl font-bold">Check your email ✉️</h1>
-          <p className="mb-4 text-sm text-zinc-500">
+          <p className="mb-4 text-sm text-stone-500">
             We sent you a verification link. Click it to confirm your email —
             you'll need that before you can publish events.
           </p>

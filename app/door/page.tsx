@@ -57,7 +57,7 @@ export default async function DoorPicker() {
       />
       {events.length === 0 ? (
         <Card>
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-stone-500">
             No published events. Ask an organizer to publish one first.
           </p>
         </Card>
@@ -69,7 +69,7 @@ export default async function DoorPicker() {
               <Link key={e.id} href={`/door/${e.id}`}>
                 <Card className="h-full transition hover:shadow-md">
                   <h2 className="font-semibold">{e.title}</h2>
-                  <p className="text-sm text-zinc-500">{fmtDate(e.date)}</p>
+                  <p className="text-sm text-stone-500">{fmtDate(e.date)}</p>
                   <p className="mt-2 text-sm">
                     {c?.checkedIn ?? 0} / {c?.issued ?? 0} checked in
                   </p>

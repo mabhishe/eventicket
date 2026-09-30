@@ -50,7 +50,7 @@ function LoginForm() {
       <div className="mx-auto max-w-md">
         <Card>
           <h1 className="mb-1 text-xl font-bold">Staff sign in</h1>
-          <p className="mb-4 text-sm text-zinc-500">
+          <p className="mb-4 text-sm text-stone-500">
             Organizers, sellers, and door staff sign in here.
           </p>
           <form onSubmit={submit} className="space-y-4">
@@ -80,10 +80,10 @@ function LoginForm() {
             </button>
           </form>
           <div className="mt-4 flex items-center justify-between text-sm">
-            <Link href="/forgot-password" className="underline text-zinc-500">
+            <Link href="/forgot-password" className="underline text-stone-500">
               Forgot password?
             </Link>
-            <Link href="/signup" className="underline text-zinc-500">
+            <Link href="/signup" className="underline text-stone-500">
               Create account
             </Link>
           </div>

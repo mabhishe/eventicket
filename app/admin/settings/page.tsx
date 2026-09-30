@@ -113,7 +113,7 @@ export default function OrgSettingsPage() {
                   type={f.key.includes("Email") ? "email" : "text"}
                 />
                 {f.hint && (
-                  <p className="mt-1 text-xs text-zinc-500">{f.hint}</p>
+                  <p className="mt-1 text-xs text-stone-500">{f.hint}</p>
                 )}
               </Field>
             ))}
@@ -142,7 +142,7 @@ export default function OrgSettingsPage() {
                     setBrandColor(e.target.value);
                     setSaved(false);
                   }}
-                  className="h-9 w-12 cursor-pointer rounded border border-zinc-300"
+                  className="h-9 w-12 cursor-pointer rounded border border-stone-300"
                 />
                 <input
                   className={inputCls}
@@ -154,12 +154,12 @@ export default function OrgSettingsPage() {
                   placeholder="#1a73e8"
                 />
               </div>
-            <p className="mt-1 text-xs text-zinc-500">Used on tickets and public pages.</p></Field>
+            <p className="mt-1 text-xs text-stone-500">Used on tickets and public pages.</p></Field>
           </div>
         </Card>
         <Card>
           <h2 className="mb-3 font-semibold">Default payment details</h2>
-          <p className="mb-3 text-sm text-zinc-500">
+          <p className="mb-3 text-sm text-stone-500">
             Pre-filled when you create a new event. You can still override them
             per event.
           </p>
@@ -172,7 +172,7 @@ export default function OrgSettingsPage() {
                   onChange={(e) => set(f.key, e.target.value)}
                 />
                 {f.hint && (
-                  <p className="mt-1 text-xs text-zinc-500">{f.hint}</p>
+                  <p className="mt-1 text-xs text-stone-500">{f.hint}</p>
                 )}
               </Field>
             ))}

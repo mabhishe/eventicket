@@ -116,16 +116,16 @@ export function SponsorsStrip({ ads }: { ads: SponsorAdInfo[] }) {
   return (
     <div
       ref={ref}
-      className="mt-6 mb-6 rounded-2xl border border-zinc-200 p-4 dark:border-zinc-800"
+      className="mt-6 mb-6 rounded-2xl border border-stone-200 p-4 dark:border-stone-800"
     >
-      <p className="mb-3 text-center text-xs font-semibold uppercase tracking-wider text-zinc-400">
+      <p className="mb-3 text-center text-xs font-semibold uppercase tracking-wider text-stone-400">
         Our sponsors
       </p>
       <div className="space-y-4">
         {groups.map(({ tier, items }) => (
           <div key={tier}>
             {groups.length > 1 && (
-              <p className="mb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+              <p className="mb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-stone-500">
                 {TIER_LABELS[tier] || tier}
               </p>
             )}

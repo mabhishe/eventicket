@@ -58,8 +58,8 @@ type EventData = {
   programItems: ProgramItem[];
 };
 
-const statusTone: Record<string, "zinc" | "green" | "amber"> = {
-  DRAFT: "zinc",
+const statusTone: Record<string, "stone" | "green" | "amber"> = {
+  DRAFT: "stone",
   PUBLISHED: "green",
   CLOSED: "amber",
 };
@@ -533,7 +533,7 @@ export default function ManageEventPage({
     return (
       <Container>
         <ErrorNote message={error} />
-        {!error && <p className="text-zinc-500">Loading…</p>}
+        {!error && <p className="text-stone-500">Loading…</p>}
       </Container>
     );
   }
@@ -625,7 +625,7 @@ export default function ManageEventPage({
             <button className={btnPrimary}>Save details</button>
           </form>
 
-          <div className="mt-6 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+          <div className="mt-6 border-t border-stone-200 pt-4 dark:border-stone-800">
             <h3 className="mb-2 text-sm font-semibold">Publishing</h3>
             <div className="flex flex-wrap gap-2">
               {event.status !== "PUBLISHED" && (
@@ -693,7 +693,7 @@ export default function ManageEventPage({
                     </button>
                   </div>
                 ) : (
-                  <p className="text-sm text-zinc-500">No logo yet.</p>
+                  <p className="text-sm text-stone-500">No logo yet.</p>
                 )}
                 <label className="mt-2 inline-block cursor-pointer">
                   <span className={btnSecondary + " inline-block"}>
@@ -713,11 +713,11 @@ export default function ManageEventPage({
                 </label>
               </div>
 
-              <div className="border-t border-zinc-200 pt-4 dark:border-zinc-800">
+              <div className="border-t border-stone-200 pt-4 dark:border-stone-800">
                 <p className="mb-1 text-sm font-medium">
                   Event images ({gallery.length}/12)
                 </p>
-                <p className="mb-2 text-xs text-zinc-500">
+                <p className="mb-2 text-xs text-stone-500">
                   The first image is the large banner on the event page — use
                   the arrows to choose it.
                 </p>
@@ -736,14 +736,14 @@ export default function ManageEventPage({
                           </span>
                         )}
                         <button
-                          className="absolute right-1 top-1 rounded bg-zinc-900/70 px-1.5 py-0.5 text-xs text-white"
+                          className="absolute right-1 top-1 rounded bg-stone-900/70 px-1.5 py-0.5 text-xs text-white"
                           onClick={() => removeMedia(u)}
                         >
                           ✕
                         </button>
                         <div className="absolute bottom-1 left-1 flex gap-1">
                           <button
-                            className="rounded bg-zinc-900/70 px-1.5 py-0.5 text-xs text-white disabled:opacity-30"
+                            className="rounded bg-stone-900/70 px-1.5 py-0.5 text-xs text-white disabled:opacity-30"
                             disabled={idx === 0}
                             onClick={() => moveImage(idx, -1)}
                             title="Move earlier (toward banner)"
@@ -751,7 +751,7 @@ export default function ManageEventPage({
                             ◀
                           </button>
                           <button
-                            className="rounded bg-zinc-900/70 px-1.5 py-0.5 text-xs text-white disabled:opacity-30"
+                            className="rounded bg-stone-900/70 px-1.5 py-0.5 text-xs text-white disabled:opacity-30"
                             disabled={idx === gallery.length - 1}
                             onClick={() => moveImage(idx, 1)}
                             title="Move later"
@@ -783,7 +783,7 @@ export default function ManageEventPage({
                 )}
               </div>
 
-              <div className="border-t border-zinc-200 pt-4 dark:border-zinc-800">
+              <div className="border-t border-stone-200 pt-4 dark:border-stone-800">
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -798,7 +798,7 @@ export default function ManageEventPage({
                           type="color"
                           value={/^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#18181b"}
                           onChange={(e) => setBrandColor(e.target.value)}
-                          className="h-10 w-12 cursor-pointer rounded border border-zinc-300 dark:border-zinc-700"
+                          className="h-10 w-12 cursor-pointer rounded border border-stone-300 dark:border-stone-700"
                         />
                         <input
                           className={inputCls}
@@ -818,13 +818,13 @@ export default function ManageEventPage({
 
           <Card>
             <h2 className="mb-3 font-semibold">Invites & who&rsquo;s going</h2>
-            <p className="mb-3 text-sm text-zinc-500">
+            <p className="mb-3 text-sm text-stone-500">
               Every order gets a personal invite link (?invite=) on the order
               and ticket pages. {wallCount} {wallCount === 1 ? "buyer has" : "buyers have"} opted
               into the public who&rsquo;s-going wall.
             </p>
             {topInviters.length === 0 ? (
-              <p className="text-sm text-zinc-500">
+              <p className="text-sm text-stone-500">
                 No invite-driven orders yet.
               </p>
             ) : (
@@ -832,11 +832,11 @@ export default function ManageEventPage({
                 {topInviters.map((t) => (
                   <div
                     key={t.inviteCode}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-3 py-2 dark:border-zinc-800"
+                    className="flex items-center justify-between gap-3 rounded-lg border border-stone-200 px-3 py-2 dark:border-stone-800"
                   >
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{t.name}</p>
-                      <p className="font-mono text-xs text-zinc-500">
+                      <p className="font-mono text-xs text-stone-500">
                         {t.inviteCode}
                       </p>
                     </div>
@@ -860,7 +860,7 @@ export default function ManageEventPage({
                 {showBulk ? "Hide bulk add" : "Bulk add"}
               </button>
             </div>
-            <p className="mb-3 text-sm text-zinc-500">
+            <p className="mb-3 text-sm text-stone-500">
               Sponsor logos appear on the event page, the order page, and
               tickets. A logo with a link opens it in a new tab. Gold sponsors
               show largest, then Silver, Bronze, then special mentions.
@@ -869,7 +869,7 @@ export default function ManageEventPage({
             {showBulk && (
               <form
                 onSubmit={addSponsorsBulk}
-                className="mb-4 space-y-3 rounded-xl border border-dashed border-zinc-300 p-3 dark:border-zinc-700"
+                className="mb-4 space-y-3 rounded-xl border border-dashed border-stone-300 p-3 dark:border-stone-700"
               >
                 <p className="text-sm font-medium">
                   Bulk add — many logos at once
@@ -915,7 +915,7 @@ export default function ManageEventPage({
                     placeholder={"Acme Foods\nNorthwind Traders"}
                   />
                 </Field>
-                <p className="-mt-1 text-xs text-zinc-500">
+                <p className="-mt-1 text-xs text-stone-500">
                   Leave a line blank to use the file name instead.
                 </p>
                 <button className={btnSecondary} disabled={bulkBusy}>
@@ -926,14 +926,14 @@ export default function ManageEventPage({
 
             <div className="mb-4 space-y-4">
               {sponsors.length === 0 && (
-                <p className="text-sm text-zinc-500">None yet.</p>
+                <p className="text-sm text-stone-500">None yet.</p>
               )}
               {SPONSOR_TIERS.map((tier) => {
                 const items = sponsors.filter((s) => s.tier === tier);
                 if (items.length === 0) return null;
                 return (
                   <div key={tier}>
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-500">
                       {TIER_LABELS[tier]} ({items.length})
                     </p>
                     <div className="space-y-2">
@@ -942,7 +942,7 @@ export default function ManageEventPage({
                           <form
                             key={s.id}
                             onSubmit={(e) => saveSponsorEdit(e, s.id)}
-                            className="space-y-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"
+                            className="space-y-3 rounded-lg border border-stone-200 p-3 dark:border-stone-800"
                           >
                             <div className="grid gap-3 sm:grid-cols-2">
                               <Field label="Sponsor name">
@@ -1004,7 +1004,7 @@ export default function ManageEventPage({
                         ) : (
                         <div
                           key={s.id}
-                          className="flex items-center justify-between gap-3 rounded-lg border border-zinc-200 px-3 py-2 dark:border-zinc-800"
+                          className="flex items-center justify-between gap-3 rounded-lg border border-stone-200 px-3 py-2 dark:border-stone-800"
                         >
                           <div className="flex min-w-0 items-center gap-3">
                             {s.imageUrl ? (
@@ -1022,11 +1022,11 @@ export default function ManageEventPage({
                               <p className="truncate text-sm font-medium">
                                 {s.name}
                               </p>
-                              <p className="truncate text-xs text-zinc-500">
+                              <p className="truncate text-xs text-stone-500">
                                 👁 {s.impressions ?? 0} views · {s.clicks ?? 0} clicks
                               </p>
                               {s.linkUrl && (
-                                <p className="truncate text-xs text-zinc-500">
+                                <p className="truncate text-xs text-stone-500">
                                   {s.linkUrl}
                                 </p>
                               )}
@@ -1070,7 +1070,7 @@ export default function ManageEventPage({
             </div>
             <form
               onSubmit={addSponsor}
-              className="space-y-3 border-t border-zinc-200 pt-3 dark:border-zinc-800"
+              className="space-y-3 border-t border-stone-200 pt-3 dark:border-stone-800"
             >
               <p className="text-sm font-medium">Add one sponsor</p>
               <div className="grid gap-3 sm:grid-cols-2">
@@ -1122,18 +1122,18 @@ export default function ManageEventPage({
             <h2 className="mb-3 font-semibold">Ticket types</h2>
             <div className="mb-4 space-y-2">
               {event.ticketTypes.length === 0 && (
-                <p className="text-sm text-zinc-500">
+                <p className="text-sm text-stone-500">
                   None yet — add at least one to sell.
                 </p>
               )}
               {event.ticketTypes.map((t) => (
                 <div
                   key={t.id}
-                  className="flex items-center justify-between rounded-lg border border-zinc-200 px-3 py-2 dark:border-zinc-800"
+                  className="flex items-center justify-between rounded-lg border border-stone-200 px-3 py-2 dark:border-stone-800"
                 >
                   <div>
                     <p className="text-sm font-medium">{t.name}</p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="text-xs text-stone-500">
                       {formatCents(t.priceCents, event.currency)} ·{" "}
                       {t.quantityTotal} seats
                       {t.includesMeal ? " · includes meal" : ""}
@@ -1148,7 +1148,7 @@ export default function ManageEventPage({
                 </div>
               ))}
             </div>
-            <form onSubmit={addTicketType} className="space-y-3 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+            <form onSubmit={addTicketType} className="space-y-3 border-t border-stone-200 pt-3 dark:border-stone-800">
               <Field label="Name">
                 <input
                   className={inputCls}
@@ -1198,7 +1198,7 @@ export default function ManageEventPage({
 
           <Card>
             <h2 className="mb-3 font-semibold">Meal options</h2>
-            <label className="mb-4 flex cursor-pointer items-start gap-3 rounded-lg bg-zinc-50 p-3 dark:bg-zinc-800/50">
+            <label className="mb-4 flex cursor-pointer items-start gap-3 rounded-lg bg-stone-50 p-3 dark:bg-stone-800/50">
               <input
                 type="checkbox"
                 className="mt-1 h-5 w-5"
@@ -1211,7 +1211,7 @@ export default function ManageEventPage({
                 <span className="block text-sm font-medium">
                   Require entry scan before food is served
                 </span>
-                <span className="block text-xs text-zinc-500">
+                <span className="block text-xs text-stone-500">
                   Guests must be checked in at the door before the food line
                   will serve them.
                 </span>
@@ -1219,14 +1219,14 @@ export default function ManageEventPage({
             </label>
             <div className="mb-4 space-y-2">
               {event.mealOptions.length === 0 && (
-                <p className="text-sm text-zinc-500">
+                <p className="text-sm text-stone-500">
                   None yet — only needed if a ticket type includes a meal.
                 </p>
               )}
               {event.mealOptions.map((m) => (
                 <div
                   key={m.id}
-                  className="flex items-center justify-between rounded-lg border border-zinc-200 px-3 py-2 dark:border-zinc-800"
+                  className="flex items-center justify-between rounded-lg border border-stone-200 px-3 py-2 dark:border-stone-800"
                 >
                   <p className="text-sm font-medium">
                     {m.name}
@@ -1249,7 +1249,7 @@ export default function ManageEventPage({
             </div>
             <form
               onSubmit={addMeal}
-              className="space-y-3 border-t border-zinc-200 pt-3 dark:border-zinc-800"
+              className="space-y-3 border-t border-stone-200 pt-3 dark:border-stone-800"
             >
               <p className="text-sm font-medium">Add a meal option</p>
               <div className="flex flex-col gap-2 sm:flex-row">
@@ -1280,26 +1280,26 @@ export default function ManageEventPage({
             <h2 className="mb-3 font-semibold">Program / schedule</h2>
             <div className="mb-4 space-y-2">
               {(event?.programItems || []).length === 0 && (
-                <p className="text-sm text-zinc-500">
+                <p className="text-sm text-stone-500">
                   None yet — add timed entries like doors, dinner, performances.
                 </p>
               )}
               {(event?.programItems || []).map((p, i, arr) => (
                 <div
                   key={p.id}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-zinc-200 px-3 py-2 dark:border-zinc-800"
+                  className="flex items-center justify-between gap-2 rounded-lg border border-stone-200 px-3 py-2 dark:border-stone-800"
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-medium">
                       {p.timeLabel && (
-                        <span className="mr-2 text-xs font-semibold text-zinc-500">
+                        <span className="mr-2 text-xs font-semibold text-stone-500">
                           {p.timeLabel}
                         </span>
                       )}
                       {p.title}
                     </p>
                     {p.description && (
-                      <p className="truncate text-xs text-zinc-500">{p.description}</p>
+                      <p className="truncate text-xs text-stone-500">{p.description}</p>
                     )}
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
@@ -1328,7 +1328,7 @@ export default function ManageEventPage({
             </div>
             <form
               onSubmit={addProgram}
-              className="space-y-3 border-t border-zinc-200 pt-3 dark:border-zinc-800"
+              className="space-y-3 border-t border-stone-200 pt-3 dark:border-stone-800"
             >
               <p className="text-sm font-medium">Add a program entry</p>
               <div className="flex flex-col gap-2 sm:flex-row">

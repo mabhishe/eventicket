@@ -25,12 +25,12 @@ function Verify() {
       <div className="mx-auto max-w-md">
         <Card>
           {state === "busy" && (
-            <p className="text-sm text-zinc-500">Verifying your email…</p>
+            <p className="text-sm text-stone-500">Verifying your email…</p>
           )}
           {state === "ok" && (
             <>
               <h1 className="mb-1 text-xl font-bold">Email verified ✅</h1>
-              <p className="mb-4 text-sm text-zinc-500">
+              <p className="mb-4 text-sm text-stone-500">
                 Your email is confirmed. You can now publish events.
               </p>
               <Link href="/admin" className={btnPrimary}>
@@ -41,7 +41,7 @@ function Verify() {
           {state === "bad" && (
             <>
               <h1 className="mb-1 text-xl font-bold">Link didn't work</h1>
-              <p className="mb-4 text-sm text-zinc-500">
+              <p className="mb-4 text-sm text-stone-500">
                 This verification link is invalid or has expired. Links last 24
                 hours — ask for a new one from your dashboard, or sign up again.
               </p>

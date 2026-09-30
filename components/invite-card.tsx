@@ -71,15 +71,15 @@ export function InviteCard({
           <h2 className="mt-1 text-lg font-bold">I&rsquo;m going!</h2>
         </>
       )}
-      <p className="mt-1 text-sm text-zinc-500">
+      <p className="mt-1 text-sm text-stone-500">
         {eventTitle} · {eventDateLabel}
       </p>
-      <p className="mt-2 text-sm text-zinc-500">
+      <p className="mt-2 text-sm text-stone-500">
         Show it off — and bring your friends along.
         {friendCount > 0 && (
           <>
             {" "}
-            <span className="font-semibold text-zinc-700 dark:text-zinc-200">
+            <span className="font-semibold text-stone-700 dark:text-stone-200">
               {friendCount} {friendCount === 1 ? "friend has" : "friends have"}{" "}
               joined through your invite!
             </span>
@@ -103,12 +103,12 @@ export function InviteCard({
         <button
           type="button"
           onClick={copyLink}
-          className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium transition hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium transition hover:bg-stone-100 dark:border-stone-700 dark:hover:bg-stone-800"
         >
           {copied ? "Copied ✓" : "Copy invite link"}
         </button>
       </div>
-      <p className="mt-3 break-all font-mono text-xs text-zinc-400">
+      <p className="mt-3 break-all font-mono text-xs text-stone-400">
         {invitePath}
       </p>
     </Card>

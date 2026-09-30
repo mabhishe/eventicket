@@ -60,12 +60,12 @@ export default function PlanCard() {
       <h2 className="mb-3 font-semibold">Plan</h2>
       <ErrorNote message={error} />
       {!st ? (
-        <p className="text-sm text-zinc-500">Loading plan…</p>
+        <p className="text-sm text-stone-500">Loading plan…</p>
       ) : (
         <div className="text-sm">
           <p className="mb-3">
             Current plan:{" "}
-            <span className="rounded-full bg-zinc-100 px-3 py-1 font-semibold dark:bg-zinc-800">
+            <span className="rounded-full bg-stone-100 px-3 py-1 font-semibold dark:bg-stone-800">
               {st.planName}
             </span>
             {st.subscriptionStatus === "PAST_DUE" && (
@@ -74,7 +74,7 @@ export default function PlanCard() {
               </span>
             )}
           </p>
-          <ul className="mb-4 space-y-1 text-zinc-600 dark:text-zinc-400">
+          <ul className="mb-4 space-y-1 text-stone-600 dark:text-stone-400">
             <li>
               Published events: {st.usage.activeEvents} /{" "}
               {fmt(st.limits.maxActiveEvents)}
@@ -93,14 +93,14 @@ export default function PlanCard() {
               <p className="inline-block rounded-lg bg-amber-100 px-4 py-2 font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-200">
                 Pro — coming soon
               </p>
-              <p className="mt-2 text-xs text-zinc-500">
+              <p className="mt-2 text-xs text-stone-500">
                 Pro will bring unlimited events, tickets and team seats, with
                 the EventPass badge removed. Online upgrade opens at launch.
               </p>
             </div>
           ) : (
             <button
-              className="rounded-lg border border-zinc-300 px-4 py-2 font-semibold dark:border-zinc-700"
+              className="rounded-lg border border-stone-300 px-4 py-2 font-semibold dark:border-stone-700"
               onClick={manage}
               disabled={busy}
             >

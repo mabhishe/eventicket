@@ -20,10 +20,10 @@ type User = {
   _count: { soldOrders: number };
 };
 
-const roleTone: Record<string, "blue" | "zinc" | "amber"> = {
+const roleTone: Record<string, "blue" | "stone" | "amber"> = {
   ORG_OWNER: "blue",
   ORG_ADMIN: "blue",
-  ORG_STAFF: "zinc",
+  ORG_STAFF: "stone",
   DOOR: "amber",
   ORG_DOOR: "amber",
 };
@@ -103,15 +103,15 @@ export default function UsersPage() {
             {users.map((u) => (
               <div
                 key={u.id}
-                className="flex items-center justify-between rounded-lg border border-zinc-200 px-3 py-2 dark:border-zinc-800"
+                className="flex items-center justify-between rounded-lg border border-stone-200 px-3 py-2 dark:border-stone-800"
               >
                 <div>
                   <p className="text-sm font-medium">{u.name}</p>
-                  <p className="text-xs text-zinc-500">
+                  <p className="text-xs text-stone-500">
                     {u.email} · {u._count.soldOrders} orders sold
                   </p>
                 </div>
-                <Badge tone={roleTone[u.role] ?? "zinc"}>{roleLabel[u.role] ?? u.role}</Badge>
+                <Badge tone={roleTone[u.role] ?? "stone"}>{roleLabel[u.role] ?? u.role}</Badge>
               </div>
             ))}
           </div>

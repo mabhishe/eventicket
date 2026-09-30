@@ -13,9 +13,9 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const statusTone: Record<string, "zinc" | "green" | "amber" | "red" | "blue"> =
+const statusTone: Record<string, "stone" | "green" | "amber" | "red" | "blue"> =
   {
-    DRAFT: "zinc",
+    DRAFT: "stone",
     PUBLISHED: "green",
     CLOSED: "amber",
     PENDING_PAYMENT: "amber",
@@ -88,7 +88,7 @@ export default async function AdminDashboard() {
       <h2 className="mb-3 text-lg font-semibold">Events</h2>
       {events.length === 0 ? (
         <Card>
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-stone-500">
             No events yet.{" "}
             {canManage && (
               <Link href="/admin/events/new" className="underline">
@@ -104,11 +104,11 @@ export default async function AdminDashboard() {
               <div className="flex items-start justify-between gap-2">
                 <div>
                   <h3 className="font-semibold">{e.title}</h3>
-                  <p className="text-sm text-zinc-500">{fmtDate(e.date)}</p>
+                  <p className="text-sm text-stone-500">{fmtDate(e.date)}</p>
                 </div>
                 <Badge tone={statusTone[e.status]}>{e.status}</Badge>
               </div>
-              <p className="mt-2 text-sm text-zinc-500">
+              <p className="mt-2 text-sm text-stone-500">
                 {e.ticketTypes.length} ticket types · {e._count.orders} orders
               </p>
               <div className="mt-3 flex gap-2">
@@ -137,7 +137,7 @@ export default async function AdminDashboard() {
       </h2>
       {pendingOrders.length === 0 ? (
         <Card>
-          <p className="text-sm text-zinc-500">Nothing waiting. Nice.</p>
+          <p className="text-sm text-stone-500">Nothing waiting. Nice.</p>
         </Card>
       ) : (
         <div className="space-y-3">
@@ -146,14 +146,14 @@ export default async function AdminDashboard() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="font-semibold">{o.buyerName}</p>
-                  <p className="text-sm text-zinc-500">
+                  <p className="text-sm text-stone-500">
                     {o.event.title} ·{" "}
                     {o.items
                       .map((i) => `${i.qty} × ${i.ticketType.name}`)
                       .join(", ")}{" "}
                     · {o.payMethod}
                   </p>
-                  <p className="text-xs text-zinc-400">
+                  <p className="text-xs text-stone-400">
                     {fmtDate(o.createdAt)}
                   </p>
                 </div>
