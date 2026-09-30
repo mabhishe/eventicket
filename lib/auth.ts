@@ -175,7 +175,12 @@ export type OrgMembershipInfo = {
 /**
  * Resolve which organization the user is "working as".
  * The active_org cookie wins when it names one of their orgs;
- * otherwise the oldest membership is used (and the cookie is synced).
+ * otherwise the oldest membership is used.
+ *
+ * NOTE: this never WRITES cookies — cookie writes are only legal in Route
+ * Handlers / Server Actions (Next 16 throws otherwise), and this runs inside
+ * Server Components too. The cookie is (re)written at login and by the
+ * active-org switch endpoint.
  */
 export async function resolveActiveMembership(
   userId: string
@@ -190,17 +195,13 @@ export async function resolveActiveMembership(
   const match =
     (cookieOrg && memberships.find((m) => m.organizationId === cookieOrg)) ||
     memberships[0];
-  const info: OrgMembershipInfo = {
+  return {
     membershipId: match.id,
     organizationId: match.organizationId,
     role: match.role as OrgRole,
     orgName: match.organization.name,
     orgSlug: match.organization.slug,
   };
-  if (cookieOrg !== info.organizationId) {
-    await setActiveOrgCookie(info.organizationId);
-  }
-  return info;
 }
 
 export type OrgApiUser = {
