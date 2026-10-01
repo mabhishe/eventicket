@@ -33,6 +33,20 @@ function fmtDate(d: Date) {
   }).format(d);
 }
 
+function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <Card className="p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-stone-400">
+        {label}
+      </p>
+      <p className="mt-1 text-2xl font-bold text-stone-900 dark:text-stone-50">
+        {value}
+      </p>
+      {sub && <p className="mt-0.5 text-xs text-stone-500">{sub}</p>}
+    </Card>
+  );
+}
+
 export default async function AdminDashboard() {
   const { user, orgId, orgRole } = await requireOrgUser([
     "ORG_OWNER",
@@ -40,25 +54,65 @@ export default async function AdminDashboard() {
     "ORG_STAFF",
   ]);
   const canManage = orgRole === "ORG_OWNER" || orgRole === "ORG_ADMIN";
+  const now = new Date();
 
-  const events = await db.event.findMany({
-    where: { organizationId: orgId },
-    orderBy: { date: "desc" },
-    include: {
-      ticketTypes: true,
-      _count: { select: { orders: true } },
-    },
-  });
+  const [events, confirmedAgg, pendingAgg, pendingOrders] = await Promise.all([
+    db.event.findMany({
+      where: { organizationId: orgId },
+      orderBy: { date: "asc" },
+      include: {
+        ticketTypes: true,
+        _count: { select: { orders: true } },
+      },
+    }),
+    db.order.aggregate({
+      where: { status: "CONFIRMED", event: { organizationId: orgId } },
+      _count: true,
+      _sum: { totalCents: true },
+    }),
+    db.order.aggregate({
+      where: { status: "PENDING_PAYMENT", event: { organizationId: orgId } },
+      _count: true,
+      _sum: { totalCents: true },
+    }),
+    db.order.findMany({
+      where: { status: "PENDING_PAYMENT", event: { organizationId: orgId } },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      include: {
+        event: { select: { title: true } },
+        items: { include: { ticketType: true } },
+      },
+    }),
+  ]);
 
-  const pendingOrders = await db.order.findMany({
-    where: { status: "PENDING_PAYMENT", event: { organizationId: orgId } },
-    orderBy: { createdAt: "desc" },
-    take: 20,
-    include: {
-      event: { select: { title: true } },
-      items: { include: { ticketType: true } },
-    },
-  });
+  const upcoming = events.filter((e) => e.date >= now);
+  const past = events.filter((e) => e.date < now).reverse();
+
+  const eventCard = (e: (typeof events)[number]) => (
+    <Card key={e.id}>
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <h3 className="font-semibold">{e.title}</h3>
+          <p className="text-sm text-stone-500">{fmtDate(e.date)}</p>
+        </div>
+        <Badge tone={statusTone[e.status]}>{e.status}</Badge>
+      </div>
+      <p className="mt-2 text-sm text-stone-500">
+        {e.ticketTypes.length} ticket types · {e._count.orders} orders
+      </p>
+      <div className="mt-3 flex gap-2">
+        <Link href={`/admin/events/${e.id}`} className={btnSecondary + " text-xs"}>
+          Manage
+        </Link>
+        {e.status === "PUBLISHED" && (
+          <Link href={`/e/${e.slug}`} className={btnSecondary + " text-xs"}>
+            Public page
+          </Link>
+        )}
+      </div>
+    </Card>
+  );
 
   return (
     <Container>
@@ -81,59 +135,64 @@ export default async function AdminDashboard() {
             <Link href="/admin/orders" className={btnSecondary}>
               All orders
             </Link>
+            {canManage && (
+              <Link href="/admin/users" className={btnSecondary}>
+                Team
+              </Link>
+            )}
           </div>
         }
       />
 
-      <h2 className="mb-3 text-lg font-semibold">Events</h2>
-      {events.length === 0 ? (
-        <Card>
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Stat label="Upcoming events" value={String(upcoming.length)} />
+        <Stat
+          label="Confirmed orders"
+          value={String(confirmedAgg._count)}
+          sub="across all events"
+        />
+        <Stat
+          label="Revenue confirmed"
+          value={formatCents(confirmedAgg._sum.totalCents || 0)}
+        />
+        <Stat
+          label="Awaiting payment"
+          value={formatCents(pendingAgg._sum.totalCents || 0)}
+          sub={
+            pendingAgg._count > 0
+              ? `${pendingAgg._count} order${pendingAgg._count === 1 ? "" : "s"}`
+              : "all clear"
+          }
+        />
+      </div>
+
+      <h2 className="mb-3 text-lg font-semibold">Upcoming events</h2>
+      {upcoming.length === 0 ? (
+        <Card className="mb-8">
           <p className="text-sm text-stone-500">
-            No events yet.{" "}
+            No upcoming events.{" "}
             {canManage && (
               <Link href="/admin/events/new" className="underline">
-                Create your first event
+                Create one
               </Link>
             )}
           </p>
         </Card>
       ) : (
-        <div className="mb-8 grid gap-4 sm:grid-cols-2">
-          {events.map((e) => (
-            <Card key={e.id}>
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <h3 className="font-semibold">{e.title}</h3>
-                  <p className="text-sm text-stone-500">{fmtDate(e.date)}</p>
-                </div>
-                <Badge tone={statusTone[e.status]}>{e.status}</Badge>
-              </div>
-              <p className="mt-2 text-sm text-stone-500">
-                {e.ticketTypes.length} ticket types · {e._count.orders} orders
-              </p>
-              <div className="mt-3 flex gap-2">
-                <Link
-                  href={`/admin/events/${e.id}`}
-                  className={btnSecondary + " text-xs"}
-                >
-                  Manage
-                </Link>
-                {e.status === "PUBLISHED" && (
-                  <Link
-                    href={`/e/${e.slug}`}
-                    className={btnSecondary + " text-xs"}
-                  >
-                    Public page
-                  </Link>
-                )}
-              </div>
-            </Card>
-          ))}
-        </div>
+        <div className="mb-8 grid gap-4 sm:grid-cols-2">{upcoming.map(eventCard)}</div>
+      )}
+
+      {past.length > 0 && (
+        <>
+          <h2 className="mb-3 text-lg font-semibold text-stone-500">Past events</h2>
+          <div className="mb-8 grid gap-4 sm:grid-cols-2">
+            {past.map(eventCard)}
+          </div>
+        </>
       )}
 
       <h2 className="mb-3 text-lg font-semibold">
-        Orders waiting for payment ({pendingOrders.length})
+        Orders waiting for payment ({pendingAgg._count})
       </h2>
       {pendingOrders.length === 0 ? (
         <Card>

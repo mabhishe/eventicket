@@ -41,6 +41,7 @@ async function Nav() {
     if (door) links.push({ href: "/door", label: "Door" });
     if (manager) links.push({ href: "/admin/reports", label: "Reports" });
     if (manager) links.push({ href: "/admin/messages", label: "Messages" });
+    if (manager) links.push({ href: "/admin/users", label: "Team" });
     if (manager) links.push({ href: "/admin/settings", label: "Settings" });
     links.push({ href: "/admin/password", label: "Password" });
     // Platform admins (EventPass operators) get the cross-org admin panel.
