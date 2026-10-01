@@ -480,9 +480,14 @@ export default function DoorConsole({
         title={data.event.title}
         sub={`${data.counts.checkedIn} / ${data.counts.issued} in · ${data.counts.foodCollected} fed`}
         action={
-          <Link href="/door" className={btnSecondary}>
-            All events
-          </Link>
+          <div className="flex gap-2">
+            <Link href={`/door/${data.event.id}/sheet`} className={btnSecondary}>
+              🖨️ Door sheet
+            </Link>
+            <Link href="/door" className={btnSecondary}>
+              All events
+            </Link>
+          </div>
         }
       />
 

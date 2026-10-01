@@ -1,14 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { requireOrgApiUser } from "@/lib/auth";
-
-function cell(v: string | null | undefined): string {
-  let s = v ?? "";
-  // Guard against CSV formula injection.
-  if (/^[=+\-@]/.test(s)) s = "'" + s;
-  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-  return s;
-}
+import { csvResponse } from "@/lib/csv";
+import { formatCents } from "@/lib/money";
 
 /** ADMIN: download the guest list for an event as CSV. */
 export async function GET(req: NextRequest) {
@@ -19,13 +13,13 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const eventId = searchParams.get("eventId");
   if (!eventId) {
-    return NextResponse.json({ error: "eventId is required" }, { status: 400 });
+    return Response.json({ error: "eventId is required" }, { status: 400 });
   }
   const event = await db.event.findFirst({
     where: { id: eventId, organizationId: orgId },
   });
   if (!event) {
-    return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    return Response.json({ error: "Event not found" }, { status: 404 });
   }
 
   const tickets = await db.ticket.findMany({
@@ -34,11 +28,20 @@ export async function GET(req: NextRequest) {
     include: {
       ticketType: { select: { name: true } },
       mealOption: { select: { name: true, tag: true } },
-      order: { select: { buyerName: true, buyerEmail: true, buyerPhone: true } },
+      order: {
+        select: {
+          buyerName: true,
+          buyerEmail: true,
+          buyerPhone: true,
+          refCode: true,
+          payMethod: true,
+          totalCents: true,
+        },
+      },
     },
   });
 
-  const rows: string[] = [
+  const rows: (string | number | null | undefined)[][] = [
     [
       "Holder name",
       "Ticket type",
@@ -52,38 +55,34 @@ export async function GET(req: NextRequest) {
       "Buyer email",
       "Buyer phone",
       "Ticket code",
-    ].join(","),
+      "Order ref",
+      "Pay method",
+      "Order total",
+    ],
   ];
   for (const t of tickets) {
-    rows.push(
-      [
-        cell(t.holderName),
-        cell(t.ticketType.name),
-        cell(t.mealOption?.name),
-        cell(
-          t.mealOption?.tag === "veg"
-            ? "veg"
-            : t.mealOption?.tag === "nonveg"
-              ? "non-veg"
-              : ""
-        ),
-        cell(t.status === "CHECKED_IN" ? "yes" : "no"),
-        cell(t.checkedInAt ? new Date(t.checkedInAt).toISOString() : ""),
-        cell(t.foodCollectedAt ? "yes" : "no"),
-        cell(t.foodCollectedAt ? new Date(t.foodCollectedAt).toISOString() : ""),
-        cell(t.order.buyerName),
-        cell(t.order.buyerEmail),
-        cell(t.order.buyerPhone),
-        cell(t.code),
-      ].join(",")
-    );
+    rows.push([
+      t.holderName || "",
+      t.ticketType.name,
+      t.mealOption?.name || "",
+      t.mealOption?.tag === "veg"
+        ? "veg"
+        : t.mealOption?.tag === "nonveg"
+          ? "non-veg"
+          : "",
+      t.status === "CHECKED_IN" ? "yes" : "no",
+      t.checkedInAt ? new Date(t.checkedInAt).toISOString() : "",
+      t.foodCollectedAt ? "yes" : "no",
+      t.foodCollectedAt ? new Date(t.foodCollectedAt).toISOString() : "",
+      t.order.buyerName,
+      t.order.buyerEmail || "",
+      t.order.buyerPhone || "",
+      t.code,
+      t.order.refCode || "",
+      t.order.payMethod,
+      formatCents(t.order.totalCents, event.currency),
+    ]);
   }
 
-  const filename = `${event.slug}-guests.csv`;
-  return new NextResponse("\uFEFF" + rows.join("\r\n"), {
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${filename}"`,
-    },
-  });
+  return csvResponse(`${event.slug}-guests.csv`, rows);
 }

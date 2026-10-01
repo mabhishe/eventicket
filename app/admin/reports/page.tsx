@@ -102,12 +102,18 @@ export default function ReportsPage() {
           </div>
 
           {eventId && (
-            <div className="mb-6">
+            <div className="mb-6 flex flex-wrap gap-3">
               <a
                 className="inline-block rounded-lg border border-stone-300 px-4 py-2 text-sm font-semibold dark:border-stone-700"
                 href={`/api/admin/reports/guest-list?eventId=${eventId}`}
               >
                 Download guest list (CSV)
+              </a>
+              <a
+                className="inline-block rounded-lg border border-stone-300 px-4 py-2 text-sm font-semibold dark:border-stone-700"
+                href={`/api/admin/reports/finance?eventId=${eventId}`}
+              >
+                Download finance report (CSV)
               </a>
             </div>
           )}
