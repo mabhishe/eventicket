@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
+import { CloneEventButton } from "@/components/clone-event-button";
 import {
   Container,
   Card,
@@ -675,6 +676,7 @@ export default function ManageEventPage({
         action={
           <div className="flex items-center gap-2">
             <Badge tone={statusTone[event.status]}>{event.status}</Badge>
+            <CloneEventButton eventId={event.id} />
             <Link href="/admin" className={btnSecondary}>
               Back
             </Link>

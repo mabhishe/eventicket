@@ -10,6 +10,7 @@ import {
   btnPrimary,
   btnSecondary,
 } from "@/components/ui";
+import { CloneEventButton } from "@/components/clone-event-button";
 
 export const dynamic = "force-dynamic";
 
@@ -121,6 +122,7 @@ export default async function AdminDashboard() {
         <Link href={`/admin/events/${e.id}`} className={btnSecondary + " text-xs"}>
           Manage
         </Link>
+        {canManage && <CloneEventButton eventId={e.id} className="text-xs" />}
         {e.status === "PUBLISHED" && (
           <Link href={`/e/${e.slug}`} className={btnSecondary + " text-xs"}>
             Public page
