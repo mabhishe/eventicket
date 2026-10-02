@@ -325,6 +325,12 @@ function PublicEventPageInner({
             />
           </div>
         )}
+        {(event.sponsorAds || []).some((a) => (a.tier || "SILVER") === "GOLD") && (
+          <SponsorsStrip
+            ads={(event.sponsorAds || []).filter((a) => (a.tier || "SILVER") === "GOLD")}
+            heading="Presented by"
+          />
+        )}
         <div className="mb-4 flex items-center gap-4">
           {event.logoUrl && (
             /* eslint-disable-next-line @next/next/no-img-element */
@@ -393,8 +399,6 @@ function PublicEventPageInner({
             ))}
           </div>
         )}
-        <SponsorsStrip ads={event.sponsorAds || []} />
-
         {attendeeWall.length > 0 && (
           <Card className="mb-6">
             <h2 className="mb-1 font-semibold">
@@ -722,6 +726,11 @@ function PublicEventPageInner({
               </div>
             </div>
           </>
+        )}
+        {(event.sponsorAds || []).some((a) => (a.tier || "SILVER") !== "GOLD") && (
+          <SponsorsStrip
+            ads={(event.sponsorAds || []).filter((a) => (a.tier || "SILVER") !== "GOLD")}
+          />
         )}
         <p className="mt-6 text-center text-sm text-stone-500">
           Already ordered?{" "}

@@ -193,7 +193,34 @@ export async function PATCH(
   const ad = await db.sponsorAd.findFirst({ where: { id: adId, eventId: id } });
   if (!ad) return NextResponse.json({ error: "Sponsor ad not found" }, { status: 404 });
 
-  const data: { tier?: string; name?: string; linkUrl?: string | null; imageUrl?: string | null } = {};
+  const move = get("move");
+  if (move === "up" || move === "down") {
+    const ads = await db.sponsorAd.findMany({ where: { eventId: id } });
+    const tier = normalizeTier(ad.tier);
+    const peers = sortSponsorAds(ads.filter((a) => normalizeTier(a.tier) === tier));
+    const idx = peers.findIndex((a) => a.id === ad.id);
+    const j = idx + (move === "up" ? -1 : 1);
+    if (j < 0 || j >= peers.length) {
+      return NextResponse.json({ ad });
+    }
+    const next = [...peers];
+    [next[idx], next[j]] = [next[j], next[idx]];
+    await db.$transaction(
+      next.map((a, i) =>
+        db.sponsorAd.update({ where: { id: a.id }, data: { sortOrder: i } })
+      )
+    );
+    const updated = await db.sponsorAd.findUnique({ where: { id: ad.id } });
+    return NextResponse.json({ ad: updated });
+  }
+
+  const data: {
+    tier?: string;
+    name?: string;
+    linkUrl?: string | null;
+    imageUrl?: string | null;
+    sortOrder?: number;
+  } = {};
   const tier = get("tier");
   if (tier != null) {
     if (!isValidTier(tier)) {
@@ -203,6 +230,11 @@ export async function PATCH(
       );
     }
     data.tier = tier;
+    if (tier !== ad.tier) {
+      data.sortOrder = await db.sponsorAd.count({
+        where: { eventId: id, tier, NOT: { id: ad.id } },
+      });
+    }
   }
   const name = get("name");
   if (name != null) {

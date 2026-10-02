@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import { TIER_LABELS, sortSponsorAds } from "@/lib/sponsors";
+import { TIER_LABELS, TIER_LOGO_CLASS, sortSponsorAds } from "@/lib/sponsors";
 
 export type SponsorAdInfo = {
   id: string;
@@ -12,14 +12,6 @@ export type SponsorAdInfo = {
 };
 
 const TIER_ORDER = ["GOLD", "SILVER", "BRONZE", "MENTION"] as const;
-
-// Logo heights per tier: gold gets the spotlight, mentions are text-only.
-const TIER_IMG_CLS: Record<string, string> = {
-  GOLD: "h-20 max-w-44",
-  SILVER: "h-14 max-w-36",
-  BRONZE: "h-11 max-w-28",
-  MENTION: "h-9 max-w-24",
-};
 
 /** Fire-and-forget analytics beacon. Must never break the page. */
 export function reportSponsorStats(ids: string[], kind: "impressions" | "clicks") {
@@ -72,7 +64,13 @@ function AdLink({
   );
 }
 
-export function SponsorsStrip({ ads }: { ads: SponsorAdInfo[] }) {
+export function SponsorsStrip({
+  ads,
+  heading = "Our sponsors",
+}: {
+  ads: SponsorAdInfo[];
+  heading?: string;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const reported = useRef<Set<string>>(new Set());
 
@@ -119,7 +117,7 @@ export function SponsorsStrip({ ads }: { ads: SponsorAdInfo[] }) {
       className="mt-6 mb-6 rounded-2xl border border-stone-200 p-4 dark:border-stone-800"
     >
       <p className="mb-3 text-center text-xs font-semibold uppercase tracking-wider text-stone-400">
-        Our sponsors
+        {heading}
       </p>
       <div className="space-y-4">
         {groups.map(({ tier, items }) => (
@@ -152,7 +150,7 @@ export function SponsorsStrip({ ads }: { ads: SponsorAdInfo[] }) {
                     alt={a.name}
                     title={a.name}
                     loading="lazy"
-                    className={`w-auto object-contain ${TIER_IMG_CLS[tier] || TIER_IMG_CLS.SILVER}`}
+                    className={`w-auto object-contain ${TIER_LOGO_CLASS[tier] || TIER_LOGO_CLASS.SILVER}`}
                   />
                 );
                 return (
