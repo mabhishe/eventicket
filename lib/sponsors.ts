@@ -26,6 +26,14 @@ export const TIER_SINGULAR: Record<string, string> = {
   MENTION: "Special mention",
 };
 
+/** Display height of a sponsor logo. Gold is the row under the event banner. */
+export const TIER_LOGO_CLASS: Record<string, string> = {
+  GOLD: "h-20 max-w-44",
+  SILVER: "h-14 max-w-36",
+  BRONZE: "h-11 max-w-28",
+  MENTION: "h-9 max-w-24",
+};
+
 export function isValidTier(t: unknown): t is SponsorTier {
   return typeof t === "string" && (SPONSOR_TIERS as readonly string[]).includes(t);
 }

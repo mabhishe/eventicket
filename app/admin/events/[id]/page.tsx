@@ -18,9 +18,15 @@ import { formatCents } from "@/lib/money";
 import {
   SPONSOR_TIERS,
   TIER_LABELS,
+  TIER_LOGO_CLASS,
   TIER_SINGULAR,
   normalizeTier,
 } from "@/lib/sponsors";
+import {
+  ImageCropDialog,
+  SponsorLogoDialog,
+  isAcceptedImage,
+} from "@/components/image-crop-dialog";
 
 type TicketType = {
   id: string;
@@ -100,6 +106,12 @@ export default function ManageEventPage({
   const [gallery, setGallery] = useState<string[]>([]);
   const [brandColor, setBrandColor] = useState("");
   const [uploading, setUploading] = useState<"" | "logo" | "image">("");
+  type CropPurpose = "logo" | "banner" | "photo" | "sponsor-new" | "sponsor-edit";
+  const [crop, setCrop] = useState<{ file: File; purpose: CropPurpose } | null>(null);
+  const [sponsorLogo, setSponsorLogo] = useState<{
+    file: File;
+    purpose: "sponsor-new" | "sponsor-edit";
+  } | null>(null);
 
   // sponsor ads
   type SponsorAd = {
@@ -331,8 +343,17 @@ export default function ManageEventPage({
     else await load(id);
   }
 
+  function beginCrop(file: File, purpose: CropPurpose) {
+    if (!isAcceptedImage(file)) {
+      setError("Only JPG, PNG, WebP, or GIF images are allowed");
+      return;
+    }
+    setError(null);
+    setCrop({ file, purpose });
+  }
+
   async function uploadMedia(kind: "logo" | "image", file: File) {
-    if (!id) return;
+    if (!id) return null;
     setError(null);
     setUploading(kind);
     const form = new FormData();
@@ -346,14 +367,33 @@ export default function ManageEventPage({
     setUploading("");
     if (!res.ok) {
       setError(d.error || "Upload failed");
-      return;
+      return null;
     }
     setLogoUrl(d.logoUrl);
-    setGallery(d.imageUrls || []);
+    const urls = (d.imageUrls || []) as string[];
+    setGallery(urls);
+    return urls;
   }
 
-  async function removeMedia(url: string) {
-    if (!id || !confirm("Remove this image?")) return;
+  async function saveGalleryOrder(next: string[]) {
+    if (!id) return false;
+    setGallery(next);
+    const res = await fetch(`/api/admin/events/${id}/media`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ imageUrls: next }),
+    });
+    const d = await res.json();
+    if (!res.ok) {
+      setError(d.error || "Could not reorder images");
+      return false;
+    }
+    setGallery(d.imageUrls || []);
+    return true;
+  }
+
+  async function deleteMedia(url: string) {
+    if (!id) return;
     const res = await fetch(`/api/admin/events/${id}/media`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
@@ -368,24 +408,53 @@ export default function ManageEventPage({
     setGallery(d.imageUrls || []);
   }
 
-  async function moveImage(idx: number, dir: -1 | 1) {
-    if (!id) return;
-    const next = [...gallery];
-    const j = idx + dir;
-    if (j < 0 || j >= next.length) return;
-    [next[idx], next[j]] = [next[j], next[idx]];
-    setGallery(next);
-    const res = await fetch(`/api/admin/events/${id}/media`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ imageUrls: next }),
-    });
-    const d = await res.json();
-    if (!res.ok) {
-      setError(d.error || "Could not reorder images");
+  async function removeMedia(url: string, message = "Remove this image?") {
+    if (!confirm(message)) return;
+    await deleteMedia(url);
+  }
+
+  async function applyCroppedFile(file: File, purpose: CropPurpose) {
+    if (purpose === "logo") {
+      await uploadMedia("logo", file);
       return;
     }
-    setGallery(d.imageUrls || []);
+    if (purpose === "photo") {
+      await uploadMedia("image", file);
+      return;
+    }
+    if (purpose === "banner") {
+      const previous = gallery[0];
+      const urls = await uploadMedia("image", file);
+      if (!urls) return;
+      const newest = urls[urls.length - 1];
+      const ordered = [newest, ...urls.filter((u) => u !== newest)];
+      if (ordered[0] !== urls[0] || ordered.length !== urls.length) {
+        const ok = await saveGalleryOrder(ordered);
+        if (!ok) return;
+      }
+      if (previous && previous !== newest) await deleteMedia(previous);
+      return;
+    }
+    if (purpose === "sponsor-new") {
+      await postSponsor(file);
+      return;
+    }
+    if (purpose === "sponsor-edit" && editingId) {
+      await commitSponsorEdit(editingId, file);
+    }
+  }
+
+  async function movePhoto(photoIdx: number, dir: -1 | 1) {
+    const idx = photoIdx + 1;
+    const j = idx + dir;
+    if (j < 1 || j >= gallery.length) return;
+    const next = [...gallery];
+    [next[idx], next[j]] = [next[j], next[idx]];
+    await saveGalleryOrder(next);
+  }
+
+  async function makeBanner(url: string) {
+    await saveGalleryOrder([url, ...gallery.filter((u) => u !== url)]);
   }
 
   async function loadSponsors(eid: string) {
@@ -399,11 +468,8 @@ export default function ManageEventPage({
     }
   }
 
-  async function addSponsor(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  async function postSponsor(file: File | null) {
     if (!id) return;
-    const file = (e.currentTarget.elements.namedItem("spFile") as HTMLInputElement)
-      ?.files?.[0];
     if (!spName.trim()) {
       setError("Sponsor name is required");
       return;
@@ -428,8 +494,29 @@ export default function ManageEventPage({
     setSpName("");
     setSpLink("");
     setSpTier("SILVER");
-    (e.currentTarget.elements.namedItem("spFile") as HTMLInputElement).value = "";
+    const input = document.querySelector<HTMLInputElement>("input[name=spFile]");
+    if (input) input.value = "";
     await loadSponsors(id);
+  }
+
+  function addSponsor(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const file = (e.currentTarget.elements.namedItem("spFile") as HTMLInputElement)
+      ?.files?.[0];
+    if (!spName.trim()) {
+      setError("Sponsor name is required");
+      return;
+    }
+    if (file) {
+      if (!isAcceptedImage(file)) {
+        setError("Only JPG, PNG, WebP, or GIF images are allowed");
+        return;
+      }
+      setError(null);
+      setSponsorLogo({ file, purpose: "sponsor-new" });
+      return;
+    }
+    void postSponsor(null);
   }
 
   async function addSponsorsBulk(e: React.FormEvent<HTMLFormElement>) {
@@ -492,19 +579,12 @@ export default function ManageEventPage({
     setError(null);
   }
 
-  async function saveSponsorEdit(
-    e: React.FormEvent<HTMLFormElement>,
-    adId: string
-  ) {
-    e.preventDefault();
+  async function commitSponsorEdit(adId: string, file?: File) {
     if (!id) return;
     if (!editName.trim()) {
       setError("Sponsor name is required");
       return;
     }
-    const file = (
-      e.currentTarget.elements.namedItem("editFile") as HTMLInputElement
-    )?.files?.[0];
     setError(null);
     setEditBusy(true);
     const form = new FormData();
@@ -524,6 +604,42 @@ export default function ManageEventPage({
       return;
     }
     setEditingId(null);
+    await loadSponsors(id);
+  }
+
+  function saveSponsorEdit(e: React.FormEvent<HTMLFormElement>, adId: string) {
+    e.preventDefault();
+    if (!editName.trim()) {
+      setError("Sponsor name is required");
+      return;
+    }
+    const file = (
+      e.currentTarget.elements.namedItem("editFile") as HTMLInputElement
+    )?.files?.[0];
+    if (file) {
+      if (!isAcceptedImage(file)) {
+        setError("Only JPG, PNG, WebP, or GIF images are allowed");
+        return;
+      }
+      setError(null);
+      setSponsorLogo({ file, purpose: "sponsor-edit" });
+      return;
+    }
+    void commitSponsorEdit(adId);
+  }
+
+  async function moveSponsor(adId: string, move: "up" | "down") {
+    if (!id) return;
+    const res = await fetch(`/api/admin/events/${id}/sponsors`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: adId, move }),
+    });
+    if (!res.ok) {
+      const d = await res.json();
+      setError(d.error || "Could not reorder sponsor");
+      return;
+    }
     await loadSponsors(id);
   }
 
@@ -691,14 +807,19 @@ export default function ManageEventPage({
             <div className="space-y-4">
               <div>
                 <p className="mb-1 text-sm font-medium">Logo</p>
+                <p className="mb-2 text-xs text-stone-500">
+                  Square crop, shown beside the event title. A PNG of the mark
+                  works best.
+                </p>
                 {logoUrl ? (
                   <div className="flex items-center gap-3">
                     <img
                       src={logoUrl}
                       alt="Event logo"
-                      className="h-14 w-auto max-w-[12rem] rounded object-contain"
+                      className="h-20 w-20 rounded-2xl border border-stone-200 object-contain dark:border-stone-800"
                     />
                     <button
+                      type="button"
                       className={btnDanger}
                       onClick={() => removeMedia(logoUrl)}
                     >
@@ -710,7 +831,7 @@ export default function ManageEventPage({
                 )}
                 <label className="mt-2 inline-block cursor-pointer">
                   <span className={btnSecondary + " inline-block"}>
-                    {uploading === "logo" ? "Uploading…" : "Upload logo"}
+                    {uploading === "logo" ? "Uploading…" : logoUrl ? "Replace logo" : "Upload logo"}
                   </span>
                   <input
                     type="file"
@@ -719,7 +840,7 @@ export default function ManageEventPage({
                     disabled={uploading !== ""}
                     onChange={(e) => {
                       const f = e.target.files?.[0];
-                      if (f) uploadMedia("logo", f);
+                      if (f) beginCrop(f, "logo");
                       e.target.value = "";
                     }}
                   />
@@ -727,28 +848,83 @@ export default function ManageEventPage({
               </div>
 
               <div className="border-t border-stone-200 pt-4 dark:border-stone-800">
+                <p className="mb-1 text-sm font-medium">Banner</p>
+                <p className="mb-2 text-xs text-stone-500">
+                  Buyers see this across the top of the event page. Crop to a
+                  wide frame and keep the title in the center.
+                </p>
+                {gallery[0] ? (
+                  <div className="mb-2 overflow-hidden rounded-2xl">
+                    <img
+                      src={gallery[0]}
+                      alt="Event banner preview"
+                      className="h-56 w-full object-cover sm:h-72"
+                    />
+                  </div>
+                ) : (
+                  <p className="mb-2 text-sm text-stone-500">No banner yet.</p>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  {gallery.length >= 12 ? (
+                    <p className="text-xs text-stone-500">
+                      Remove a photo before replacing the banner.
+                    </p>
+                  ) : (
+                  <label className="inline-block cursor-pointer">
+                    <span className={btnSecondary + " inline-block"}>
+                      {uploading === "image" ? "Uploading…" : gallery[0] ? "Replace banner" : "Add banner"}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="hidden"
+                      disabled={uploading !== ""}
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) beginCrop(f, "banner");
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                  )}
+                  {gallery[0] && (
+                    <button
+                      type="button"
+                      className={btnDanger}
+                      onClick={() =>
+                        removeMedia(
+                          gallery[0],
+                          gallery.length > 1
+                            ? "Remove the banner? The next photo will become the banner."
+                            : "Remove this banner?"
+                        )
+                      }
+                    >
+                      Remove banner
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="border-t border-stone-200 pt-4 dark:border-stone-800">
                 <p className="mb-1 text-sm font-medium">
-                  Event images ({gallery.length}/12)
+                  More photos ({Math.max(0, gallery.length - 1)}/{gallery[0] ? 11 : 12})
                 </p>
                 <p className="mb-2 text-xs text-stone-500">
-                  The first image is the large banner on the event page — use
-                  the arrows to choose it.
+                  Shown in a short strip under the description. Use “Make banner”
+                  to move one to the top.
                 </p>
-                {gallery.length > 0 && (
+                {gallery.length > 1 && (
                   <div className="mb-2 grid grid-cols-3 gap-2">
-                    {gallery.map((u, idx) => (
+                    {gallery.slice(1).map((u, photoIdx) => (
                       <div key={u} className="relative">
                         <img
                           src={u}
                           alt=""
                           className="h-20 w-full rounded object-cover"
                         />
-                        {idx === 0 && (
-                          <span className="absolute left-1 top-1 rounded bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold uppercase text-white">
-                            Banner
-                          </span>
-                        )}
                         <button
+                          type="button"
                           className="absolute right-1 top-1 rounded bg-stone-900/70 px-1.5 py-0.5 text-xs text-white"
                           onClick={() => removeMedia(u)}
                         >
@@ -756,20 +932,29 @@ export default function ManageEventPage({
                         </button>
                         <div className="absolute bottom-1 left-1 flex gap-1">
                           <button
+                            type="button"
                             className="rounded bg-stone-900/70 px-1.5 py-0.5 text-xs text-white disabled:opacity-30"
-                            disabled={idx === 0}
-                            onClick={() => moveImage(idx, -1)}
-                            title="Move earlier (toward banner)"
+                            disabled={photoIdx === 0}
+                            onClick={() => movePhoto(photoIdx, -1)}
+                            title="Move earlier"
                           >
                             ◀
                           </button>
                           <button
+                            type="button"
                             className="rounded bg-stone-900/70 px-1.5 py-0.5 text-xs text-white disabled:opacity-30"
-                            disabled={idx === gallery.length - 1}
-                            onClick={() => moveImage(idx, 1)}
+                            disabled={photoIdx === gallery.length - 2}
+                            onClick={() => movePhoto(photoIdx, 1)}
                             title="Move later"
                           >
                             ▶
+                          </button>
+                          <button
+                            type="button"
+                            className="rounded bg-stone-900/70 px-1.5 py-0.5 text-xs text-white"
+                            onClick={() => makeBanner(u)}
+                          >
+                            Banner
                           </button>
                         </div>
                       </div>
@@ -779,7 +964,7 @@ export default function ManageEventPage({
                 {gallery.length < 12 && (
                   <label className="inline-block cursor-pointer">
                     <span className={btnSecondary + " inline-block"}>
-                      {uploading === "image" ? "Uploading…" : "Add image"}
+                      {uploading === "image" ? "Uploading…" : "Add photo"}
                     </span>
                     <input
                       type="file"
@@ -788,7 +973,7 @@ export default function ManageEventPage({
                       disabled={uploading !== ""}
                       onChange={(e) => {
                         const f = e.target.files?.[0];
-                        if (f) uploadMedia("image", f);
+                        if (f) beginCrop(f, "photo");
                         e.target.value = "";
                       }}
                     />
@@ -874,9 +1059,10 @@ export default function ManageEventPage({
               </button>
             </div>
             <p className="mb-3 text-sm text-stone-500">
-              Sponsor logos appear on the event page, the order page, and
-              tickets. A logo with a link opens it in a new tab. Gold sponsors
-              show largest, then Silver, Bronze, then special mentions.
+              Gold logos sit under the banner. Silver, bronze, and special
+              mentions sit below the ticket form. The full list is also on the
+              order page and each ticket. Arrows change the order inside a tier.
+              A wide transparent PNG, about 600×200, matches these sizes.
             </p>
 
             {showBulk && (
@@ -929,7 +1115,9 @@ export default function ManageEventPage({
                   />
                 </Field>
                 <p className="-mt-1 text-xs text-stone-500">
-                  Leave a line blank to use the file name instead.
+                  Leave a line blank to use the file name instead. Bulk upload
+                  keeps each file as-is — use Edit on one sponsor to preview or
+                  crop that logo.
                 </p>
                 <button className={btnSecondary} disabled={bulkBusy}>
                   {bulkBusy ? "Uploading…" : "Upload all"}
@@ -950,7 +1138,7 @@ export default function ManageEventPage({
                       {TIER_LABELS[tier]} ({items.length})
                     </p>
                     <div className="space-y-2">
-                      {items.map((s) =>
+                      {items.map((s, index) =>
                         editingId === s.id ? (
                           <form
                             key={s.id}
@@ -1024,7 +1212,7 @@ export default function ManageEventPage({
                               <img
                                 src={s.imageUrl}
                                 alt={s.name}
-                                className="h-12 w-auto max-w-28 shrink-0 rounded object-contain"
+                                className={`w-auto shrink-0 object-contain ${TIER_LOGO_CLASS[s.tier] || TIER_LOGO_CLASS.SILVER}`}
                               />
                             ) : (
                               <span className="shrink-0 rounded-full border border-amber-300/60 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200">
@@ -1046,6 +1234,24 @@ export default function ManageEventPage({
                             </div>
                           </div>
                           <div className="flex shrink-0 items-center gap-2">
+                            <button
+                              type="button"
+                              className={btnSecondary + " px-2 py-1 text-xs"}
+                              disabled={index === 0}
+                              onClick={() => moveSponsor(s.id, "up")}
+                              aria-label="Move sponsor up"
+                            >
+                              ↑
+                            </button>
+                            <button
+                              type="button"
+                              className={btnSecondary + " px-2 py-1 text-xs"}
+                              disabled={index === items.length - 1}
+                              onClick={() => moveSponsor(s.id, "down")}
+                              aria-label="Move sponsor down"
+                            >
+                              ↓
+                            </button>
                             <select
                               className={inputCls}
                               value={s.tier}
@@ -1117,7 +1323,7 @@ export default function ManageEventPage({
                   placeholder="https://example.com"
                 />
               </Field>
-              <Field label="Logo image (JPG/PNG/WebP/GIF, max 5 MB) — optional for special mentions">
+              <Field label="Logo (optional for special mentions). You’ll see it at Gold and Silver size before it is saved.">
                 <input
                   type="file"
                   name="spFile"
@@ -1383,6 +1589,58 @@ export default function ManageEventPage({
           </Card>
         </div>
       </div>
+      {crop && (
+        <ImageCropDialog
+          file={crop.file}
+          aspect={
+            crop.purpose === "logo" ? 1 : crop.purpose === "photo" ? 3 / 2 : crop.purpose === "banner" ? 2.5 : 3
+          }
+          outputWidth={
+            crop.purpose === "logo" ? 512 : crop.purpose === "photo" ? 1200 : crop.purpose === "banner" ? 1600 : 600
+          }
+          title={
+            crop.purpose === "logo"
+              ? "Crop logo"
+              : crop.purpose === "banner"
+                ? "Crop banner"
+                : crop.purpose === "photo"
+                  ? "Crop photo"
+                  : "Crop sponsor logo"
+          }
+          hint={
+            crop.purpose === "logo"
+              ? "Drag to position the mark. It is shown in a square beside the event title."
+              : crop.purpose === "banner"
+                ? "Drag to choose the wide frame buyers see. Keep the title in the center."
+                : crop.purpose === "photo"
+                  ? "Drag to choose the part that shows in the photo strip."
+                  : "Drag to trim the logo to a wide frame, about 600×200."
+          }
+          onCancel={() => setCrop(null)}
+          onConfirm={(file) => {
+            const purpose = crop.purpose;
+            setCrop(null);
+            void applyCroppedFile(file, purpose);
+          }}
+        />
+      )}
+      {sponsorLogo && !crop && (
+        <SponsorLogoDialog
+          file={sponsorLogo.file}
+          onCancel={() => setSponsorLogo(null)}
+          onUse={() => {
+            const pending = sponsorLogo;
+            setSponsorLogo(null);
+            if (pending.purpose === "sponsor-new") void postSponsor(pending.file);
+            else if (editingId) void commitSponsorEdit(editingId, pending.file);
+          }}
+          onCrop={() => {
+            const pending = sponsorLogo;
+            setSponsorLogo(null);
+            setCrop({ file: pending.file, purpose: pending.purpose });
+          }}
+        />
+      )}
     </Container>
   );
 }
