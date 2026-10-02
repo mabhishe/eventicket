@@ -2,6 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireOrgUser } from "@/lib/auth";
 import { formatCents, summarizePayments } from "@/lib/money";
+import ResendVerificationButton from "./ResendVerificationButton";
 import {
   Container,
   Card,
@@ -138,6 +139,7 @@ export default async function AdminDashboard() {
         <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
           <strong>Verify your email</strong> to publish events — check your
           inbox for the verification link we sent to {user.email}.
+          <ResendVerificationButton />
         </div>
       )}
       <PageTitle
