@@ -151,14 +151,14 @@ const DEFAULT_EMAIL: Record<TemplateKey, { subject: string; body: string }> = {
     body: `<p>Hi {{buyer.name}},</p>
 <p>We've got your order for <strong>{{event.title}}</strong> ({{event.date}}).</p>
 <p>Your reference code is <strong>{{order.refCode}}</strong> and your total due is <strong>{{order.total}}</strong>.</p>
-<p>Once the organizer confirms your payment, we'll email your group QR code and entry code.</p>
+<p>Once the organizer confirms your full payment, each person gets their own QR code.</p>
 <p><a href="{{order.url}}">View your order</a></p>`,
   },
   TICKETS_ISSUED: {
     subject: "You're in! Tickets for {{event.title}} 🎟️",
     body: `<p>Hi {{buyer.name}},</p>
 <p>Your payment for <strong>{{event.title}}</strong> is confirmed — you're in!</p>
-<p>Your group entry code is <strong>{{order.entryCode}}</strong>. Your group QR code is attached to this email. Show it at the door.</p>
+<p>Each person shows their own QR from the order page at the door and the food line. Family lookup code: <strong>{{order.entryCode}}</strong>.</p>
 <p><a href="{{order.url}}">Open your tickets</a></p>`,
   },
   PAYMENT_REMINDER: {
@@ -173,7 +173,7 @@ const DEFAULT_EMAIL: Record<TemplateKey, { subject: string; body: string }> = {
     subject: "Reminder: {{event.title}} is coming up!",
     body: `<p>Hi {{buyer.name}},</p>
 <p><strong>{{event.title}}</strong> is coming up on {{event.date}}.</p>
-<p>Your group entry code is <strong>{{order.entryCode}}</strong> — have your QR code ready at the door.</p>
+<p>Each person should open their own QR from the order page before they arrive. Family lookup code: <strong>{{order.entryCode}}</strong>.</p>
 <p><a href="{{order.url}}">Open your tickets</a></p>`,
   },
   ORG_WELCOME: {

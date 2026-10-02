@@ -25,20 +25,24 @@ branding, per-event sponsor ads, and a mobile-friendly experience throughout.
   or phone links the orders together for lookup.
 
 ### Payments (manual confirmation)
-- Guests pay by e-Transfer, Zelle, or cash and submit their payment
-  reference; an admin confirms each order from the admin panel.
-- Orders track status: pending → confirmed / cancelled.
+- Guests pay by e-Transfer, Zelle, or cash and put a payment code in the
+  transfer message. Staff record each amount received. Confirm stays
+  blocked until the recorded amount covers the order total, so a short
+  payment stays pending. Refunds and waivers are stored with a reason
+  and who approved them.
+- In an emergency, staff can admit an unpaid order without marking it
+  paid. A later full payment confirms the same tickets.
 - Capacity is enforced at checkout and for walk-ins.
 
 ### Tickets & door check-in
-- Each confirmed ticket gets a unique code and a QR code, viewable on its
-  own ticket page.
-- Door console (`/door/[eventId]`) scans QR codes with the phone camera
-  (or manual code entry), shows a big PASS/FAIL result, and rejects
-  duplicates with the original check-in time.
-- Group scans return the full **party roster** with per-person status
-  (in / not in, fed / not fed), and the result names exactly who was
-  admitted ("Admitted: Zara — 2 of 3 in").
+- Each person gets their own QR code. A family still pays with one
+  e-Transfer code. Anyone in the family can arrive at a different time
+  and show their own QR at any door or food phone.
+- Door console (`/door/[eventId]`) scans that personal QR with the phone
+  camera (or manual code entry), shows a big PASS/FAIL result, and rejects
+  a second scan of the same person.
+- Scanning the family payment code does not admit anyone. It lists the
+  party so staff can tap the person who is actually there.
 - **Undo**: staff can undo an accidental entry or food scan (on the scan
   result or per person in Search), fixing "scanned twice but only one
   entered".
@@ -76,8 +80,8 @@ branding, per-event sponsor ads, and a mobile-friendly experience throughout.
   formula-injection safe).
 - Door search by name, order management (confirm/cancel), user roles
   (ADMIN / STAFF), and password change from the top bar.
-- **Buyer search** on the orders page: filter by buyer name, email, or
-  phone to see someone's complete purchase history.
+- **Order search** across the whole list by payment code, buyer name,
+  email, or phone.
 
 ### Guest tools
 - **My bookings**: orders placed on this device are saved locally for

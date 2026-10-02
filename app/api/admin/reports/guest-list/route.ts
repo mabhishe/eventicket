@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { requireOrgApiUser } from "@/lib/auth";
 import { csvResponse } from "@/lib/csv";
-import { formatCents } from "@/lib/money";
+import { formatCents, summarizePayments } from "@/lib/money";
 
 /** ADMIN: download the guest list for an event as CSV. */
 export async function GET(req: NextRequest) {
@@ -23,7 +23,13 @@ export async function GET(req: NextRequest) {
   }
 
   const tickets = await db.ticket.findMany({
-    where: { order: { eventId, status: "CONFIRMED" }, status: { not: "CANCELLED" } },
+    where: {
+      status: { not: "CANCELLED" },
+      order: {
+        eventId,
+        OR: [{ status: "CONFIRMED" }, { emergencyAdmittedAt: { not: null } }],
+      },
+    },
     orderBy: [{ ticketType: { sortOrder: "asc" } }, { createdAt: "asc" }],
     include: {
       ticketType: { select: { name: true } },
@@ -36,6 +42,10 @@ export async function GET(req: NextRequest) {
           refCode: true,
           payMethod: true,
           totalCents: true,
+          status: true,
+          emergencyAdmittedAt: true,
+          emergencyAdmitReason: true,
+          payments: { select: { kind: true, amountCents: true } },
         },
       },
     },
@@ -58,9 +68,14 @@ export async function GET(req: NextRequest) {
       "Order ref",
       "Pay method",
       "Order total",
+      "Received",
+      "Balance owing",
+      "Order status",
+      "Emergency reason",
     ],
   ];
   for (const t of tickets) {
+    const sum = summarizePayments(t.order.payments, t.order.totalCents);
     rows.push([
       t.holderName || "",
       t.ticketType.name,
@@ -81,6 +96,12 @@ export async function GET(req: NextRequest) {
       t.order.refCode || "",
       t.order.payMethod,
       formatCents(t.order.totalCents, event.currency),
+      formatCents(sum.net, event.currency),
+      formatCents(sum.balance, event.currency),
+      t.order.emergencyAdmittedAt && t.order.status !== "CONFIRMED"
+        ? "EMERGENCY"
+        : t.order.status,
+      t.order.emergencyAdmitReason || "",
     ]);
   }
 

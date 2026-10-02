@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireOrgApiUser } from "@/lib/auth";
 import { createOrder, issueTickets } from "@/lib/orders";
+import { recordPayment } from "@/lib/payments";
 
 /**
  * Walk-in sale at the door: creates a CONFIRMED (paid) order and issues
@@ -52,6 +53,21 @@ export async function POST(req: NextRequest) {
         holderName: it.holderName ? String(it.holderName) : null,
       })),
     });
+    await db.order.update({
+      where: { id: order.id },
+      data: { confirmedAt: new Date(), confirmedById: auth.user.id },
+    });
+    if (order.totalCents > 0) {
+      await recordPayment({
+        orderId: order.id,
+        orgId,
+        userId: auth.user.id,
+        kind: "RECEIVED",
+        amountCents: order.totalCents,
+        method: "CASH",
+        reason: "Walk-in sale",
+      });
+    }
     const tickets = await issueTickets(order.id);
 
     if (body.checkIn === true) {

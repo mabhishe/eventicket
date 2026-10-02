@@ -2,19 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireOrgApiUser } from "@/lib/auth";
 import {
-  resolveScanCode,
+  claimEntry,
+  familyCodeMessage,
+  orderAllowsEntry,
   partyProgress,
   partyRoster,
+  resolveScanCode,
   scanTicketInclude,
+  unpaidOrderMessage,
 } from "@/lib/door";
 
 /**
- * Door check-in, group-aware:
- * - a per-ticket code checks in that ticket (unchanged behavior);
- * - an order refCode (the group pass) checks in the next pending ticket of
- *   that order, so one QR admits a whole party one scan at a time.
- * Responses carry party progress { total, checkedIn, ... } and the full
- * per-person roster so staff can see exactly who was admitted.
+ * Door check-in. A personal ticket code admits that person. A family
+ * payment code returns the roster so staff can pick who is standing there.
+ * Two phones scanning the same personal code cannot both succeed.
  */
 export async function POST(req: NextRequest) {
   const auth = await requireOrgApiUser(req, ["ORG_OWNER", "ORG_ADMIN", "ORG_DOOR"]);
@@ -45,16 +46,16 @@ export async function POST(req: NextRequest) {
           title: resolved.ticket.order.event.title,
           status: resolved.ticket.order.status,
           eventId: resolved.ticket.order.eventId,
+          emergencyAdmittedAt: resolved.ticket.order.emergencyAdmittedAt,
         }
       : {
           id: resolved.orderId,
           title: resolved.orderTitle,
           status: resolved.orderStatus,
           eventId: resolved.orderEventId,
+          emergencyAdmittedAt: resolved.emergencyAdmittedAt,
         };
 
-  // The scanned code's event must belong to this org — otherwise the
-  // code is treated as not found (no cross-org information leak).
   const eventOk = await db.event.findFirst({
     where: { id: info.eventId, organizationId: orgId },
     select: { id: true },
@@ -68,28 +69,24 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  if (info.status !== "CONFIRMED") {
-    return NextResponse.json(
-      { error: "This order is not confirmed yet" },
-      { status: 400 }
-    );
+  if (!orderAllowsEntry(info)) {
+    return NextResponse.json({ error: unpaidOrderMessage() }, { status: 400 });
   }
 
   const party = await partyProgress(info.id);
   const roster = await partyRoster(info.id);
-  if (resolved.kind === "order" && !resolved.nextTicket) {
+
+  if (resolved.kind === "order") {
     return NextResponse.json({
+      choosePerson: true,
       ticket: null,
-      already: true,
-      partyFull: true,
       party,
       roster,
-      message: `Everyone is already in (${party.checkedIn} of ${party.total})`,
+      message: familyCodeMessage("entry"),
     });
   }
 
-  const ticket =
-    resolved.kind === "ticket" ? resolved.ticket : resolved.nextTicket!;
+  const ticket = resolved.ticket;
   if (ticket.status === "CANCELLED") {
     return NextResponse.json(
       { error: "Ticket was cancelled", party, roster },
@@ -107,13 +104,28 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const updated = await db.ticket.update({
+  const won = await claimEntry(ticket.id);
+  if (!won) {
+    const current = await db.ticket.findUnique({
+      where: { id: ticket.id },
+      include: scanTicketInclude,
+    });
+    const name = current?.holderName || ticket.order.buyerName;
+    return NextResponse.json({
+      ticket: current,
+      already: true,
+      party: await partyProgress(info.id),
+      roster: await partyRoster(info.id),
+      message: `${name} is already in`,
+    });
+  }
+
+  const updated = await db.ticket.findUnique({
     where: { id: ticket.id },
-    data: { status: "CHECKED_IN", checkedInAt: new Date() },
     include: scanTicketInclude,
   });
   const newParty = await partyProgress(info.id);
-  const name = updated.holderName || updated.order.buyerName;
+  const name = updated?.holderName || ticket.order.buyerName;
   return NextResponse.json({
     ticket: updated,
     already: false,

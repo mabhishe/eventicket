@@ -3,9 +3,9 @@ import { extractCode } from "./tickets";
 
 /**
  * Shared resolution for door scans. A scan code can be:
- * - a per-ticket code (checks that specific ticket), or
- * - an order refCode — the group pass — which resolves to the next pending
- *   ticket of that order, so one QR admits a whole party one scan at a time.
+ * - a per-person ticket code, which admits or serves that person, or
+ * - an order refCode (family lookup). That code does not admit anyone;
+ *   staff pick the person from the roster.
  */
 export const scanTicketInclude = {
   ticketType: { select: { name: true } },
@@ -17,10 +17,30 @@ export const scanTicketInclude = {
       status: true,
       eventId: true,
       refCode: true,
+      emergencyAdmittedAt: true,
       event: { select: { title: true } },
     },
   },
 } as const;
+
+/** Confirmed orders and emergency admits can pass the door. A short payment cannot. */
+export function orderAllowsEntry(order: {
+  status: string;
+  emergencyAdmittedAt?: Date | string | null;
+}) {
+  if (order.status === "CONFIRMED") return true;
+  return order.status === "PENDING_PAYMENT" && order.emergencyAdmittedAt != null;
+}
+
+export function unpaidOrderMessage() {
+  return "This order is not paid in full yet. It stays pending until the rest arrives. Use Search and Emergency admit only if you must let them in.";
+}
+
+export function familyCodeMessage(mode: "entry" | "food") {
+  return mode === "entry"
+    ? "Family code. Choose the person who is here. This code does not admit anyone by itself."
+    : "Family code. Choose the person whose meal you are serving.";
+}
 
 export type ResolvedScanTicket = Awaited<
   ReturnType<typeof db.ticket.findFirst<{ include: typeof scanTicketInclude }>>
@@ -37,6 +57,7 @@ export async function resolveScanCode(
       orderEventId: string;
       orderTitle: string;
       orderStatus: string;
+      emergencyAdmittedAt: Date | null;
       nextTicket: NonNullable<ResolvedScanTicket> | null;
     }
   | { kind: "none" }
@@ -55,6 +76,7 @@ export async function resolveScanCode(
       id: true,
       status: true,
       eventId: true,
+      emergencyAdmittedAt: true,
       event: { select: { title: true } },
     },
   });
@@ -81,8 +103,31 @@ export async function resolveScanCode(
     orderEventId: order.eventId,
     orderTitle: order.event.title,
     orderStatus: order.status,
+    emergencyAdmittedAt: order.emergencyAdmittedAt,
     nextTicket,
   };
+}
+
+/** Mark one issued ticket checked in. A second scanner loses the race. */
+export async function claimEntry(ticketId: string): Promise<boolean> {
+  const claimed = await db.ticket.updateMany({
+    where: { id: ticketId, status: "ISSUED" },
+    data: { status: "CHECKED_IN", checkedInAt: new Date() },
+  });
+  return claimed.count === 1;
+}
+
+/** Record food for one ticket. A second scanner loses the race. */
+export async function claimFood(ticketId: string): Promise<boolean> {
+  const claimed = await db.ticket.updateMany({
+    where: {
+      id: ticketId,
+      foodCollectedAt: null,
+      status: { not: "CANCELLED" },
+    },
+    data: { foodCollectedAt: new Date() },
+  });
+  return claimed.count === 1;
 }
 
 /** Party-level progress for an order: { total, checkedIn, mealsTotal, mealsServed }. */
@@ -100,6 +145,7 @@ export async function partyProgress(orderId: string) {
 
 export type RosterTicket = {
   id: string;
+  code: string;
   holderName: string | null;
   status: string;
   checkedInAt: string | null;
@@ -120,6 +166,7 @@ export async function partyRoster(orderId: string): Promise<RosterTicket[]> {
   });
   return tickets.map((t) => ({
     id: t.id,
+    code: t.code,
     holderName: t.holderName,
     status: t.status,
     checkedInAt: t.checkedInAt ? t.checkedInAt.toISOString() : null,

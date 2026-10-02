@@ -12,7 +12,8 @@ import {
   btnDanger,
   ErrorNote,
 } from "@/components/ui";
-import { formatCents } from "@/lib/money";
+import { formatCents, summarizePayments } from "@/lib/money";
+import { OrderLedger, type LedgerOrder } from "@/components/order-ledger";
 
 type OrderItem = {
   qty: number;
@@ -20,18 +21,15 @@ type OrderItem = {
   ticketType: { name: string };
   mealOption: { name: string } | null;
 };
-type Order = {
-  id: string;
+type Order = LedgerOrder & {
   buyerName: string;
   buyerEmail: string | null;
   buyerPhone: string | null;
-  status: string;
   payMethod: string;
-  totalCents: number;
   notes: string | null;
   refCode: string | null;
   createdAt: string;
-  event: { title: string };
+  event: { title: string; currency: string };
   seller: { name: string } | null;
   items: OrderItem[];
   _count: { tickets: number };
@@ -52,22 +50,33 @@ function OrdersInner() {
   const [filter, setFilter] = useState("PENDING_PAYMENT");
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [buyerInput, setBuyerInput] = useState("");
   const [buyerQuery, setBuyerQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const q =
-      filter === "ALL"
-        ? `?page=${page}&pageSize=${PAGE_SIZE}`
-        : `?status=${filter}&page=${page}&pageSize=${PAGE_SIZE}`;
-    const res = await fetch(`/api/admin/orders${q}`);
+    const params = new URLSearchParams({
+      page: String(page),
+      pageSize: String(PAGE_SIZE),
+    });
+    if (filter !== "ALL") params.set("status", filter);
+    if (buyerQuery) params.set("q", buyerQuery);
+    const res = await fetch(`/api/admin/orders?${params}`);
     const data = await res.json();
     if (res.ok) {
       setOrders(data.orders);
       setTotal(data.total ?? 0);
     } else setError(data.error || "Could not load orders");
-  }, [filter, page]);
+  }, [filter, page, buyerQuery]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setBuyerQuery(buyerInput.trim());
+      setPage(1);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [buyerInput]);
 
   useEffect(() => {
     load();
@@ -99,7 +108,7 @@ function OrdersInner() {
     <Container>
       <PageTitle
         title="Orders"
-        sub="Confirm payment when the money arrives — tickets are issued automatically."
+        sub="Record each e-Transfer. Confirm only when the full amount is in. A short payment stays pending."
         action={
           <div className="flex gap-2">
             {["PENDING_PAYMENT", "CONFIRMED", "CANCELLED", "ALL"].map((s) => (
@@ -125,28 +134,20 @@ function OrdersInner() {
       <div className="mb-4">
         <input
           className="w-full rounded-lg border border-stone-300 px-3 py-2.5 text-sm dark:border-stone-700 dark:bg-stone-900"
-          value={buyerQuery}
-          onChange={(e) => setBuyerQuery(e.target.value)}
-          placeholder="Search buyer by name, email, or phone…"
+          value={buyerInput}
+          onChange={(e) => setBuyerInput(e.target.value)}
+          placeholder="Search payment code, name, email, or phone…"
           aria-label="Search buyer"
         />
       </div>
       {(() => {
-        const q = buyerQuery.trim().toLowerCase();
-        const visible = q
-          ? orders.filter(
-              (o) =>
-                o.buyerName.toLowerCase().includes(q) ||
-                (o.buyerEmail || "").toLowerCase().includes(q) ||
-                (o.buyerPhone || "").toLowerCase().includes(q)
-            )
-          : orders;
+        const visible = orders;
         if (visible.length === 0) {
           return (
             <Card>
               <p className="text-sm text-stone-500">
-                {q
-                  ? "No orders match this buyer. Switch the status filter to ALL if the order may already be confirmed or cancelled."
+                {buyerQuery
+                  ? "No orders match. Switch the status filter to ALL if it may already be confirmed or cancelled."
                   : "No orders in this view."}
               </p>
             </Card>
@@ -178,6 +179,9 @@ function OrdersInner() {
                     <Badge tone={tone[o.status] ?? "stone"}>
                       {o.status.replace("_", " ")}
                     </Badge>
+                    {o.emergencyAdmittedAt && o.status !== "CONFIRMED" && (
+                      <Badge tone="amber">Emergency</Badge>
+                    )}
                   </div>
                   <p className="mt-1 text-sm text-stone-500">
                     {o.event.title} ·{" "}
@@ -204,13 +208,21 @@ function OrdersInner() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="font-semibold">
-                    {formatCents(o.totalCents)}
+                    {formatCents(o.totalCents, o.event.currency)}
                   </span>
                   {o.status === "PENDING_PAYMENT" && (
                     <>
                       <button
                         className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
-                        disabled={busy === o.id}
+                        disabled={
+                          busy === o.id ||
+                          !summarizePayments(o.payments, o.totalCents).canConfirm
+                        }
+                        title={
+                          summarizePayments(o.payments, o.totalCents).canConfirm
+                            ? "Issue tickets"
+                            : "Record the full e-Transfer before confirming"
+                        }
                         onClick={() => act(o.id, "confirm")}
                       >
                         {busy === o.id ? "…" : "Confirm payment"}
@@ -255,6 +267,12 @@ function OrdersInner() {
                   )}
                 </div>
               </div>
+              <OrderLedger
+                order={{ ...o, currency: o.event.currency }}
+                busy={busy === o.id}
+                onChanged={load}
+                onError={setError}
+              />
             </Card>
             ))}
           </div>

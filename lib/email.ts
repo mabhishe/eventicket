@@ -162,7 +162,7 @@ export function orderConfirmationHtml(
 <table style="width:100%;border-collapse:collapse;margin:0 0 16px;">${orderLines(order)}
 <tr><td style="padding:8px 0 0;border-top:1px solid #e4e4e7;font-size:15px;font-weight:700;">Total due: ${formatCents(order.totalCents, order.currency)}</td></tr></table>
 ${paymentInstructions(order, event)}
-<p style="margin:16px 0 0;font-size:14px;color:#52525b;">Once the organizer confirms your payment, we'll email your group QR code and entry code.</p>
+<p style="margin:16px 0 0;font-size:14px;color:#52525b;">Once the organizer confirms your full payment, each person gets their own QR code. A short payment stays pending until the rest arrives.</p>
 <p style="margin:16px 0 0;"><a href="${orderUrl}" style="display:inline-block;background:${accent};color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px;">View your order</a></p>`;
   return shell({
     accent,
@@ -176,15 +176,27 @@ export function ticketsIssuedHtml(
   order: OrderMailInfo,
   event: EventMailInfo,
   groupCode: string,
-  orderUrl: string
+  orderUrl: string,
+  people: { code: string; holderName: string | null }[] = []
 ): string {
   const accent = event.brandColor || "#16a34a";
+  const base = appUrl();
+  const list =
+    people.length > 0
+      ? `<ul style="margin:0 0 16px;padding-left:18px;">${people
+          .map((p) => {
+            const href = base ? `${base}/t/${p.code}` : `${orderUrl}`;
+            const name = p.holderName || order.buyerName;
+            return `<li style="margin:0 0 6px;font-size:14px;"><strong>${name}</strong> — <a href="${href}">${href}</a></li>`;
+          })
+          .join("")}</ul>`
+      : "";
   const body = `
 <p style="margin:0 0 8px;font-size:20px;font-weight:700;">You're in! 🎟️</p>
 <p style="margin:0 0 16px;font-size:14px;color:#52525b;">Your payment for <strong>${event.title}</strong> is confirmed.<br>${fmtDate(event.date)}${event.venue ? ` · ${event.venue}` : ""}</p>
-<p style="margin:0 0 4px;font-size:13px;color:#71717a;">YOUR GROUP ENTRY CODE</p>
-<p style="margin:0 0 8px;font-size:36px;font-weight:800;letter-spacing:6px;font-family:monospace;">${groupCode}</p>
-<p style="margin:0 0 16px;font-size:14px;color:#52525b;">Your group QR code is attached to this email. Show it at the door — one scan per person, for entry and the food line.</p>
+<p style="margin:0 0 12px;font-size:14px;color:#52525b;">Each person shows their own QR at the door and at the food line. Open that person's link and save the QR.</p>
+${list}
+<p style="margin:0 0 16px;font-size:14px;color:#52525b;">Family lookup code <strong style="font-family:monospace;letter-spacing:2px;">${groupCode}</strong> is for staff if someone arrives without their own QR. It does not check a person in by itself.</p>
 <p style="margin:0;"><a href="${orderUrl}" style="display:inline-block;background:${accent};color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px;">Open your tickets</a></p>`;
   return shell({
     accent,

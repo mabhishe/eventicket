@@ -32,7 +32,10 @@ export default async function DoorSheetPage({
   }
 
   const orders = await db.order.findMany({
-    where: { eventId, status: "CONFIRMED" },
+    where: {
+      eventId,
+      OR: [{ status: "CONFIRMED" }, { emergencyAdmittedAt: { not: null } }],
+    },
     orderBy: { buyerName: "asc" },
     include: {
       items: { include: { ticketType: { select: { name: true } } } },
@@ -97,63 +100,55 @@ export default async function DoorSheetPage({
           </div>
         </div>
         <p className="mb-4 text-xs text-stone-500">
-          Tick ☐ In when the group enters, ☐ Food when they collect meals.
-          Reconcile checked-in groups in the app after the event.
+          One row per person. Tick ☐ In and ☐ Food, then reconcile in the app
+          by searching the ticket code. The family code is only a lookup.
         </p>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b-2 border-stone-300 text-left text-xs uppercase tracking-wide text-stone-500">
               <th className="py-2 pr-2">#</th>
-              <th className="py-2 pr-2">Buyer</th>
-              <th className="py-2 pr-2">Tickets</th>
-              <th className="py-2 pr-2">Entry code</th>
-              <th className="py-2 pr-2">Meals</th>
+              <th className="py-2 pr-2">Person</th>
+              <th className="py-2 pr-2">Ticket code</th>
+              <th className="py-2 pr-2">Family code</th>
+              <th className="py-2 pr-2">Meal</th>
               <th className="py-2 pr-2 text-center">In</th>
               <th className="py-2 text-center">Food</th>
             </tr>
           </thead>
           <tbody>
-            {orders.map((o, i) => {
-              const ticketDesc = o.items
-                .map((it) => `${it.qty} × ${it.ticketType.name}`)
-                .join(", ");
-              const meals = o.tickets
-                .map((t) => t.mealOption?.name)
-                .filter(Boolean) as string[];
-              const mealSummary =
-                meals.length > 0
-                  ? [...new Set(meals)]
-                      .map(
-                        (m) =>
-                          `${meals.filter((x) => x === m).length} ${m}`
-                      )
-                      .join(", ")
-                  : "—";
-              return (
-                <tr key={o.id} className="border-b border-stone-100">
-                  <td className="py-2 pr-2 text-stone-400">{i + 1}</td>
-                  <td className="py-2 pr-2">
-                    <span className="font-semibold">{o.buyerName}</span>
-                    {o.buyerPhone && (
-                      <span className="block text-xs text-stone-500">
-                        {o.buyerPhone}
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-2 pr-2">{ticketDesc}</td>
-                  <td className="py-2 pr-2 font-mono text-xs font-bold tracking-widest">
-                    {o.refCode || "—"}
-                  </td>
-                  <td className="py-2 pr-2 text-xs">{mealSummary}</td>
-                  <td className="py-2 pr-2 text-center">
-                    <span className="inline-block h-5 w-5 rounded border-2 border-stone-400" />
-                  </td>
-                  <td className="py-2 text-center">
-                    <span className="inline-block h-5 w-5 rounded border-2 border-stone-400" />
-                  </td>
-                </tr>
-              );
-            })}
+            {orders.flatMap((o) =>
+              o.tickets
+                .filter((t) => t.status !== "CANCELLED")
+                .map((t) => ({ order: o, ticket: t }))
+            ).map((row, i) => (
+              <tr key={row.ticket.id} className="border-b border-stone-100">
+                <td className="py-2 pr-2 text-stone-400">{i + 1}</td>
+                <td className="py-2 pr-2">
+                  <span className="font-semibold">
+                    {row.ticket.holderName || row.order.buyerName}
+                  </span>
+                  <span className="block text-xs text-stone-500">
+                    {row.order.buyerName}
+                    {row.order.status !== "CONFIRMED" ? " · unpaid" : ""}
+                  </span>
+                </td>
+                <td className="py-2 pr-2 font-mono text-xs font-bold tracking-widest">
+                  {row.ticket.code}
+                </td>
+                <td className="py-2 pr-2 font-mono text-xs tracking-widest">
+                  {row.order.refCode || "—"}
+                </td>
+                <td className="py-2 pr-2 text-xs">
+                  {row.ticket.mealOption?.name || "—"}
+                </td>
+                <td className="py-2 pr-2 text-center">
+                  <span className="inline-block h-5 w-5 rounded border-2 border-stone-400" />
+                </td>
+                <td className="py-2 text-center">
+                  <span className="inline-block h-5 w-5 rounded border-2 border-stone-400" />
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
         {orders.length === 0 && (

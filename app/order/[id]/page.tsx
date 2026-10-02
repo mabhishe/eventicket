@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { formatCents } from "@/lib/money";
-import { orderQrDataUrl } from "@/lib/tickets";
+import { ticketQrDataUrl } from "@/lib/tickets";
 import { ensureOrderRefCode, ensureOrderInviteCode } from "@/lib/orders";
 import { Container, Card, PageTitle, Badge, btnPrimary } from "@/components/ui";
 import { SponsorsStrip } from "@/components/sponsors-strip";
@@ -43,8 +43,13 @@ export default async function OrderPage({ params }: Ctx) {
   // One group pass per order: the refCode admits the whole party, one scan
   // per person at the door and one per meal at the food line.
   const groupCode =
-    order.status === "CONFIRMED" ? await ensureOrderRefCode(order.id) : null;
-  const groupQr = groupCode ? await orderQrDataUrl(groupCode) : null;
+    order.tickets.length > 0 ? await ensureOrderRefCode(order.id) : order.refCode;
+  const personalPasses = await Promise.all(
+    order.tickets.map(async (t) => ({
+      ticket: t,
+      qr: await ticketQrDataUrl(t.code),
+    }))
+  );
   const inviteCode = await ensureOrderInviteCode(order.id);
   const friendCount = await db.order.count({
     where: { eventId: e.id, invitedBy: inviteCode },
@@ -176,53 +181,77 @@ export default async function OrderPage({ params }: Ctx) {
               </p>
             )}
             <p className="mt-3 text-sm text-stone-500">
-              Keep this page — your tickets appear here as soon as the
-              organizer confirms your payment. You can also show this page at
-              the door.
+              Send the full amount. A short transfer stays pending until the
+              rest arrives, and each person&apos;s QR appears here once the
+              order is confirmed.
             </p>
           </Card>
         )}
 
-        {order.status === "CONFIRMED" && groupCode && groupQr && (
+        {personalPasses.length > 0 && (
           <div className="mb-6">
-            <Card className="text-center">
-              <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
-                Entry + food pass
+            {order.status === "PENDING_PAYMENT" && (
+              <Card className="mb-4 border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/40">
+                <p className="text-sm">
+                  You are admitted while payment is still outstanding. Each
+                  person can use the QR below. The balance on this order is
+                  still due.
+                </p>
+              </Card>
+            )}
+            <h2 className="mb-3 font-semibold">
+              Each person&apos;s pass ({personalPasses.length})
+            </h2>
+            <div className="space-y-4">
+              {personalPasses.map(({ ticket: t, qr }) => (
+                <Card key={t.id} className="text-center">
+                  <p className="text-lg font-semibold">
+                    {t.holderName || order.buyerName}
+                  </p>
+                  <p className="text-sm text-stone-500">
+                    {t.ticketType.name}
+                    {t.mealOption ? ` · ${t.mealOption.name}` : ""}
+                  </p>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={qr}
+                    alt={`QR for ${t.holderName || order.buyerName}`}
+                    className="mx-auto mt-3 h-56 w-56"
+                  />
+                  <p className="mt-3 font-mono text-2xl font-bold tracking-[0.2em]">
+                    {t.code}
+                  </p>
+                  <p className="mx-auto mt-1 max-w-sm text-xs text-stone-500">
+                    Only {t.holderName || order.buyerName} shows this QR, at
+                    the door and at the food line.
+                  </p>
+                  <div className="mt-3 flex justify-center">
+                    <ShareButton
+                      url={`/t/${t.code}`}
+                      title={`${e.title} — ${t.holderName || order.buyerName}`}
+                      text={`Ticket for ${t.holderName || order.buyerName}`}
+                    />
+                  </div>
+                </Card>
+              ))}
+            </div>
+            {groupCode && (
+              <p className="mt-4 text-center text-xs text-stone-500">
+                Family lookup code{" "}
+                <span className="font-mono font-bold tracking-widest">
+                  {groupCode}
+                </span>
+                . If someone arrives without their own QR, staff can search
+                this and pick their name.
               </p>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={groupQr}
-                alt={`Group pass ${groupCode}`}
-                className="mx-auto mt-3 h-56 w-56"
-              />
-              <p className="mt-3 font-mono text-3xl font-bold tracking-[0.25em]">
-                {groupCode}
-              </p>
-              <p className="mt-2 text-sm font-medium">
-                {order.tickets.length}{" "}
-                {order.tickets.length === 1 ? "person" : "people"} · one code
-                for your whole group
-              </p>
-              <p className="mx-auto mt-1 max-w-sm text-xs text-stone-500">
-                Show this at the door and at the food line — we scan it once
-                per person. After everyone is in, it stops working.
-              </p>
-              <div className="mt-4 flex justify-center">
-                <ShareButton
-                  url={`/order/${order.id}`}
-                  title={`${e.title} — group pass`}
-                  text={`My group pass for ${e.title}`}
-                />
-              </div>
-            </Card>
+            )}
             <Card className="mt-6 mb-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h2 className="font-semibold">Need more tickets?</h2>
                   <p className="text-sm text-stone-500">
-                    Paid orders are locked — buying more starts a new order
-                    with its own payment code and group pass. Your details are
-                    filled in for you.
+                    Paid orders are locked. Buying more starts a new order
+                    with its own payment code. Your details are filled in.
                   </p>
                 </div>
                 <Link href={buyMoreUrl} className={btnPrimary}>
@@ -230,30 +259,6 @@ export default async function OrderPage({ params }: Ctx) {
                 </Link>
               </div>
             </Card>
-            <h2 className="mb-3 mt-6 font-semibold">
-              Who&apos;s coming ({order.tickets.length})
-            </h2>
-            <div className="space-y-2">
-              {order.tickets.map((t) => (
-                <Card key={t.id} className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">
-                      {t.holderName || order.buyerName}
-                    </p>
-                    <p className="text-xs text-stone-500">
-                      {t.ticketType.name}
-                      {t.mealOption ? ` · ${t.mealOption.name}` : ""}
-                    </p>
-                  </div>
-                  <Link
-                    href={`/t/${t.code}`}
-                    className="text-xs underline"
-                  >
-                    Ticket
-                  </Link>
-                </Card>
-              ))}
-            </div>
           </div>
         )}
 

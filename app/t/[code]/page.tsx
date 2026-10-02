@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { orderQrDataUrl } from "@/lib/tickets";
+import { ticketQrDataUrl } from "@/lib/tickets";
 import { ensureOrderRefCode, ensureOrderInviteCode } from "@/lib/orders";
 import { Container, Card, Badge } from "@/components/ui";
 import { SponsorsStrip } from "@/components/sponsors-strip";
@@ -26,6 +26,7 @@ export default async function TicketPage({ params }: Ctx) {
   const e = ticket.order.event;
   // The group pass: one code for the whole order, scanned once per person.
   const groupCode = await ensureOrderRefCode(ticket.order.id);
+  const personalQr = await ticketQrDataUrl(ticket.code);
   const inviteCode = await ensureOrderInviteCode(ticket.order.id);
   const friendCount = await db.order.count({
     where: { eventId: e.id, invitedBy: inviteCode },
@@ -33,7 +34,6 @@ export default async function TicketPage({ params }: Ctx) {
   const partySize = await db.ticket.count({
     where: { orderId: ticket.order.id, status: { not: "CANCELLED" } },
   });
-  const qr = await orderQrDataUrl(groupCode);
   const dateLabel = new Intl.DateTimeFormat("en-CA", {
     weekday: "long",
     year: "numeric",
@@ -53,7 +53,10 @@ export default async function TicketPage({ params }: Ctx) {
       <div className="mx-auto max-w-sm">
         <Card className="text-center">
           <p className="text-sm text-stone-500">{e.title}</p>
-          <h1 className="mt-1 text-xl font-bold">{ticket.ticketType.name}</h1>
+          <h1 className="mt-1 text-xl font-bold">
+            {ticket.holderName || ticket.order.buyerName}
+          </h1>
+          <p className="text-sm text-stone-500">{ticket.ticketType.name}</p>
           <p className="text-sm text-stone-500">
             {new Intl.DateTimeFormat("en-CA", {
               weekday: "long",
@@ -67,16 +70,16 @@ export default async function TicketPage({ params }: Ctx) {
           </p>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={qr}
-            alt={`Group pass ${groupCode}`}
+            src={personalQr}
+            alt={`Ticket for ${ticket.holderName || ticket.order.buyerName}`}
             className="mx-auto mt-4 h-56 w-56"
           />
           <p className="mt-3 font-mono text-2xl font-bold tracking-widest">
-            {groupCode}
+            {ticket.code}
           </p>
           <p className="mt-1 text-sm text-stone-500">
-            Group pass · {partySize} {partySize === 1 ? "person" : "people"} ·
-            scanned once per person at the door and food line
+            This QR is only for {ticket.holderName || ticket.order.buyerName}.
+            Show it at the door and at the food line.
           </p>
           <div className="mt-2 flex items-center justify-center gap-2">
             <Badge
@@ -94,11 +97,10 @@ export default async function TicketPage({ params }: Ctx) {
               <Badge tone="amber">{ticket.mealOption.name}</Badge>
             )}
           </div>
-          <p className="mt-3 text-sm text-stone-500">
-            {ticket.holderName || ticket.order.buyerName}
-          </p>
-          <p className="mt-1 text-xs text-stone-400">
-            Show this QR at the door for check-in — one scan per person.
+          <p className="mt-3 text-xs text-stone-400">
+            Family lookup {groupCode}
+            {partySize > 1 ? ` · ${partySize} people on this order` : ""}. Staff
+            can search it and pick a name. It does not check someone in by itself.
           </p>
           <div className="mt-4 flex justify-center">
             <ShareButton

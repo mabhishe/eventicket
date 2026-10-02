@@ -16,11 +16,27 @@ export async function GET(req: NextRequest) {
     200,
     Math.max(1, parseInt(searchParams.get("pageSize") || "50", 10) || 50)
   );
+  const q = (searchParams.get("q") || "").trim();
+  const digits = q.replace(/\D/g, "");
 
   const where = {
     event: { organizationId: orgId },
     ...(eventId ? { eventId } : {}),
     ...(status ? { status: status as never } : {}),
+    ...(q
+      ? {
+          OR: [
+            { buyerName: { contains: q } },
+            { buyerEmail: { contains: q } },
+            { buyerPhone: { contains: q } },
+            { refCode: { contains: q.toUpperCase() } },
+            { items: { some: { holderName: { contains: q } } } },
+            ...(digits.length >= 4
+              ? [{ buyerPhone: { contains: digits } }]
+              : []),
+          ],
+        }
+      : {}),
   };
 
   const [orders, total] = await Promise.all([
@@ -30,8 +46,14 @@ export async function GET(req: NextRequest) {
       skip: (page - 1) * pageSize,
       take: pageSize,
       include: {
-        event: { select: { title: true } },
+        event: { select: { title: true, currency: true } },
         seller: { select: { name: true } },
+        confirmedBy: { select: { name: true } },
+        emergencyAdmittedBy: { select: { name: true } },
+        payments: {
+          orderBy: { createdAt: "asc" },
+          include: { recordedBy: { select: { name: true } } },
+        },
         items: { include: { ticketType: true, mealOption: true } },
         _count: { select: { tickets: true } },
       },
