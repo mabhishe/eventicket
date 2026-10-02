@@ -44,6 +44,12 @@ enum TicketStatus {
   CANCELLED
 }
 
+enum PaymentKind {
+  RECEIVED
+  REFUND
+  WAIVER
+}
+
 model User {
   id            String   @id @default(cuid())
   name          String
@@ -53,6 +59,9 @@ model User {
   emailVerified Boolean  @default(false) // true once the email address is confirmed
   createdAt     DateTime @default(now())
   soldOrders   Order[]  @relation("SellerOrders")
+  confirmedOrders Order[] @relation("ConfirmedOrders")
+  emergencyAdmits Order[] @relation("EmergencyAdmits")
+  recordedPayments Payment[]
   events       Event[]  @relation("CreatedEvents")
   memberships  Membership[]
   verificationTokens VerificationToken[]
@@ -207,9 +216,32 @@ model Order {
   inviteCode String?   @unique // public invite code for referral links (?invite=), distinct from the door refCode
   invitedBy  String? // inviteCode of the order that referred this buyer
   showOnWall Boolean   @default(false) // buyer opted into the public "who's going" wall
+  confirmedAt           DateTime?
+  confirmedById         String?
+  confirmedBy           User?       @relation("ConfirmedOrders", fields: [confirmedById], references: [id], onDelete: SetNull)
+  emergencyAdmittedAt   DateTime?
+  emergencyAdmitReason  String?
+  emergencyAdmittedById String?
+  emergencyAdmittedBy   User?       @relation("EmergencyAdmits", fields: [emergencyAdmittedById], references: [id], onDelete: SetNull)
   createdAt  DateTime    @default(now())
   items      OrderItem[]
   tickets    Ticket[]
+  payments   Payment[]
+}
+
+model Payment {
+  id           String      @id @default(cuid())
+  orderId      String
+  order        Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  kind         PaymentKind
+  amountCents  Int
+  method       String?
+  reason       String?
+  recordedById String?
+  recordedBy   User?       @relation(fields: [recordedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime    @default(now())
+
+  @@index([orderId])
 }
 
 model OrderItem {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireOrgApiUser } from "@/lib/auth";
+import { summarizePayments } from "@/lib/money";
 
 /** Sales report for one event (or all events when no eventId). */
 export async function GET(req: NextRequest) {
@@ -12,7 +13,7 @@ export async function GET(req: NextRequest) {
   const eventId = searchParams.get("eventId");
 
   const where = {
-    status: "CONFIRMED" as const,
+    status: { not: "CANCELLED" as const },
     event: { organizationId: orgId },
     ...(eventId ? { eventId } : {}),
   };
@@ -26,10 +27,14 @@ export async function GET(req: NextRequest) {
       tickets: { include: { mealOption: true } },
       seller: { select: { name: true } },
       event: { select: { title: true, currency: true } },
+      payments: { select: { kind: true, amountCents: true } },
     },
   });
 
-  const revenueCents = orders.reduce((s, o) => s + o.totalCents, 0);
+  let collectedCents = 0;
+  let outstandingCents = 0;
+  let waivedCents = 0;
+  let confirmedOrders = 0;
 
   const byTicketType: Record<
     string,
@@ -53,6 +58,39 @@ export async function GET(req: NextRequest) {
   let foodCollected = 0;
 
   for (const o of orders) {
+    const sum = summarizePayments(o.payments, o.totalCents);
+    const legacyPaid = o.payments.length === 0 && o.status === "CONFIRMED";
+    collectedCents += legacyPaid ? o.totalCents : sum.net;
+    waivedCents += sum.waived;
+    if (o.status === "PENDING_PAYMENT") {
+      outstandingCents += Math.max(0, o.totalCents - sum.net - sum.waived);
+    }
+    const inDoor = o.status === "CONFIRMED" || o.emergencyAdmittedAt != null;
+    if (o.status === "CONFIRMED") confirmedOrders += 1;
+    if (!inDoor && o.status !== "CONFIRMED") {
+      continue;
+    }
+    if (o.status !== "CONFIRMED") {
+      for (const t of o.tickets) {
+        ticketsIssued += 1;
+        if (t.status === "CHECKED_IN") ticketsCheckedIn += 1;
+        if (t.foodCollectedAt) foodCollected += 1;
+        if (t.mealOptionId && t.mealOption) {
+          meals[t.mealOptionId] = meals[t.mealOptionId] ?? {
+            name: t.mealOption.name,
+            tag: t.mealOption.tag,
+            total: 0,
+            checkedIn: 0,
+            collected: 0,
+            remaining: 0,
+          };
+          meals[t.mealOptionId].total += 1;
+          if (t.status === "CHECKED_IN") meals[t.mealOptionId].checkedIn += 1;
+          if (t.foodCollectedAt) meals[t.mealOptionId].collected += 1;
+        }
+      }
+      continue;
+    }
     for (const it of o.items) {
       const key = it.ticketTypeId;
       byTicketType[key] = byTicketType[key] ?? {
@@ -71,7 +109,7 @@ export async function GET(req: NextRequest) {
       revenueCents: 0,
     };
     bySeller[sellerKey].orders += 1;
-    bySeller[sellerKey].revenueCents += o.totalCents;
+    bySeller[sellerKey].revenueCents += legacyPaid ? o.totalCents : sum.net;
 
     for (const t of o.tickets) {
       ticketsIssued += 1;
@@ -98,8 +136,11 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     summary: {
-      orders: orders.length,
-      revenueCents,
+      orders: confirmedOrders,
+      revenueCents: collectedCents,
+      collectedCents,
+      outstandingCents,
+      waivedCents,
       ticketsIssued,
       ticketsCheckedIn,
       foodCollected,

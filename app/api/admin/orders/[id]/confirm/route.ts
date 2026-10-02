@@ -4,6 +4,7 @@ import path from "path";
 import { db } from "@/lib/db";
 import { requireOrgApiUser } from "@/lib/auth";
 import { issueTickets, ensureOrderRefCode } from "@/lib/orders";
+import { formatCents, summarizePayments } from "@/lib/money";
 import {
   sendTemplatedEmail,
   sendTemplatedWhatsApp,
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
   const order = await db.order.findFirst({
     where: { id, event: { organizationId: orgId } },
+    include: { payments: true, event: { select: { currency: true } } },
   });
   if (!order) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
@@ -46,10 +48,30 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     );
   }
 
-  const updated = await db.order.update({
-    where: { id },
-    data: { status: "CONFIRMED" },
+  const sum = summarizePayments(order.payments, order.totalCents);
+  if (!sum.canConfirm) {
+    return NextResponse.json(
+      {
+        error: `Recorded payment is ${formatCents(sum.net, order.event.currency)} of ${formatCents(order.totalCents, order.event.currency)}. This order stays pending until the rest arrives.`,
+      },
+      { status: 400 }
+    );
+  }
+
+  const claimed = await db.order.updateMany({
+    where: { id, status: "PENDING_PAYMENT" },
+    data: {
+      status: "CONFIRMED",
+      confirmedAt: new Date(),
+      confirmedById: auth.user.id,
+    },
   });
+  if (claimed.count === 0) {
+    const tickets = await issueTickets(id);
+    const current = await db.order.findUnique({ where: { id } });
+    return NextResponse.json({ order: current, tickets, already: true });
+  }
+  const updated = await db.order.findUnique({ where: { id } });
   const tickets = await issueTickets(id);
   // Tickets notifications: email (QR attached) + WhatsApp (QR as image).
   // Neither may fail the confirmation.
@@ -123,10 +145,13 @@ export async function POST(req: NextRequest, { params }: Ctx) {
           orderId: full.id,
           kind: "TEMPLATE",
           // Rich default (with QR attached) kept until the org customizes.
-          richHtml: ticketsIssuedHtml(mailInfo, full.event, groupCode, orderUrl),
-          attachments: [
-            { filename: `group-qr-${groupCode}.png`, content: qr.toString("base64") },
-          ],
+          richHtml: ticketsIssuedHtml(
+            mailInfo,
+            full.event,
+            groupCode,
+            orderUrl,
+            tickets.map((t) => ({ code: t.code, holderName: t.holderName }))
+          ),
         });
       }
       const waTo = normalizePhone(full.buyerPhone);

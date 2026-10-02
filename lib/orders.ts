@@ -114,14 +114,21 @@ async function uniqueTicketCode(
  * Generate one Ticket per ordered seat. Idempotent: returns existing
  * tickets if the order was already issued.
  */
-export async function issueTickets(orderId: string) {
+export async function issueTickets(
+  orderId: string,
+  opts?: { allowPending?: boolean }
+) {
   return db.$transaction(async (tx) => {
     const order = await tx.order.findUnique({
       where: { id: orderId },
       include: { items: true, tickets: true },
     });
     if (!order) throw new Error("Order not found");
-    if (order.status !== "CONFIRMED") {
+    if (order.status === "CANCELLED") throw new Error("Order is cancelled");
+    const allowed =
+      order.status === "CONFIRMED" ||
+      (opts?.allowPending === true && order.status === "PENDING_PAYMENT");
+    if (!allowed) {
       throw new Error("Order is not confirmed");
     }
     if (order.tickets.length > 0) return order.tickets;

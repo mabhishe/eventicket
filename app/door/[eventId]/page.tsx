@@ -11,6 +11,7 @@ import {
   inputCls,
   btnPrimary,
   btnSecondary,
+  btnDanger,
   ErrorNote,
 } from "@/components/ui";
 import { formatCents } from "@/lib/money";
@@ -44,6 +45,7 @@ type DoorData = {
 };
 type RosterPerson = {
   id: string;
+  code: string;
   holderName: string | null;
   status: string;
   checkedInAt: string | null;
@@ -84,7 +86,17 @@ function DietBadge({ tag }: { tag: string | null }) {
   );
 }
 
-function RosterView({ roster }: { roster: RosterPerson[] }) {
+function RosterView({
+  roster,
+  pick,
+}: {
+  roster: RosterPerson[];
+  pick?: {
+    label: string;
+    onPick: (code: string) => void;
+    done: (p: RosterPerson) => boolean;
+  };
+}) {
   return (
     <div className="mt-4 border-t border-stone-200 pt-3 text-left dark:border-stone-700">
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide opacity-70">
@@ -102,7 +114,15 @@ function RosterView({ roster }: { roster: RosterPerson[] }) {
               </p>
               <p className="text-xs opacity-70">{p.ticketType.name}</p>
             </div>
-            <div className="flex shrink-0 gap-1">
+            <div className="flex shrink-0 items-center gap-1">
+              {pick && !pick.done(p) && (
+                <button
+                  className={btnPrimary + " px-3 py-2 text-xs"}
+                  onClick={() => pick.onPick(p.code)}
+                >
+                  {pick.label}
+                </button>
+              )}
               <Badge tone={p.status === "CHECKED_IN" ? "green" : "stone"}>
                 {p.status === "CHECKED_IN" ? "In" : "Not in"}
               </Badge>
@@ -142,6 +162,7 @@ export default function DoorConsole({
   const [manualCode, setManualCode] = useState("");
   const [lastScan, setLastScan] = useState<{
     ok: boolean;
+    choosePerson?: boolean;
     message: string;
     ticket?: Ticket | null;
     party?: { total: number; checkedIn: number } | null;
@@ -153,6 +174,7 @@ export default function DoorConsole({
   const [foodResult, setFoodResult] = useState<{
     ok: boolean;
     already?: boolean;
+    choosePerson?: boolean;
     message: string;
     ticket?: Ticket | null;
     party?: { mealsTotal: number; mealsServed: number } | null;
@@ -170,6 +192,19 @@ export default function DoorConsole({
   // search
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Ticket[]>([]);
+  const [pendingHits, setPendingHits] = useState<
+    {
+      id: string;
+      buyerName: string;
+      refCode: string | null;
+      totalCents: number;
+      currency: string;
+      receivedCents: number;
+      balanceCents: number;
+      holders: string[];
+    }[]
+  >([]);
+  const [admitReasons, setAdmitReasons] = useState<Record<string, string>>({});
 
   // walk-in (per person)
   const [wq, setWq] = useState<Record<string, number>>({});
@@ -206,6 +241,17 @@ export default function DoorConsole({
       setLastScan({ ok: false, message: d.error || "Check-in failed" });
       return;
     }
+    if (d.choosePerson) {
+      setLastScan({
+        ok: true,
+        choosePerson: true,
+        message: d.message,
+        ticket: null,
+        party: d.party ?? null,
+        roster: d.roster ?? null,
+      });
+      return;
+    }
     const t = d.ticket ?? null;
     setLastScan({
       ok: true,
@@ -233,6 +279,17 @@ export default function DoorConsole({
         ok: false,
         message: d.error || "Could not record food",
         ticket: d.ticket ?? null,
+      });
+      return;
+    }
+    if (d.choosePerson) {
+      setFoodResult({
+        ok: true,
+        choosePerson: true,
+        message: d.message,
+        ticket: null,
+        party: d.party ?? null,
+        roster: d.roster ?? null,
       });
       return;
     }
@@ -352,7 +409,30 @@ export default function DoorConsole({
     );
     const d = await res.json();
     setResults(res.ok ? d.tickets : []);
+    setPendingHits(res.ok ? d.pendingOrders || [] : []);
     if (!res.ok) setError(d.error || "Search failed");
+  }
+
+  async function admitPending(orderId: string) {
+    const reason = (admitReasons[orderId] || "").trim();
+    if (reason.length < 8) {
+      setError("Describe why they are being admitted before the balance is paid");
+      return;
+    }
+    setError(null);
+    const res = await fetch(`/api/admin/orders/${orderId}/emergency-admit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason }),
+    });
+    const d = await res.json();
+    if (!res.ok) {
+      setError(d.error || "Could not admit");
+      return;
+    }
+    setNotice("Admitted. Payment is still outstanding. Their personal QR is ready to scan.");
+    await search();
+    await load();
   }
 
   /** Per-person correction from the search results. */
@@ -550,7 +630,7 @@ export default function DoorConsole({
                 className={inputCls}
                 value={manualCode}
                 onChange={(e) => setManualCode(e.target.value)}
-                placeholder="Or type group / ticket code"
+                placeholder="Type a person's code or a family code"
                 autoCapitalize="characters"
               />
               <button className={btnPrimary}>Check in</button>
@@ -588,7 +668,18 @@ export default function DoorConsole({
                   </button>
                 )}
                 {lastScan.roster && lastScan.roster.length > 0 && (
-                  <RosterView roster={lastScan.roster} />
+                  <RosterView
+                    roster={lastScan.roster}
+                    pick={
+                      lastScan.choosePerson
+                        ? {
+                            label: "Check in",
+                            onPick: (code) => checkIn(code),
+                            done: (p) => p.status === "CHECKED_IN",
+                          }
+                        : undefined
+                    }
+                  />
                 )}
               </div>
             )}
@@ -622,7 +713,7 @@ export default function DoorConsole({
                 className={inputCls}
                 value={foodCode}
                 onChange={(e) => setFoodCode(e.target.value)}
-                placeholder="Or type group / ticket code"
+                placeholder="Type a person's code or a family code"
                 autoCapitalize="characters"
               />
               <button className={btnPrimary}>Serve</button>
@@ -666,7 +757,18 @@ export default function DoorConsole({
                   </button>
                 )}
                 {foodResult.roster && foodResult.roster.length > 0 && (
-                  <RosterView roster={foodResult.roster} />
+                  <RosterView
+                    roster={foodResult.roster}
+                    pick={
+                      foodResult.choosePerson
+                        ? {
+                            label: "Serve",
+                            onPick: (code) => collectFood(code),
+                            done: (p) => !p.mealOption || !!p.foodCollectedAt,
+                          }
+                        : undefined
+                    }
+                  />
                 )}
               </div>
             )}
@@ -682,7 +784,7 @@ export default function DoorConsole({
                 className={inputCls}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Name, ticket code, or group code"
+                placeholder="Name, phone, ticket code, or family code"
               />
               <button className={btnPrimary}>Search</button>
             </form>
@@ -768,7 +870,42 @@ export default function DoorConsole({
                   </div>
                 </div>
               ))}
-              {query && results.length === 0 && (
+              {pendingHits.map((o) => (
+                <div
+                  key={o.id}
+                  className="rounded-lg border border-amber-300 px-3 py-3 dark:border-amber-800"
+                >
+                  <p className="text-sm font-medium">
+                    {o.buyerName}{" "}
+                    {o.refCode && (
+                      <span className="font-mono text-xs tracking-widest">{o.refCode}</span>
+                    )}
+                  </p>
+                  <p className="text-xs text-stone-500">
+                    Unpaid · received {formatCents(o.receivedCents, o.currency)} of{" "}
+                    {formatCents(o.totalCents, o.currency)}
+                    {o.holders.length > 0 ? ` · ${o.holders.join(", ")}` : ""}
+                  </p>
+                  <form
+                    className="mt-2 flex gap-2"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      admitPending(o.id);
+                    }}
+                  >
+                    <input
+                      className={inputCls}
+                      placeholder="Reason for emergency admit"
+                      value={admitReasons[o.id] || ""}
+                      onChange={(e) =>
+                        setAdmitReasons({ ...admitReasons, [o.id]: e.target.value })
+                      }
+                    />
+                    <button className={btnDanger + " shrink-0"}>Admit</button>
+                  </form>
+                </div>
+              ))}
+              {query && results.length === 0 && pendingHits.length === 0 && (
                 <p className="text-sm text-stone-500">No matching tickets.</p>
               )}
             </div>

@@ -14,6 +14,9 @@ type Report = {
   summary: {
     orders: number;
     revenueCents: number;
+    collectedCents?: number;
+    outstandingCents?: number;
+    waivedCents?: number;
     ticketsIssued: number;
     ticketsCheckedIn: number;
     foodCollected: number;
@@ -66,7 +69,7 @@ export default function ReportsPage() {
     <Container>
       <PageTitle
         title="Reports"
-        sub="Confirmed orders only."
+        sub="Collected is money recorded, after refunds. Outstanding is still unpaid."
         action={
           <select
             className={inputCls + " w-auto"}
@@ -84,10 +87,11 @@ export default function ReportsPage() {
       <ErrorNote message={error} />
       {s && (
         <>
-          <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
             {[
-              ["Revenue", formatCents(s.revenueCents)],
-              ["Orders", String(s.orders)],
+              ["Collected", formatCents(s.collectedCents ?? s.revenueCents)],
+              ["Outstanding", formatCents(s.outstandingCents ?? 0)],
+              ["Confirmed orders", String(s.orders)],
               ["Tickets issued", String(s.ticketsIssued)],
               ["Checked in", String(s.ticketsCheckedIn)],
               ["Food collected", String(s.foodCollected)],

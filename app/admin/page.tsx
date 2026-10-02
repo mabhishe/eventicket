@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireOrgUser } from "@/lib/auth";
-import { formatCents } from "@/lib/money";
+import { formatCents, summarizePayments } from "@/lib/money";
 import {
   Container,
   Card,
@@ -56,7 +56,7 @@ export default async function AdminDashboard() {
   const canManage = orgRole === "ORG_OWNER" || orgRole === "ORG_ADMIN";
   const now = new Date();
 
-  const [events, confirmedAgg, pendingAgg, pendingOrders] = await Promise.all([
+  const [events, moneyOrders, pendingOrders] = await Promise.all([
     db.event.findMany({
       where: { organizationId: orgId },
       orderBy: { date: "asc" },
@@ -65,15 +65,16 @@ export default async function AdminDashboard() {
         _count: { select: { orders: true } },
       },
     }),
-    db.order.aggregate({
-      where: { status: "CONFIRMED", event: { organizationId: orgId } },
-      _count: true,
-      _sum: { totalCents: true },
-    }),
-    db.order.aggregate({
-      where: { status: "PENDING_PAYMENT", event: { organizationId: orgId } },
-      _count: true,
-      _sum: { totalCents: true },
+    db.order.findMany({
+      where: {
+        status: { not: "CANCELLED" },
+        event: { organizationId: orgId },
+      },
+      select: {
+        status: true,
+        totalCents: true,
+        payments: { select: { kind: true, amountCents: true } },
+      },
     }),
     db.order.findMany({
       where: { status: "PENDING_PAYMENT", event: { organizationId: orgId } },
@@ -85,6 +86,21 @@ export default async function AdminDashboard() {
       },
     }),
   ]);
+
+  let collectedCents = 0;
+  let outstandingCents = 0;
+  let confirmedCount = 0;
+  let pendingCount = 0;
+  for (const o of moneyOrders) {
+    const sum = summarizePayments(o.payments, o.totalCents);
+    const legacy = o.payments.length === 0 && o.status === "CONFIRMED";
+    collectedCents += legacy ? o.totalCents : sum.net;
+    if (o.status === "CONFIRMED") confirmedCount += 1;
+    if (o.status === "PENDING_PAYMENT") {
+      pendingCount += 1;
+      outstandingCents += Math.max(0, o.totalCents - sum.net - sum.waived);
+    }
+  }
 
   const upcoming = events.filter((e) => e.date >= now);
   const past = events.filter((e) => e.date < now).reverse();
@@ -148,19 +164,16 @@ export default async function AdminDashboard() {
         <Stat label="Upcoming events" value={String(upcoming.length)} />
         <Stat
           label="Confirmed orders"
-          value={String(confirmedAgg._count)}
+          value={String(confirmedCount)}
           sub="across all events"
         />
+        <Stat label="Money collected" value={formatCents(collectedCents)} />
         <Stat
-          label="Revenue confirmed"
-          value={formatCents(confirmedAgg._sum.totalCents || 0)}
-        />
-        <Stat
-          label="Awaiting payment"
-          value={formatCents(pendingAgg._sum.totalCents || 0)}
+          label="Still owing"
+          value={formatCents(outstandingCents)}
           sub={
-            pendingAgg._count > 0
-              ? `${pendingAgg._count} order${pendingAgg._count === 1 ? "" : "s"}`
+            pendingCount > 0
+              ? `${pendingCount} unpaid order${pendingCount === 1 ? "" : "s"}`
               : "all clear"
           }
         />
@@ -192,7 +205,7 @@ export default async function AdminDashboard() {
       )}
 
       <h2 className="mb-3 text-lg font-semibold">
-        Orders waiting for payment ({pendingAgg._count})
+        Orders waiting for payment ({pendingCount})
       </h2>
       {pendingOrders.length === 0 ? (
         <Card>

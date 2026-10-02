@@ -26,7 +26,13 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   const availability = await ticketAvailability(eventId);
 
   const tickets = await db.ticket.findMany({
-    where: { order: { eventId, status: "CONFIRMED" } },
+    where: {
+      status: { not: "CANCELLED" },
+      order: {
+        eventId,
+        OR: [{ status: "CONFIRMED" }, { emergencyAdmittedAt: { not: null } }],
+      },
+    },
     select: {
       status: true,
       foodCollectedAt: true,

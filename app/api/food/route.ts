@@ -2,20 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireOrgApiUser } from "@/lib/auth";
 import {
-  resolveScanCode,
+  claimFood,
+  familyCodeMessage,
+  orderAllowsEntry,
   partyProgress,
   partyRoster,
+  resolveScanCode,
   scanTicketInclude,
+  unpaidOrderMessage,
 } from "@/lib/door";
 
 /**
- * Food service, group-aware:
- * - a per-ticket code records that ticket's meal as served (unchanged);
- * - an order refCode (the group pass) serves the next unserved meal of that
- *   order and reports which meal it was, so one QR works for the whole party.
- * Responses carry party progress { mealsTotal, mealsServed, ... } and the
- * full per-person roster.
- * When the event requires entry before food, unadmitted guests are refused.
+ * Food service. A personal ticket code serves that person's meal. A family
+ * code returns the roster so staff pick who is at the window. Two phones
+ * cannot both record the same meal.
  */
 export async function POST(req: NextRequest) {
   const auth = await requireOrgApiUser(req, ["ORG_OWNER", "ORG_ADMIN", "ORG_DOOR"]);
@@ -46,16 +46,16 @@ export async function POST(req: NextRequest) {
           title: resolved.ticket.order.event.title,
           status: resolved.ticket.order.status,
           eventId: resolved.ticket.order.eventId,
+          emergencyAdmittedAt: resolved.ticket.order.emergencyAdmittedAt,
         }
       : {
           id: resolved.orderId,
           title: resolved.orderTitle,
           status: resolved.orderStatus,
           eventId: resolved.orderEventId,
+          emergencyAdmittedAt: resolved.emergencyAdmittedAt,
         };
 
-  // The scanned code's event must belong to this org — otherwise the
-  // code is treated as not found (no cross-org information leak).
   const eventOk = await db.event.findFirst({
     where: { id: info.eventId, organizationId: orgId },
     select: { id: true },
@@ -69,16 +69,14 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  if (info.status !== "CONFIRMED") {
-    return NextResponse.json(
-      { error: "This order is not confirmed yet" },
-      { status: 400 }
-    );
+  if (!orderAllowsEntry(info)) {
+    return NextResponse.json({ error: unpaidOrderMessage() }, { status: 400 });
   }
 
   const party = await partyProgress(info.id);
   const roster = await partyRoster(info.id);
-  if (resolved.kind === "order" && !resolved.nextTicket) {
+
+  if (resolved.kind === "order") {
     if (party.mealsTotal === 0) {
       return NextResponse.json(
         { error: "This order does not include any meals", party, roster },
@@ -86,17 +84,15 @@ export async function POST(req: NextRequest) {
       );
     }
     return NextResponse.json({
+      choosePerson: true,
       ticket: null,
-      already: true,
-      partyFull: true,
       party,
       roster,
-      message: `All meals already served (${party.mealsServed} of ${party.mealsTotal})`,
+      message: familyCodeMessage("food"),
     });
   }
 
-  const ticket =
-    resolved.kind === "ticket" ? resolved.ticket : resolved.nextTicket!;
+  const ticket = resolved.ticket;
   if (ticket.status === "CANCELLED") {
     return NextResponse.json(
       { error: "Ticket was cancelled", party, roster },
@@ -120,7 +116,6 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Per-event option: the food line only serves guests who entered first.
   const event = await db.event.findUnique({
     where: { id: info.eventId },
     select: { requireEntryBeforeFood: true },
@@ -138,14 +133,29 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const updated = await db.ticket.update({
+  const won = await claimFood(ticket.id);
+  if (!won) {
+    const current = await db.ticket.findUnique({
+      where: { id: ticket.id },
+      include: scanTicketInclude,
+    });
+    const name = current?.holderName || ticket.order.buyerName;
+    return NextResponse.json({
+      ticket: current,
+      already: true,
+      party: await partyProgress(info.id),
+      roster: await partyRoster(info.id),
+      message: `${name} already collected their meal`,
+    });
+  }
+
+  const updated = await db.ticket.findUnique({
     where: { id: ticket.id },
-    data: { foodCollectedAt: new Date() },
     include: scanTicketInclude,
   });
   const newParty = await partyProgress(info.id);
-  const name = updated.holderName || updated.order.buyerName;
-  const meal = updated.mealOption?.name || "meal";
+  const name = updated?.holderName || ticket.order.buyerName;
+  const meal = updated?.mealOption?.name || "meal";
   return NextResponse.json({
     ticket: updated,
     already: false,
