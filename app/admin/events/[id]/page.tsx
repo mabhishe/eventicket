@@ -90,6 +90,7 @@ export default function ManageEventPage({
   const [ttMeal, setTtMeal] = useState(false);
   const [mealName, setMealName] = useState("");
   const [mealTag, setMealTag] = useState("");
+  const [mealError, setMealError] = useState<string | null>(null);
   const [progTime, setProgTime] = useState("");
   const [progTitle, setProgTitle] = useState("");
   const [progDesc, setProgDesc] = useState("");
@@ -254,21 +255,33 @@ export default function ManageEventPage({
     });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error || "Could not add meal option");
+      setMealError(data.error || "Could not add meal option");
       return;
     }
+    setMealError(null);
     setMealName("");
     setMealTag("");
     await load(id);
   }
 
-  async function deleteMeal(mId: string) {
-    if (!id || !confirm("Delete this meal option?")) return;
-    const res = await fetch(`/api/admin/events/${id}/meal-options/${mId}`, {
-      method: "DELETE",
-    });
-    const data = await res.json();
-    if (!res.ok) setError(data.error || "Could not delete");
+  async function deleteMeal(mId: string, force = false) {
+    if (!id) return;
+    if (!force && !confirm("Delete this meal option?")) return;
+    setMealError(null);
+    const res = await fetch(
+      `/api/admin/events/${id}/meal-options/${mId}${force ? "?force=1" : ""}`,
+      { method: "DELETE" }
+    );
+    const data = await res.json().catch(() => ({}));
+    if (res.status === 400 && data.inUse && !force) {
+      const ok = confirm(
+        `${data.error}\n\nDelete it anyway? That meal will be cleared on those orders, and those guests will need a meal chosen again.`
+      );
+      if (ok) return deleteMeal(mId, true);
+      setMealError(data.error);
+      return;
+    }
+    if (!res.ok) setMealError(data.error || "Could not delete");
     else await load(id);
   }
 
@@ -1140,6 +1153,7 @@ export default function ManageEventPage({
                     </p>
                   </div>
                   <button
+                    type="button"
                     className={btnDanger}
                     onClick={() => deleteTicketType(t.id)}
                   >
@@ -1198,6 +1212,11 @@ export default function ManageEventPage({
 
           <Card>
             <h2 className="mb-3 font-semibold">Meal options</h2>
+            {mealError && (
+              <div className="mb-3">
+                <ErrorNote message={mealError} />
+              </div>
+            )}
             <label className="mb-4 flex cursor-pointer items-start gap-3 rounded-lg bg-stone-50 p-3 dark:bg-stone-800/50">
               <input
                 type="checkbox"
@@ -1241,7 +1260,11 @@ export default function ManageEventPage({
                       </span>
                     )}
                   </p>
-                  <button className={btnDanger} onClick={() => deleteMeal(m.id)}>
+                  <button
+                    type="button"
+                    className={btnDanger}
+                    onClick={() => deleteMeal(m.id)}
+                  >
                     Delete
                   </button>
                 </div>

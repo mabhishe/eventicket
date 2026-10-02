@@ -19,7 +19,6 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
 
   const meal = await db.mealOption.findFirst({
     where: { id: mId, eventId: id },
-    include: { _count: { select: { orderItems: true, tickets: true } } },
   });
   if (!meal) {
     return NextResponse.json(
@@ -27,12 +26,46 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
       { status: 404 }
     );
   }
-  if (meal._count.orderItems > 0 || meal._count.tickets > 0) {
+
+  const [activeItems, activeTickets] = await Promise.all([
+    db.orderItem.count({
+      where: {
+        mealOptionId: mId,
+        order: { status: { not: "CANCELLED" } },
+      },
+    }),
+    db.ticket.count({
+      where: {
+        mealOptionId: mId,
+        status: { not: "CANCELLED" },
+        order: { status: { not: "CANCELLED" } },
+      },
+    }),
+  ]);
+  const usedBy = Math.max(activeItems, activeTickets);
+  const force = new URL(req.url).searchParams.get("force") === "1";
+  if (usedBy > 0 && !force) {
+    const guests = usedBy === 1 ? "1 guest has" : `${usedBy} guests have`;
     return NextResponse.json(
-      { error: "Cannot delete a meal option that is in use" },
+      {
+        error: `${guests} already chosen “${meal.name}”.`,
+        inUse: true,
+        usedBy,
+      },
       { status: 400 }
     );
   }
-  await db.mealOption.delete({ where: { id: mId } });
+
+  await db.$transaction([
+    db.orderItem.updateMany({
+      where: { mealOptionId: mId },
+      data: { mealOptionId: null },
+    }),
+    db.ticket.updateMany({
+      where: { mealOptionId: mId },
+      data: { mealOptionId: null },
+    }),
+    db.mealOption.delete({ where: { id: mId } }),
+  ]);
   return NextResponse.json({ ok: true });
 }
