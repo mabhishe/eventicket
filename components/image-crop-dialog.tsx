@@ -41,15 +41,23 @@ export function ImageCropDialog({
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     const url = URL.createObjectURL(file);
     const image = new Image();
     image.onload = () => {
+      if (cancelled) return;
       imgRef.current = image;
+      setError(null);
       setReady(true);
     };
-    image.onerror = () => setError("Could not read that image.");
+    image.onerror = () => {
+      if (!cancelled) setError("Could not read that image.");
+    };
     image.src = url;
-    return () => URL.revokeObjectURL(url);
+    return () => {
+      cancelled = true;
+      URL.revokeObjectURL(url);
+    };
   }, [file]);
 
   useEffect(() => {
