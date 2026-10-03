@@ -5,6 +5,7 @@ import { getSession, resolveActiveMembership } from "@/lib/auth";
 import { isPlatformAdmin } from "@/lib/platform";
 import { db } from "@/lib/db";
 import NavMenuClient from "@/components/nav-menu";
+import { publicSignupEnabled } from "@/lib/publicSignup";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -54,7 +55,9 @@ async function Nav() {
     }
   } else {
     links.push({ href: "/login", label: "Sign in" });
-    links.push({ href: "/signup", label: "Create account" });
+    if (publicSignupEnabled()) {
+      links.push({ href: "/signup", label: "Create account" });
+    }
   }
   return <NavMenuClient appName={appName} links={links} signedIn={!!session} />;
 }

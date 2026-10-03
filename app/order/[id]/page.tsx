@@ -69,15 +69,7 @@ export default async function OrderPage({ params }: Ctx) {
   }
 
   // "Buy more tickets" starts a fresh order with the buyer's details filled in.
-  const buyMoreUrl =
-    `/e/${e.slug}` +
-    `?name=${encodeURIComponent(order.buyerName)}` +
-    (order.buyerEmail
-      ? `&email=${encodeURIComponent(order.buyerEmail)}`
-      : "") +
-    (order.buyerPhone
-      ? `&phone=${encodeURIComponent(order.buyerPhone)}`
-      : "");
+  const buyMoreUrl = `/e/${e.slug}?name=${encodeURIComponent(order.buyerName)}`;
 
   return (
     <Container>
@@ -122,8 +114,6 @@ export default async function OrderPage({ params }: Ctx) {
             orderId={order.id}
             eventSlug={e.slug}
             buyerName={order.buyerName}
-            buyerEmail={order.buyerEmail}
-            buyerPhone={order.buyerPhone}
             items={order.items}
           />
         )}

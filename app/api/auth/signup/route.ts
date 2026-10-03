@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth";
 import { checkRateLimit, clientIp } from "@/lib/rateLimit";
 import { sendEmail, verifyEmailHtml, appUrl } from "@/lib/email";
+import { publicSignupEnabled } from "@/lib/publicSignup";
 
 // Abuse protection: 5 signups per hour per IP.
 const SIGNUP_LIMIT = { limit: 5, windowMs: 60 * 60 * 1000 };
@@ -28,6 +29,15 @@ function slugify(name: string): string {
  * is configured; otherwise the address is auto-verified (self-hosted mode).
  */
 export async function POST(req: NextRequest) {
+  if (!publicSignupEnabled()) {
+    return NextResponse.json(
+      {
+        error:
+          "Public signup is turned off. Ask an organizer to add you from Team.",
+      },
+      { status: 403 }
+    );
+  }
   const rl = checkRateLimit(`signup:${clientIp(req)}`, SIGNUP_LIMIT);
   if (!rl.ok) {
     return NextResponse.json(
@@ -97,7 +107,10 @@ export async function POST(req: NextRequest) {
     await db.user.update({ where: { id: user.id }, data: { emailVerified: true } });
   }
 
-  await createSession(user.id, user.role);
+  await createSession(user.id, user.role, {
+    orgRole: "ORG_OWNER",
+    sessionVersion: 0,
+  });
   const membership = await resolveActiveMembership(user.id);
   return NextResponse.json(
     {

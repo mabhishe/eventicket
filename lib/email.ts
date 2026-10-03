@@ -1,6 +1,18 @@
 import QRCode from "qrcode";
 import { formatCents } from "./money";
 
+function esc(s: string | null | undefined): string {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function accentOf(color: string | null | undefined): string {
+  return color && /^#[0-9a-fA-F]{6}$/.test(color) ? color : "#16a34a";
+}
+
 /**
  * Transactional email via Resend (https://resend.com).
  *
@@ -109,7 +121,7 @@ export function shell(opts: {
   body: string;
 }): string {
   return `<!doctype html><html><body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${opts.preheader}</div>
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${esc(opts.preheader)}</div>
 <div style="max-width:560px;margin:0 auto;padding:24px 16px;">
 <div style="background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e4e4e7;">
 <div style="background:${opts.accent};padding:24px;color:#ffffff;">
@@ -126,16 +138,16 @@ export function shell(opts: {
 
 function paymentInstructions(order: OrderMailInfo, event: EventMailInfo): string {
   const memo = order.refCode
-    ? `<p style="margin:8px 0 0;font-size:14px;">Include this code in your transfer message: <strong style="font-family:monospace;letter-spacing:2px;">${order.refCode}</strong></p>`
+    ? `<p style="margin:8px 0 0;font-size:14px;">Include this code in your transfer message: <strong style="font-family:monospace;letter-spacing:2px;">${esc(order.refCode)}</strong></p>`
     : "";
   if (order.payMethod === "ETRANSFER" && event.etransferEmail) {
-    return `<p style="margin:0 0 8px;font-size:14px;"><strong>How to pay:</strong> send ${formatCents(order.totalCents, order.currency)} by Interac e-Transfer to <strong>${event.etransferEmail}</strong>.</p>${memo}`;
+    return `<p style="margin:0 0 8px;font-size:14px;"><strong>How to pay:</strong> send ${formatCents(order.totalCents, order.currency)} by Interac e-Transfer to <strong>${esc(event.etransferEmail)}</strong>.</p>${memo}`;
   }
   if (order.payMethod === "ZELLE" && event.zelleHandle) {
-    return `<p style="margin:0 0 8px;font-size:14px;"><strong>How to pay:</strong> send ${formatCents(order.totalCents, order.currency)} by Zelle to <strong>${event.zelleHandle}</strong>.</p>${memo}`;
+    return `<p style="margin:0 0 8px;font-size:14px;"><strong>How to pay:</strong> send ${formatCents(order.totalCents, order.currency)} by Zelle to <strong>${esc(event.zelleHandle)}</strong>.</p>${memo}`;
   }
   if (order.payMethod === "CASH" && event.cashNote) {
-    return `<p style="margin:0 0 8px;font-size:14px;"><strong>How to pay:</strong> ${event.cashNote}</p>${memo}`;
+    return `<p style="margin:0 0 8px;font-size:14px;"><strong>How to pay:</strong> ${esc(event.cashNote)}</p>${memo}`;
   }
   return `<p style="margin:0 0 8px;font-size:14px;"><strong>Amount due:</strong> ${formatCents(order.totalCents, order.currency)}.${memo}</p>`;
 }
@@ -144,7 +156,7 @@ function orderLines(order: OrderMailInfo): string {
   return order.items
     .map(
       (it) =>
-        `<tr><td style="padding:6px 0;font-size:14px;">${it.qty} × ${it.name}${it.holderName ? ` <span style="color:#71717a;">(${it.holderName})</span>` : ""}</td></tr>`
+        `<tr><td style="padding:6px 0;font-size:14px;">${it.qty} × ${esc(it.name)}${it.holderName ? ` <span style="color:#71717a;">(${esc(it.holderName)})</span>` : ""}</td></tr>`
     )
     .join("");
 }
@@ -155,15 +167,15 @@ export function orderConfirmationHtml(
   event: EventMailInfo,
   orderUrl: string
 ): string {
-  const accent = event.brandColor || "#16a34a";
+  const accent = accentOf(event.brandColor);
   const body = `
-<p style="margin:0 0 8px;font-size:20px;font-weight:700;">We've got your order, ${order.buyerName.split(" ")[0]}! 🎉</p>
-<p style="margin:0 0 16px;font-size:14px;color:#52525b;">You're registered for <strong>${event.title}</strong><br>${fmtDate(event.date)}${event.venue ? ` · ${event.venue}` : ""}</p>
+<p style="margin:0 0 8px;font-size:20px;font-weight:700;">We've got your order, ${esc(order.buyerName.split(" ")[0])}! 🎉</p>
+<p style="margin:0 0 16px;font-size:14px;color:#52525b;">You're registered for <strong>${esc(event.title)}</strong><br>${fmtDate(event.date)}${event.venue ? ` · ${esc(event.venue)}` : ""}</p>
 <table style="width:100%;border-collapse:collapse;margin:0 0 16px;">${orderLines(order)}
 <tr><td style="padding:8px 0 0;border-top:1px solid #e4e4e7;font-size:15px;font-weight:700;">Total due: ${formatCents(order.totalCents, order.currency)}</td></tr></table>
 ${paymentInstructions(order, event)}
 <p style="margin:16px 0 0;font-size:14px;color:#52525b;">Once the organizer confirms your full payment, each person gets their own QR code. A short payment stays pending until the rest arrives.</p>
-<p style="margin:16px 0 0;"><a href="${orderUrl}" style="display:inline-block;background:${accent};color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px;">View your order</a></p>`;
+<p style="margin:16px 0 0;"><a href="${esc(orderUrl)}" style="display:inline-block;background:${accent};color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px;">View your order</a></p>`;
   return shell({
     accent,
     preheader: `Your order for ${event.title} is in — payment instructions inside.`,
@@ -179,25 +191,25 @@ export function ticketsIssuedHtml(
   orderUrl: string,
   people: { code: string; holderName: string | null }[] = []
 ): string {
-  const accent = event.brandColor || "#16a34a";
+  const accent = accentOf(event.brandColor);
   const base = appUrl();
   const list =
     people.length > 0
       ? `<ul style="margin:0 0 16px;padding-left:18px;">${people
           .map((p) => {
-            const href = base ? `${base}/t/${p.code}` : `${orderUrl}`;
-            const name = p.holderName || order.buyerName;
+            const href = esc(base ? `${base}/t/${p.code}` : `${orderUrl}`);
+            const name = esc(p.holderName || order.buyerName);
             return `<li style="margin:0 0 6px;font-size:14px;"><strong>${name}</strong> — <a href="${href}">${href}</a></li>`;
           })
           .join("")}</ul>`
       : "";
   const body = `
 <p style="margin:0 0 8px;font-size:20px;font-weight:700;">You're in! 🎟️</p>
-<p style="margin:0 0 16px;font-size:14px;color:#52525b;">Your payment for <strong>${event.title}</strong> is confirmed.<br>${fmtDate(event.date)}${event.venue ? ` · ${event.venue}` : ""}</p>
+<p style="margin:0 0 16px;font-size:14px;color:#52525b;">Your payment for <strong>${esc(event.title)}</strong> is confirmed.<br>${fmtDate(event.date)}${event.venue ? ` · ${esc(event.venue)}` : ""}</p>
 <p style="margin:0 0 12px;font-size:14px;color:#52525b;">Each person shows their own QR at the door and at the food line. Open that person's link and save the QR.</p>
 ${list}
-<p style="margin:0 0 16px;font-size:14px;color:#52525b;">Family lookup code <strong style="font-family:monospace;letter-spacing:2px;">${groupCode}</strong> is for staff if someone arrives without their own QR. It does not check a person in by itself.</p>
-<p style="margin:0;"><a href="${orderUrl}" style="display:inline-block;background:${accent};color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px;">Open your tickets</a></p>`;
+<p style="margin:0 0 16px;font-size:14px;color:#52525b;">Family lookup code <strong style="font-family:monospace;letter-spacing:2px;">${esc(groupCode)}</strong> is for staff if someone arrives without their own QR. It does not check a person in by itself.</p>
+<p style="margin:0;"><a href="${esc(orderUrl)}" style="display:inline-block;background:${accent};color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px;">Open your tickets</a></p>`;
   return shell({
     accent,
     preheader: `Payment confirmed — your QR code for ${event.title} is inside.`,
@@ -212,9 +224,9 @@ export function appUrl(): string {
 /** "Verify your email" — sent after signup / team invite. */
 export function verifyEmailHtml(name: string, verifyUrl: string): string {
   const body = `
-<p style="margin:0 0 8px;font-size:20px;font-weight:700;">Confirm your email, ${name.split(" ")[0]} ✉️</p>
+<p style="margin:0 0 8px;font-size:20px;font-weight:700;">Confirm your email, ${esc(name.split(" ")[0])} ✉️</p>
 <p style="margin:0 0 16px;font-size:14px;color:#52525b;">One quick step before you can publish events: confirm this email address belongs to you.</p>
-<p style="margin:0 0 16px;"><a href="${verifyUrl}" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px;">Verify my email</a></p>
+<p style="margin:0 0 16px;"><a href="${esc(verifyUrl)}" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px;">Verify my email</a></p>
 <p style="margin:0;font-size:12px;color:#71717a;">This link expires in 24 hours. If you didn't create an account, you can ignore this email.</p>`;
   return shell({
     accent: "#16a34a",
@@ -227,8 +239,8 @@ export function verifyEmailHtml(name: string, verifyUrl: string): string {
 export function resetPasswordHtml(name: string, resetUrl: string): string {
   const body = `
 <p style="margin:0 0 8px;font-size:20px;font-weight:700;">Reset your password</p>
-<p style="margin:0 0 16px;font-size:14px;color:#52525b;">Hi ${name.split(" ")[0]}, someone requested a password reset for your account. Click below to choose a new one.</p>
-<p style="margin:0 0 16px;"><a href="${resetUrl}" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px;">Choose a new password</a></p>
+<p style="margin:0 0 16px;font-size:14px;color:#52525b;">Hi ${esc(name.split(" ")[0])}, someone requested a password reset for your account. Click below to choose a new one.</p>
+<p style="margin:0 0 16px;"><a href="${esc(resetUrl)}" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px;">Choose a new password</a></p>
 <p style="margin:0;font-size:12px;color:#71717a;">This link expires in 1 hour and can only be used once. If you didn't ask for this, you can ignore this email — your password stays the same.</p>`;
   return shell({
     accent: "#16a34a",

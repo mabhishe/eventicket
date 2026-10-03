@@ -57,6 +57,7 @@ model User {
   passwordHash  String
   role          Role     @default(SELLER) // platform-level role; per-org access comes from Membership
   emailVerified Boolean  @default(false) // true once the email address is confirmed
+  sessionVersion Int     @default(0) // bumped on password change; old JWTs stop working
   createdAt     DateTime @default(now())
   soldOrders   Order[]  @relation("SellerOrders")
   confirmedOrders Order[] @relation("ConfirmedOrders")

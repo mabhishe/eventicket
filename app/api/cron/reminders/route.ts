@@ -23,9 +23,7 @@ import {
  */
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
-  const provided =
-    req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
-    req.nextUrl.searchParams.get("secret");
+  const provided = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   if (!secret || provided !== secret) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

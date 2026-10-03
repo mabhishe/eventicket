@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { CloneEventButton } from "@/components/clone-event-button";
 import {
@@ -28,6 +28,7 @@ import {
   SponsorLogoDialog,
   isAcceptedImage,
 } from "@/components/image-crop-dialog";
+import { datetimeLocalToISO, toDatetimeLocalValue } from "@/lib/datetime";
 
 type TicketType = {
   id: string;
@@ -89,6 +90,8 @@ export default function ManageEventPage({
   const [etransferEmail, setEtransferEmail] = useState("");
   const [zelleHandle, setZelleHandle] = useState("");
   const [cashNote, setCashNote] = useState("");
+  const [detailsNote, setDetailsNote] = useState<string | null>(null);
+  const detailsRef = useRef<HTMLFormElement>(null);
 
   // ticket type form
   const [ttName, setTtName] = useState("");
@@ -170,7 +173,7 @@ export default function ManageEventPage({
     const e: EventData = data.event;
     setEvent(e);
     setTitle(e.title);
-    setDate(new Date(e.date).toISOString().slice(0, 16));
+    setDate(toDatetimeLocalValue(new Date(e.date)));
     setVenue(e.venue || "");
     setDescription(e.description || "");
     setEtransferEmail(e.etransferEmail || "");
@@ -190,8 +193,8 @@ export default function ManageEventPage({
     }
   }, [id, load]);
 
-  async function patch(patchData: Record<string, unknown>) {
-    if (!id) return;
+  async function patch(patchData: Record<string, unknown>): Promise<boolean> {
+    if (!id) return false;
     setError(null);
     setUpgradeNeeded(false);
     const res = await fetch(`/api/admin/events/${id}`, {
@@ -203,22 +206,53 @@ export default function ManageEventPage({
     if (!res.ok) {
       setError(data.error || "Could not save");
       setUpgradeNeeded(!!data.upgradeRequired);
-      return;
+      return false;
     }
     await load(id);
+    return true;
   }
 
-  async function saveDetails(e: React.FormEvent) {
-    e.preventDefault();
-    await patch({
-      title,
-      date: new Date(date).toISOString(),
-      venue,
-      description,
-      etransferEmail,
-      zelleHandle,
-      cashNote,
-    });
+  function detailsPayload(): Record<string, unknown> | null {
+    const form = detailsRef.current;
+    if (!form) return null;
+    const fd = new FormData(form);
+    const iso = datetimeLocalToISO(String(fd.get("date") || ""));
+    if (!iso) {
+      setError("Enter a valid date and time");
+      return null;
+    }
+    return {
+      title: String(fd.get("title") || ""),
+      date: iso,
+      venue: String(fd.get("venue") || ""),
+      description: String(fd.get("description") || ""),
+      etransferEmail: String(fd.get("etransferEmail") || ""),
+      zelleHandle: String(fd.get("zelleHandle") || ""),
+      cashNote: String(fd.get("cashNote") || ""),
+    };
+  }
+
+  async function saveDetails(e?: React.FormEvent) {
+    e?.preventDefault();
+    setDetailsNote(null);
+    const payload = detailsPayload();
+    if (!payload) return false;
+    const ok = await patch(payload);
+    if (ok) {
+      setDetailsNote("Draft saved. It stays off the public page until you publish.");
+    }
+    return ok;
+  }
+
+  async function publishEvent() {
+    setDetailsNote(null);
+    const payload = detailsPayload();
+    if (!payload) return;
+    const saved = await patch(payload);
+    if (!saved) return;
+    setDetailsNote("Draft saved.");
+    const ok = await patch({ status: "PUBLISHED" });
+    if (ok) setDetailsNote("Published. Guests can buy tickets now.");
   }
 
   async function addTicketType(e: React.FormEvent) {
@@ -697,10 +731,11 @@ export default function ManageEventPage({
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <h2 className="mb-4 font-semibold">Details & payment info</h2>
-          <form onSubmit={saveDetails} className="space-y-3">
+          <form ref={detailsRef} onSubmit={saveDetails} className="space-y-3">
             <Field label="Title">
               <input
                 className={inputCls}
+                name="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 required
@@ -711,6 +746,7 @@ export default function ManageEventPage({
                 <input
                   className={inputCls}
                   type="datetime-local"
+                  name="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                   required
@@ -719,6 +755,7 @@ export default function ManageEventPage({
               <Field label="Venue">
                 <input
                   className={inputCls}
+                  name="venue"
                   value={venue}
                   onChange={(e) => setVenue(e.target.value)}
                 />
@@ -727,6 +764,7 @@ export default function ManageEventPage({
             <Field label="Description">
               <textarea
                 className={inputCls}
+                name="description"
                 rows={3}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -735,6 +773,7 @@ export default function ManageEventPage({
             <Field label="Interac e-Transfer email">
               <input
                 className={inputCls}
+                name="etransferEmail"
                 value={etransferEmail}
                 onChange={(e) => setEtransferEmail(e.target.value)}
               />
@@ -742,6 +781,7 @@ export default function ManageEventPage({
             <Field label="Zelle handle">
               <input
                 className={inputCls}
+                name="zelleHandle"
                 value={zelleHandle}
                 onChange={(e) => setZelleHandle(e.target.value)}
               />
@@ -749,11 +789,20 @@ export default function ManageEventPage({
             <Field label="Cash instructions">
               <input
                 className={inputCls}
+                name="cashNote"
                 value={cashNote}
                 onChange={(e) => setCashNote(e.target.value)}
               />
             </Field>
-            <button className={btnPrimary}>Save details</button>
+            <button className={btnPrimary} type="submit">
+              Save details
+            </button>
+            {detailsNote && (
+              <p className="text-sm text-green-700 dark:text-green-400">{detailsNote}</p>
+            )}
+            <p className="text-xs text-stone-500">
+              Saving keeps this event as a draft. Guests cannot buy tickets until you publish.
+            </p>
           </form>
 
           <div className="mt-6 border-t border-stone-200 pt-4 dark:border-stone-800">
@@ -761,8 +810,9 @@ export default function ManageEventPage({
             <div className="flex flex-wrap gap-2">
               {event.status !== "PUBLISHED" && (
                 <button
+                  type="button"
                   className={btnPrimary}
-                  onClick={() => patch({ status: "PUBLISHED" })}
+                  onClick={publishEvent}
                 >
                   Publish — start selling
                 </button>
@@ -770,12 +820,14 @@ export default function ManageEventPage({
               {event.status === "PUBLISHED" && (
                 <>
                   <button
+                    type="button"
                     className={btnSecondary}
                     onClick={() => patch({ status: "DRAFT" })}
                   >
                     Unpublish
                   </button>
                   <button
+                    type="button"
                     className={btnSecondary}
                     onClick={() => patch({ status: "CLOSED" })}
                   >
@@ -785,6 +837,7 @@ export default function ManageEventPage({
               )}
               {event.status === "CLOSED" && (
                 <button
+                  type="button"
                   className={btnSecondary}
                   onClick={() => patch({ status: "PUBLISHED" })}
                 >

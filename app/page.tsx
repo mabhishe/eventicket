@@ -2,6 +2,7 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { formatCents } from "@/lib/money";
 import { Container, Card, Badge } from "@/components/ui";
+import { publicSignupEnabled } from "@/lib/publicSignup";
 
 export const dynamic = "force-dynamic";
 
@@ -54,12 +55,14 @@ export default async function Home() {
           >
             Browse events
           </a>
-          <Link
-            href="/signup"
-            className="inline-flex items-center justify-center rounded-xl border border-stone-300 bg-white/50 px-5 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-100 dark:border-stone-700 dark:bg-transparent dark:text-stone-200 dark:hover:bg-stone-800"
-          >
-            Host your own — it&apos;s free
-          </Link>
+          {publicSignupEnabled() && (
+            <Link
+              href="/signup"
+              className="inline-flex items-center justify-center rounded-xl border border-stone-300 bg-white/50 px-5 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-100 dark:border-stone-700 dark:bg-transparent dark:text-stone-200 dark:hover:bg-stone-800"
+            >
+              Host your own — it&apos;s free
+            </Link>
+          )}
         </div>
       </section>
 

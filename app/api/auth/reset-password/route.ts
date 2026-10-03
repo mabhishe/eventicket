@@ -39,7 +39,10 @@ export async function POST(req: NextRequest) {
   }
   await db.user.update({
     where: { id: userId },
-    data: { passwordHash: await hashPassword(password) },
+    data: {
+      passwordHash: await hashPassword(password),
+      sessionVersion: { increment: 1 },
+    },
   });
   return NextResponse.json({ ok: true });
 }

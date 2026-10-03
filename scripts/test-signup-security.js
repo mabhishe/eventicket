@@ -57,7 +57,12 @@ async function main() {
 
   const server = spawn("npx", ["next", "start", "-p", String(PORT)], {
     cwd: ROOT,
-    env: { ...process.env, DATABASE_URL: `file:${TEST_DB}`, SESSION_SECRET: "test-secret-signup" },
+    env: {
+      ...process.env,
+      DATABASE_URL: `file:${TEST_DB}`,
+      SESSION_SECRET: "test-secret-signup",
+      ALLOW_PUBLIC_SIGNUP: "true",
+    },
     stdio: "pipe",
   });
   await new Promise((resolve, reject) => {

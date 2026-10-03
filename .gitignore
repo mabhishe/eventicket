@@ -43,6 +43,8 @@ next-env.d.ts
 # local sqlite + runtime uploads (never commit)
 /prisma/*.db*
 /prisma/*.db-journal
+/prisma/prisma/
 /public/uploads/*
 /data
+/uploads
 /backups

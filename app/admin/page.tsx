@@ -25,13 +25,14 @@ const statusTone: Record<string, "stone" | "green" | "amber" | "red" | "blue"> =
     CANCELLED: "red",
   };
 
-function fmtDate(d: Date) {
+function fmtDate(d: Date, timeZone: string) {
   return new Intl.DateTimeFormat("en-CA", {
     year: "numeric",
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
+    timeZone,
   }).format(d);
 }
 
@@ -55,6 +56,11 @@ export default async function AdminDashboard() {
     "ORG_ADMIN",
     "ORG_STAFF",
   ]);
+  const org = await db.organization.findUnique({
+    where: { id: orgId },
+    select: { timezone: true },
+  });
+  const timeZone = org?.timezone || "America/Toronto";
   const canManage = orgRole === "ORG_OWNER" || orgRole === "ORG_ADMIN";
   const now = new Date();
 
@@ -112,7 +118,7 @@ export default async function AdminDashboard() {
       <div className="flex items-start justify-between gap-2">
         <div>
           <h3 className="font-semibold">{e.title}</h3>
-          <p className="text-sm text-stone-500">{fmtDate(e.date)}</p>
+          <p className="text-sm text-stone-500">{fmtDate(e.date, timeZone)}</p>
         </div>
         <Badge tone={statusTone[e.status]}>{e.status}</Badge>
       </div>
@@ -230,7 +236,7 @@ export default async function AdminDashboard() {
                     · {o.payMethod}
                   </p>
                   <p className="text-xs text-stone-400">
-                    {fmtDate(o.createdAt)}
+                    {fmtDate(o.createdAt, timeZone)}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">

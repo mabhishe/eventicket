@@ -1,0 +1,83 @@
+# Deploys the main branch to the production VM.
+#
+# The SQLite database (data/app.db), uploaded images (uploads/),
+# backups/, and .env stay on the server. This job never deletes them
+# and never runs `docker compose down -v` or `git clean`.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   SERVER_IP, SERVER_USERNAME, SSH_PRIVATE_KEY
+# Add those before merging this file to main. See DEPLOY.md.
+
+name: Deploy to production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Deploy on the server without touching the database
+        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 30m
+          script: |
+            set -eu
+            cd /opt/event-ticketing
+
+            # Same as logging in as abhishek_nist and running docker with sudo.
+            # GitHub cannot type a sudo password, so docker must be allowed
+            # with NOPASSWD (see DEPLOY.md). -n makes a missing rule fail
+            # here instead of hanging.
+            if ! sudo -n docker compose version >/dev/null 2>&1; then
+              echo "sudo docker needs a password, and GitHub cannot type one."
+              echo "On the server, run this once and enter your password:"
+              echo "  echo '$(id -un) ALL=(ALL) NOPASSWD: /usr/bin/docker' | sudo tee /etc/sudoers.d/eventpass-deploy"
+              echo "  sudo chmod 440 /etc/sudoers.d/eventpass-deploy"
+              exit 1
+            fi
+
+            mkdir -p data uploads backups
+            if [ -f data/app.db ]; then
+              stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+              echo "Database before deploy: $(stat -c%s data/app.db) bytes"
+              echo "Writing backups/predeploy-${stamp}.db"
+              if ! sudo -n docker compose exec -T backup sqlite3 /app/data/app.db ".backup main '/backups/predeploy-${stamp}.db'"; then
+                echo "Backup sidecar unavailable; taking a one-off snapshot"
+                sudo -n docker run --rm \
+                  -v "$PWD/data:/data:ro" \
+                  -v "$PWD/backups:/backups" \
+                  alpine:3.21 \
+                  sh -c "apk add --no-cache sqlite3 >/dev/null && sqlite3 /data/app.db \".backup main '/backups/predeploy-${stamp}.db'\""
+              fi
+              test -s "backups/predeploy-${stamp}.db"
+              sudo -n docker compose exec -T backup find /backups -maxdepth 1 -name 'predeploy-*.db' -mtime +30 -delete || true
+            else
+              echo "No data/app.db yet — first boot will create it"
+            fi
+
+            # git pull as the login user, same as the manual deploy.
+            # This does not delete data/, uploads/, backups/, or .env.
+            git pull --ff-only origin main
+            sudo -n docker compose up -d --build
+            if [ -f data/app.db ]; then
+              echo "Database after deploy: $(stat -c%s data/app.db) bytes (file data/app.db)"
+            fi
+            if [ -d uploads ]; then
+              echo "Upload files still on disk: $(find uploads -type f | wc -l)"
+            fi
+            sudo -n docker compose ps

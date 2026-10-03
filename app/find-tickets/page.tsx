@@ -163,13 +163,14 @@ export default function FindTicketsPage() {
         <Card>
           <h2 className="mb-3 font-semibold">Look up an order</h2>
           <form onSubmit={submit} className="space-y-4">
-            <Field label="Your name">
+            <Field label="Full name on the order">
               <input
                 className={inputCls}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
                 autoComplete="name"
+                placeholder="The full name used at checkout"
               />
             </Field>
             <Field label="Email or phone used for the order">
@@ -191,8 +192,8 @@ export default function FindTicketsPage() {
             <div className="mt-6 border-t border-stone-200 pt-4 dark:border-stone-800">
               {orders.length === 0 ? (
                 <p className="text-sm text-stone-500">
-                  No orders found with those details. Check the spelling, or
-                  ask the organizer for help.
+                  No orders found. Use the full name from checkout, or ask the
+                  organizer for help.
                 </p>
               ) : (
                 <div className="space-y-2">

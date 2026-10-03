@@ -1,102 +1,11 @@
-"use client";
-
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { Container, Card, Field, inputCls, btnPrimary, ErrorNote } from "@/components/ui";
-
-function LoginForm() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(
-    searchParams.get("error") === "forbidden"
-      ? "Your account does not have access to that area."
-      : null
-  );
-  const [busy, setBusy] = useState(false);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Sign in failed");
-        setBusy(false);
-        return;
-      }
-      const orgRole = data.user.orgRole as string | null;
-      router.push(orgRole === "ORG_DOOR" ? "/door" : "/admin");
-      router.refresh();
-    } catch {
-      setError(
-        "Could not reach the server. Check you are on the same Wi-Fi as the computer running EventPass and that the server is still running, then try again."
-      );
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Container>
-      <div className="mx-auto max-w-md">
-        <Card>
-          <h1 className="mb-1 text-xl font-bold">Staff sign in</h1>
-          <p className="mb-4 text-sm text-stone-500">
-            Organizers, sellers, and door staff sign in here.
-          </p>
-          <form onSubmit={submit} className="space-y-4">
-            <Field label="Email">
-              <input
-                className={inputCls}
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </Field>
-            <Field label="Password">
-              <input
-                className={inputCls}
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </Field>
-            <ErrorNote message={error} />
-            <button className={btnPrimary + " w-full"} disabled={busy}>
-              {busy ? "Signing in…" : "Sign in"}
-            </button>
-          </form>
-          <div className="mt-4 flex items-center justify-between text-sm">
-            <Link href="/forgot-password" className="underline text-stone-500">
-              Forgot password?
-            </Link>
-            <Link href="/signup" className="underline text-stone-500">
-              Create account
-            </Link>
-          </div>
-        </Card>
-      </div>
-    </Container>
-  );
-}
+import LoginForm from "./form";
+import { publicSignupEnabled } from "@/lib/publicSignup";
 
 export default function LoginPage() {
   return (
     <Suspense>
-      <LoginForm />
+      <LoginForm allowSignup={publicSignupEnabled()} />
     </Suspense>
   );
 }

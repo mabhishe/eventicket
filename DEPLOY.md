@@ -73,6 +73,12 @@ ADMIN_PASSWORD=<redacted>
 # A long random string that authorizes the reminder cron (section 10).
 # Generate: openssl rand -hex 32
 CRON_SECRET=<redacted>
+
+# Public "create account" is off unless this is exactly true.
+# Leave it unset for a single community event. Organizers and door
+# staff are added from Team. Set true only if strangers should be
+# able to open their own organization.
+# ALLOW_PUBLIC_SIGNUP=true
 ```
 
 `DATABASE_URL` is already set to the right value inside
@@ -170,8 +176,11 @@ cron entry for the deploy user:
 ```bash
 crontab -e
 # add this line (paste your actual CRON_SECRET value — cron has no shell env):
-0 * * * * curl -s -H "Authorization: Bearer PASTE_CRON_SECRET_HERE" https://events.aicloudconsult.com/api/cron/reminders
+0 * * * * curl -s -H "Authorization: Bearer PASTE_CRON_SECRET_HERE" https://eventpass.aicloudconsult.com/api/cron/reminders
 ```
+
+Send the secret in the `Authorization` header only. A `?secret=` query
+string is ignored and would show up in logs and browser history.
 
 Notes:
 - Emails only go out once `RESEND_API_KEY` + `EMAIL_FROM` are set (section 5).
@@ -183,15 +192,90 @@ Notes:
 
 ## 11. Updating later
 
+The database (`data/app.db`), uploaded images (`uploads/`), backups, and
+`.env` live on the server next to the code. A deploy must not delete
+them. Do not run `docker compose down -v` or `git clean`.
+
+Manual update, from the server, logged in as `abhishek_nist`:
+
 ```bash
 cd /opt/event-ticketing
-# copy in the new code (or git pull), then:
-docker compose up -d --build
+git pull
+sudo docker compose up -d --build
 ```
 
-Migrations run automatically on start; the database file is untouched.
-Remember the rule: **git pull + `prisma migrate deploy` + restart** —
-pulling new code without applying migrations leaves the app broken.
+`docker compose up -d --build` recreates the app container. The
+`./data` and `./uploads` folders are bind mounts, so the files stay.
+On startup the app runs `prisma migrate deploy`, which only applies new
+migrations. The first-run admin seed does nothing once a user exists.
+The site is briefly unavailable while the new container starts. Orders,
+guests, and images remain.
+
+### Automatic deploy when `main` changes
+
+GitHub Actions can do that update for you. The workflow is
+`.github/workflows/deploy.yml`. It runs on every push to `main`.
+
+Before the first merge, add three repository secrets. GitHub.com →
+this repo → **Settings** → **Secrets and variables** → **Actions** →
+**New repository secret**:
+
+| Name | Value |
+| ---- | ----- |
+| `SERVER_IP` | The VM's external IP |
+| `SERVER_USERNAME` | `abhishek_nist` |
+| `SSH_PRIVATE_KEY` | The private key from the steps below |
+
+Create a key that can only be used for this deploy. On the VM:
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/github_actions -N ""
+cat ~/.ssh/github_actions.pub >> ~/.ssh/authorized_keys
+```
+
+Open `~/.ssh/github_actions`, copy the whole block into the
+`SSH_PRIVATE_KEY` secret, save the secret, then remove the private key
+from the server so it only lives in GitHub:
+
+```bash
+shred -u ~/.ssh/github_actions
+```
+
+Do not commit that key, and do not paste it into chat. The public key
+stays in `authorized_keys`.
+
+GitHub logs in as `abhishek_nist` and runs the same two commands you
+do: `git pull`, then `sudo docker compose up -d --build`. It cannot
+type your sudo password. Allow Docker with no password, once. You will
+still type your password for this setup command:
+
+```bash
+echo 'abhishek_nist ALL=(ALL) NOPASSWD: /usr/bin/docker' | sudo tee /etc/sudoers.d/eventpass-deploy
+sudo chmod 440 /etc/sudoers.d/eventpass-deploy
+```
+
+Check it before merging:
+
+```bash
+sudo -n docker compose version
+```
+
+That should print the version with no password prompt. Every other
+`sudo` command still asks for your password.
+
+What the action does, in order:
+
+1. Writes `backups/predeploy-<timestamp>.db` with `sudo docker` and
+   `sqlite3 .backup` while the current app is still running.
+2. Runs `git pull --ff-only origin main` as `abhishek_nist`. This does
+   not delete `data/`, `uploads/`, `backups/`, or `.env`.
+3. Runs `sudo docker compose up -d --build`.
+
+Watch it under the **Actions** tab. After a deploy, confirm an order
+you already know is still listed. A bad release can be put back by
+stopping the app and copying the matching `backups/predeploy-*.db` onto
+`data/app.db` (same steps as section 9). Pre-deploy snapshots are kept
+for 30 days.
 
 ## Troubleshooting
 

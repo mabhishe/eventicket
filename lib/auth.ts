@@ -21,11 +21,25 @@ export async function verifyPassword(pw: string, hash: string): Promise<boolean>
   return bcrypt.compare(pw, hash);
 }
 
-export async function createSession(userId: string, role: string): Promise<void> {
-  const token = await new SignJWT({ userId, role })
+/** Door phones should not stay signed in for a week if one is lost. */
+const DOOR_SESSION_SEC = 20 * 60 * 60;
+const STAFF_SESSION_SEC = 60 * 60 * 24 * 7;
+
+export async function createSession(
+  userId: string,
+  role: string,
+  opts?: { orgRole?: string | null; sessionVersion?: number }
+): Promise<void> {
+  const maxAge =
+    opts?.orgRole === "ORG_DOOR" ? DOOR_SESSION_SEC : STAFF_SESSION_SEC;
+  const token = await new SignJWT({
+    userId,
+    role,
+    sv: opts?.sessionVersion ?? 0,
+  })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime("7d")
+    .setExpirationTime(`${maxAge}s`)
     .sign(getSecret());
   const store = await cookies();
   // The Secure flag must only be set when the app is served over HTTPS.
@@ -40,7 +54,7 @@ export async function createSession(userId: string, role: string): Promise<void>
     httpOnly: true,
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge,
     secure,
   });
 }
@@ -58,8 +72,18 @@ export async function getSession(): Promise<Session> {
   if (!token) return null;
   try {
     const { payload } = await jwtVerify(token, getSecret());
+    const userId = payload.userId as string;
+    if (!userId) return null;
+    // Missing sv is treated as 0 so sessions issued before this field
+    // still work until the password changes.
+    const sv = typeof payload.sv === "number" ? payload.sv : 0;
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { sessionVersion: true },
+    });
+    if (!user || user.sessionVersion !== sv) return null;
     return {
-      userId: payload.userId as string,
+      userId,
       role: payload.role as string,
     };
   } catch {
