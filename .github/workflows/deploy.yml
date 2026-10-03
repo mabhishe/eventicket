@@ -65,13 +65,23 @@ jobs:
                   sh -c "apk add --no-cache sqlite >/dev/null && sqlite3 /data/app.db \".backup main '/backups/predeploy-${stamp}.db'\""
               fi
               test -s "backups/predeploy-${stamp}.db"
-              sudo -n docker compose exec -T backup find /backups -maxdepth 1 -name 'predeploy-*.db' -mtime +30 -delete || true
             else
               echo "No data/app.db yet — first boot will create it"
             fi
 
             # git pull as the login user, same as the manual deploy.
-            # This does not delete data/, uploads/, backups/, or .env.
+            # The server Caddyfile was edited by hand, so a bare pull
+            # aborts. Stash tracked edits first. Do not pass -u: that
+            # would pick up untracked files. Ignored data/, uploads/,
+            # backups/, and .env are never stashed or deleted.
+            # Recover a stashed edit on the server with: git stash list
+            git fetch origin main
+            if ! git diff --quiet HEAD; then
+              echo "Stashing local edits to tracked files so git pull can proceed:"
+              git diff --name-only HEAD
+              git stash push -m "pre-deploy $(date -u +%Y%m%dT%H%M%SZ)"
+              echo "Recover them on the server with: git stash list"
+            fi
             git pull --ff-only origin main
             sudo -n docker compose up -d --build
             if [ -f data/app.db ]; then
@@ -80,4 +90,7 @@ jobs:
             if [ -d uploads ]; then
               echo "Upload files still on disk: $(find uploads -type f | wc -l)"
             fi
+            # Old snapshots only. The sidecar may still be starting; a
+            # miss here must not fail the deploy.
+            sudo -n docker compose exec -T backup find /backups -maxdepth 1 -name 'predeploy-*.db' -mtime +30 -delete || true
             sudo -n docker compose ps

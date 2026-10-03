@@ -267,8 +267,12 @@ What the action does, in order:
 
 1. Writes `backups/predeploy-<timestamp>.db` with `sudo docker` and
    `sqlite3 .backup` while the current app is still running.
-2. Runs `git pull --ff-only origin main` as `abhishek_nist`. This does
-   not delete `data/`, `uploads/`, `backups/`, or `.env`.
+2. If tracked files such as `Caddyfile` were edited on the server,
+   stashes those edits (`git stash push`, no `-u`), then runs
+   `git pull --ff-only origin main` as `abhishek_nist`. The stash does
+   not include `data/`, `uploads/`, `backups/`, or `.env`. A stashed
+   `Caddyfile` is still on the server (`git stash list`). The copy in
+   git already lists `eventpass.aicloudconsult.com`.
 3. Runs `sudo docker compose up -d --build`.
 
 Watch it under the **Actions** tab. After a deploy, confirm an order
