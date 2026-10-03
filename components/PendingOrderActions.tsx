@@ -44,21 +44,18 @@ export function PendingOrderActions({
   orderId,
   eventSlug,
   buyerName,
-  buyerEmail,
-  buyerPhone,
   items,
 }: {
   orderId: string;
   eventSlug: string;
   buyerName: string;
-  buyerEmail: string | null;
-  buyerPhone: string | null;
   items: OrderItem[];
 }) {
   const router = useRouter();
   const [mode, setMode] = useState<"none" | "add" | "edit">("none");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirmContact, setConfirmContact] = useState("");
 
   // add tickets
   const [event, setEvent] = useState<EventData | null>(null);
@@ -69,8 +66,8 @@ export function PendingOrderActions({
 
   // edit details
   const [eName, setEName] = useState(buyerName);
-  const [eEmail, setEEmail] = useState(buyerEmail || "");
-  const [ePhone, setEPhone] = useState(buyerPhone || "");
+  const [eEmail, setEEmail] = useState("");
+  const [ePhone, setEPhone] = useState("");
   const [eHolders, setEHolders] = useState<Record<string, string>>(() => {
     const out: Record<string, string> = {};
     for (const i of items) out[i.id] = i.holderName || "";
@@ -132,12 +129,17 @@ export function PendingOrderActions({
         return;
       }
     }
+    if (!confirmContact.trim()) {
+      setError("Enter the email or phone from checkout first.");
+      return;
+    }
     setBusy(true);
     const res = await fetch(`/api/orders/${orderId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         action: "add-items",
+        confirmContact,
         items: slots.map((s) => ({
           ticketTypeId: s.ticketTypeId,
           qty: 1,
@@ -161,10 +163,8 @@ export function PendingOrderActions({
       setError("Please enter your name.");
       return;
     }
-    if (!eEmail.trim() && !ePhone.trim()) {
-      setError(
-        "Please add an email or a phone number — you need one of them to find your order later."
-      );
+    if (!confirmContact.trim()) {
+      setError("Enter the email or phone from checkout first.");
       return;
     }
     setBusy(true);
@@ -173,9 +173,10 @@ export function PendingOrderActions({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         action: "update-details",
+        confirmContact,
         buyerName: eName,
-        buyerEmail: eEmail,
-        buyerPhone: ePhone,
+        ...(eEmail.trim() ? { buyerEmail: eEmail } : {}),
+        ...(ePhone.trim() ? { buyerPhone: ePhone } : {}),
         holderNames: eHolders,
       }),
     });
@@ -195,9 +196,17 @@ export function PendingOrderActions({
       )
     )
       return;
+    if (!confirmContact.trim()) {
+      setError("Enter the email or phone from checkout first.");
+      return;
+    }
     setBusy(true);
     setError(null);
-    const res = await fetch(`/api/orders/${orderId}`, { method: "DELETE" });
+    const res = await fetch(`/api/orders/${orderId}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirmContact }),
+    });
     const d = await res.json();
     setBusy(false);
     if (!res.ok) {
@@ -210,8 +219,20 @@ export function PendingOrderActions({
   return (
     <Card className="mb-6">
       <h2 className="mb-3 font-semibold">Manage order</h2>
+      <p className="mb-3 text-sm text-stone-500">
+        Enter the email or phone from checkout before you change or cancel
+        this order.
+      </p>
+      <Field label="Email or phone from checkout">
+        <input
+          className={inputCls}
+          value={confirmContact}
+          onChange={(e) => setConfirmContact(e.target.value)}
+          autoComplete="email"
+        />
+      </Field>
       <ErrorNote message={error} />
-      <div className="flex flex-wrap gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
         <button
           className={mode === "add" ? btnPrimary : btnSecondary}
           onClick={() => setMode(mode === "add" ? "none" : "add")}
@@ -351,7 +372,7 @@ export function PendingOrderActions({
             />
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Email">
+            <Field label="New email (leave blank to keep)">
               <input
                 className={inputCls}
                 type="email"
@@ -359,7 +380,7 @@ export function PendingOrderActions({
                 onChange={(e) => setEEmail(e.target.value)}
               />
             </Field>
-            <Field label="Phone">
+            <Field label="New phone (leave blank to keep)">
               <input
                 className={inputCls}
                 type="tel"

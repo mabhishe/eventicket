@@ -73,6 +73,12 @@ ADMIN_PASSWORD=<redacted>
 # A long random string that authorizes the reminder cron (section 10).
 # Generate: openssl rand -hex 32
 CRON_SECRET=<redacted>
+
+# Public "create account" is off unless this is exactly true.
+# Leave it unset for a single community event. Organizers and door
+# staff are added from Team. Set true only if strangers should be
+# able to open their own organization.
+# ALLOW_PUBLIC_SIGNUP=true
 ```
 
 `DATABASE_URL` is already set to the right value inside
@@ -170,8 +176,11 @@ cron entry for the deploy user:
 ```bash
 crontab -e
 # add this line (paste your actual CRON_SECRET value — cron has no shell env):
-0 * * * * curl -s -H "Authorization: Bearer PASTE_CRON_SECRET_HERE" https://events.aicloudconsult.com/api/cron/reminders
+0 * * * * curl -s -H "Authorization: Bearer PASTE_CRON_SECRET_HERE" https://eventpass.aicloudconsult.com/api/cron/reminders
 ```
+
+Send the secret in the `Authorization` header only. A `?secret=` query
+string is ignored and would show up in logs and browser history.
 
 Notes:
 - Emails only go out once `RESEND_API_KEY` + `EMAIL_FROM` are set (section 5).

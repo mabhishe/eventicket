@@ -1,5 +1,16 @@
 # Caddy obtains and renews a TLS certificate automatically.
-# Point events.aicloudconsult.com at this server's IP first (see DEPLOY.md).
-events.aicloudconsult.com {
+# The live site is eventpass.aicloudconsult.com. events.aicloudconsult.com
+# is the older name in the docs — both are listed so a redeploy keeps the
+# host that is actually in DNS.
+eventpass.aicloudconsult.com, events.aicloudconsult.com {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Frame-Options "DENY"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Content-Security-Policy "frame-ancestors 'none'"
+		-Server
+		-X-Powered-By
+	}
 	reverse_proxy app:3000
 }

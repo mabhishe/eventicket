@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Container, PageTitle, Card } from "@/components/ui";
 import { PLANS } from "@/lib/plans";
+import { publicSignupEnabled } from "@/lib/publicSignup";
 
 export const metadata = { title: "Pricing — EventPass" };
 
@@ -22,6 +23,7 @@ const PRO_FEATURES = [
 
 export default function PricingPage() {
   const price = `$${(PLANS.PRO.priceCents / 100).toFixed(0)}`;
+  const signupOpen = publicSignupEnabled();
   return (
     <Container>
       <PageTitle
@@ -42,12 +44,19 @@ export default function PricingPage() {
               </li>
             ))}
           </ul>
-          <Link
-            href="/signup"
-            className="mt-6 inline-block rounded-lg border border-stone-300 px-4 py-2 font-semibold dark:border-stone-700"
-          >
-            Start free
-          </Link>
+          {signupOpen ? (
+            <Link
+              href="/signup"
+              className="mt-6 inline-block rounded-lg border border-stone-300 px-4 py-2 font-semibold dark:border-stone-700"
+            >
+              Start free
+            </Link>
+          ) : (
+            <p className="mt-6 text-sm text-stone-500">
+              New organizer accounts are added by the team already running this
+              site.
+            </p>
+          )}
         </Card>
         <Card>
           <h2 className="text-lg font-bold">
@@ -71,14 +80,10 @@ export default function PricingPage() {
             ))}
           </ul>
           <p className="mt-6 text-sm text-stone-500">
-            Pro launches soon — start free today, upgrade when it&apos;s here.
+            {signupOpen
+              ? "Pro launches soon — start free today, upgrade when it's here."
+              : "Pro launches soon. Organizer logins are created from Team."}
           </p>
-          <Link
-            href="/signup"
-            className="mt-2 inline-block rounded-lg border border-stone-300 px-4 py-2 font-semibold dark:border-stone-700"
-          >
-            Start free
-          </Link>
         </Card>
       </div>
     </Container>

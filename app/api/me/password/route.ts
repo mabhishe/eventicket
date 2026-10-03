@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireApiUser, verifyPassword, hashPassword } from "@/lib/auth";
+import {
+  requireApiUser,
+  verifyPassword,
+  hashPassword,
+  createSession,
+  resolveActiveMembership,
+} from "@/lib/auth";
 
 /** Change your own password. */
 export async function POST(req: NextRequest) {
@@ -31,9 +37,19 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  await db.user.update({
+  const updated = await db.user.update({
     where: { id: user.id },
-    data: { passwordHash: await hashPassword(newPassword) },
+    data: {
+      passwordHash: await hashPassword(newPassword),
+      sessionVersion: { increment: 1 },
+    },
+    select: { sessionVersion: true },
+  });
+  // This browser stays signed in. Every other device's cookie stops working.
+  const membership = await resolveActiveMembership(user.id);
+  await createSession(user.id, user.role, {
+    orgRole: membership?.role,
+    sessionVersion: updated.sessionVersion,
   });
   return NextResponse.json({ ok: true });
 }

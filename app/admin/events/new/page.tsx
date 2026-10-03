@@ -13,6 +13,7 @@ import {
   btnSecondary,
   ErrorNote,
 } from "@/components/ui";
+import { datetimeLocalToISO } from "@/lib/datetime";
 
 function toLocalInput(d: Date) {
   const p = (n: number) => String(n).padStart(2, "0");
@@ -34,22 +35,29 @@ export default function NewEventPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  async function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    const fd = new FormData(e.currentTarget);
+    const iso = datetimeLocalToISO(String(fd.get("date") || ""));
+    if (!iso) {
+      setError("Enter a valid date and time");
+      setBusy(false);
+      return;
+    }
     const res = await fetch("/api/admin/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        title,
-        date: new Date(date).toISOString(),
-        venue,
-        description,
-        etransferEmail,
-        zelleHandle,
-        cashNote,
-        requireEntryBeforeFood,
+        title: String(fd.get("title") || ""),
+        date: iso,
+        venue: String(fd.get("venue") || ""),
+        description: String(fd.get("description") || ""),
+        etransferEmail: String(fd.get("etransferEmail") || ""),
+        zelleHandle: String(fd.get("zelleHandle") || ""),
+        cashNote: String(fd.get("cashNote") || ""),
+        requireEntryBeforeFood: fd.get("requireEntryBeforeFood") === "on",
       }),
     });
     const data = await res.json();
@@ -66,13 +74,14 @@ export default function NewEventPage() {
       <div className="mx-auto max-w-2xl">
         <PageTitle
           title="New event"
-          sub="It starts as a draft — add ticket types, then publish when ready."
+          sub="This saves a draft. Nothing goes on sale until you publish."
         />
         <Card>
           <form onSubmit={submit} className="space-y-4">
             <Field label="Event title">
               <input
                 className={inputCls}
+                name="title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Community Diwali Night 2026"
@@ -84,6 +93,7 @@ export default function NewEventPage() {
                 <input
                   className={inputCls}
                   type="datetime-local"
+                  name="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                   required
@@ -92,6 +102,7 @@ export default function NewEventPage() {
               <Field label="Venue">
                 <input
                   className={inputCls}
+                  name="venue"
                   value={venue}
                   onChange={(e) => setVenue(e.target.value)}
                   placeholder="Community hall, Mississauga"
@@ -101,6 +112,7 @@ export default function NewEventPage() {
             <Field label="Description">
               <textarea
                 className={inputCls}
+                name="description"
                 rows={4}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -115,6 +127,7 @@ export default function NewEventPage() {
                 <Field label="Interac e-Transfer email">
                   <input
                     className={inputCls}
+                    name="etransferEmail"
                     value={etransferEmail}
                     onChange={(e) => setEtransferEmail(e.target.value)}
                     placeholder="you@example.com"
@@ -123,6 +136,7 @@ export default function NewEventPage() {
                 <Field label="Zelle handle">
                   <input
                     className={inputCls}
+                    name="zelleHandle"
                     value={zelleHandle}
                     onChange={(e) => setZelleHandle(e.target.value)}
                     placeholder="name or phone"
@@ -131,6 +145,7 @@ export default function NewEventPage() {
                 <Field label="Cash instructions">
                   <input
                     className={inputCls}
+                    name="cashNote"
                     value={cashNote}
                     onChange={(e) => setCashNote(e.target.value)}
                     placeholder="Pay at the door / see the organizer"
@@ -141,6 +156,7 @@ export default function NewEventPage() {
             <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-stone-200 p-4 dark:border-stone-800">
               <input
                 type="checkbox"
+                name="requireEntryBeforeFood"
                 className="mt-1 h-5 w-5"
                 checked={requireEntryBeforeFood}
                 onChange={(e) => setRequireEntryBeforeFood(e.target.checked)}
@@ -157,8 +173,8 @@ export default function NewEventPage() {
             </label>
             <ErrorNote message={error} />
             <div className="flex gap-2">
-              <button className={btnPrimary} disabled={busy}>
-                {busy ? "Creating…" : "Create event"}
+              <button className={btnPrimary} type="submit" disabled={busy}>
+                {busy ? "Saving draft…" : "Save draft"}
               </button>
               <Link href="/admin" className={btnSecondary}>
                 Cancel

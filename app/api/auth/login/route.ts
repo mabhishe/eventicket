@@ -35,10 +35,14 @@ export async function POST(req: NextRequest) {
       { status: 401 }
     );
   }
-  await createSession(user.id, user.role);
   // Phase 1 (multi-tenant): pick the org the user works as so every
-  // subsequent admin call is org-scoped.
+  // subsequent admin call is org-scoped. Door-only logins get a shorter
+  // session so a lost phone is not a week-long door key.
   const membership = await resolveActiveMembership(user.id);
+  await createSession(user.id, user.role, {
+    orgRole: membership?.role,
+    sessionVersion: user.sessionVersion,
+  });
   return NextResponse.json({
     user: {
       id: user.id,
