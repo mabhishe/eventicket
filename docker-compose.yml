@@ -32,10 +32,12 @@ services:
   # prunes backups older than 7 days. See scripts/backup.sh and DEPLOY.md §9.
   backup:
     image: alpine:3.21
+    # The Alpine package is `sqlite`. It provides the `sqlite3` command.
+    # `apk add sqlite3` is not a package name and the container restart-loops.
     command:
       - sh
       - -c
-      - "apk add --no-cache sqlite3 >/dev/null && while true; do /scripts/backup.sh; sleep 3600; done"
+      - "apk add --no-cache sqlite >/dev/null && while true; do /scripts/backup.sh; sleep 3600; done"
     environment:
       DB_PATH: /app/data/app.db
       BACKUP_DIR: /backups

@@ -62,7 +62,7 @@ jobs:
                   -v "$PWD/data:/data:ro" \
                   -v "$PWD/backups:/backups" \
                   alpine:3.21 \
-                  sh -c "apk add --no-cache sqlite3 >/dev/null && sqlite3 /data/app.db \".backup main '/backups/predeploy-${stamp}.db'\""
+                  sh -c "apk add --no-cache sqlite >/dev/null && sqlite3 /data/app.db \".backup main '/backups/predeploy-${stamp}.db'\""
               fi
               test -s "backups/predeploy-${stamp}.db"
               sudo -n docker compose exec -T backup find /backups -maxdepth 1 -name 'predeploy-*.db' -mtime +30 -delete || true
