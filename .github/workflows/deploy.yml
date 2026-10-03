@@ -1,0 +1,82 @@
+# Deploys the main branch to the production VM.
+#
+# The SQLite database (data/app.db), uploaded images (uploads/),
+# backups/, and .env stay on the server. This job never deletes them
+# and never runs `docker compose down -v` or `git clean`.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   SERVER_IP, SERVER_USERNAME, SSH_PRIVATE_KEY
+# Add those before merging this file to main. See DEPLOY.md.
+
+name: Deploy to production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Deploy on the server without touching the database
+        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 30m
+          script: |
+            set -eu
+            cd /opt/event-ticketing
+
+            if docker compose version >/dev/null 2>&1; then
+              compose() { docker compose "$@"; }
+              dock() { docker "$@"; }
+            else
+              compose() { sudo -n docker compose "$@"; }
+              dock() { sudo -n docker "$@"; }
+            fi
+
+            mkdir -p data uploads backups
+            if [ -f data/app.db ]; then
+              stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+              bytes_before="$(stat -c%s data/app.db)"
+              echo "Database before deploy: ${bytes_before} bytes"
+              echo "Writing backups/predeploy-${stamp}.db"
+              if ! compose exec -T backup sqlite3 /app/data/app.db ".backup main '/backups/predeploy-${stamp}.db'"; then
+                echo "Backup sidecar unavailable; taking a one-off snapshot"
+                dock run --rm \
+                  -v "$PWD/data:/data:ro" \
+                  -v "$PWD/backups:/backups" \
+                  alpine:3.21 \
+                  sh -c "apk add --no-cache sqlite3 >/dev/null && sqlite3 /data/app.db \".backup main '/backups/predeploy-${stamp}.db'\""
+              fi
+              test -s "backups/predeploy-${stamp}.db"
+              find backups -maxdepth 1 -name 'predeploy-*.db' -mtime +30 -delete || true
+            else
+              echo "No data/app.db yet — first boot will create it"
+            fi
+
+            # Update tracked source only. Untracked data, uploads, backups,
+            # and .env are left in place.
+            git fetch origin main
+            git checkout -f -B main origin/main
+
+            compose up -d --build
+            if [ -f data/app.db ]; then
+              echo "Database after deploy: $(stat -c%s data/app.db) bytes (file data/app.db)"
+            fi
+            if [ -d uploads ]; then
+              echo "Upload files still on disk: $(find uploads -type f | wc -l)"
+            fi
+            compose ps

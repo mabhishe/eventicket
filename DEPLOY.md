@@ -192,15 +192,77 @@ Notes:
 
 ## 11. Updating later
 
+The database (`data/app.db`), uploaded images (`uploads/`), backups, and
+`.env` live on the server next to the code. A deploy must not delete
+them. Do not run `docker compose down -v` or `git clean`.
+
+Manual update, from the server:
+
 ```bash
 cd /opt/event-ticketing
-# copy in the new code (or git pull), then:
+git fetch origin main
+git checkout -f -B main origin/main
 docker compose up -d --build
 ```
 
-Migrations run automatically on start; the database file is untouched.
-Remember the rule: **git pull + `prisma migrate deploy` + restart** —
-pulling new code without applying migrations leaves the app broken.
+`docker compose up -d --build` recreates the app container. The
+`./data` and `./uploads` folders are bind mounts, so the files stay.
+On startup the app runs `prisma migrate deploy`, which only applies new
+migrations. The first-run admin seed does nothing once a user exists.
+The site is briefly unavailable while the new container starts. Orders,
+guests, and images remain.
+
+### Automatic deploy when `main` changes
+
+GitHub Actions can do that update for you. The workflow is
+`.github/workflows/deploy.yml`. It runs on every push to `main`.
+
+Before the first merge, add three repository secrets. GitHub.com →
+this repo → **Settings** → **Secrets and variables** → **Actions** →
+**New repository secret**:
+
+| Name | Value |
+| ---- | ----- |
+| `SERVER_IP` | The VM's external IP |
+| `SERVER_USERNAME` | The Linux user you SSH in as |
+| `SSH_PRIVATE_KEY` | The private key from the steps below |
+
+Create a key that can only be used for this deploy. On the VM:
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/github_actions -N ""
+cat ~/.ssh/github_actions.pub >> ~/.ssh/authorized_keys
+```
+
+Open `~/.ssh/github_actions`, copy the whole block into the
+`SSH_PRIVATE_KEY` secret, save the secret, then remove the private key
+from the server so it only lives in GitHub:
+
+```bash
+shred -u ~/.ssh/github_actions
+```
+
+Do not commit that key, and do not paste it into chat. The public key
+stays in `authorized_keys`.
+
+The deploy user needs to run Docker without a password prompt. The
+`docker` group from section 3 covers that. If Docker on the VM still
+needs `sudo`, allow it with no password for that user (`sudo -n`),
+because the action cannot type a password.
+
+What the action does, in order:
+
+1. Writes `backups/predeploy-<timestamp>.db` with `sqlite3 .backup`
+   while the current app is still running.
+2. Checks out `main`. This does not delete `data/`, `uploads/`,
+   `backups/`, or `.env`.
+3. Runs `docker compose up -d --build`.
+
+Watch it under the **Actions** tab. After a deploy, confirm an order
+you already know is still listed. A bad release can be put back by
+stopping the app and copying the matching `backups/predeploy-*.db` onto
+`data/app.db` (same steps as section 9). Pre-deploy snapshots are kept
+for 30 days.
 
 ## Troubleshooting
 

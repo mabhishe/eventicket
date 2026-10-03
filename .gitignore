@@ -46,4 +46,5 @@ next-env.d.ts
 /prisma/prisma/
 /public/uploads/*
 /data
+/uploads
 /backups
