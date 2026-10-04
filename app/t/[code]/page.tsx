@@ -7,6 +7,7 @@ import { SponsorsStrip } from "@/components/sponsors-strip";
 import { ShareButton } from "@/components/ShareButton";
 import { InviteCard } from "@/components/invite-card";
 import { formatEventWhen } from "@/lib/datetime";
+import { eventPreviewVersion } from "@/lib/eventPreview";
 
 export const dynamic = "force-dynamic";
 
@@ -119,6 +120,12 @@ export default async function TicketPage({ params }: Ctx) {
             venue={e.venue}
             bannerUrl={bannerUrl}
             logoUrl={e.logoUrl}
+            previewVersion={eventPreviewVersion({
+              title: e.title,
+              date: e.date,
+              venue: e.venue,
+              description: e.description,
+            })}
           />
         </div>
         <SponsorsStrip ads={e.sponsorAds || []} />

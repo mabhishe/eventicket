@@ -11,6 +11,7 @@ import { ShareButton } from "@/components/ShareButton";
 import { InviteCard } from "@/components/invite-card";
 import { PendingOrderActions } from "@/components/PendingOrderActions";
 import { formatEventWhen } from "@/lib/datetime";
+import { eventPreviewVersion } from "@/lib/eventPreview";
 import {
   eventShareDescription,
   eventShareTitle,
@@ -320,6 +321,12 @@ export default async function OrderPage({ params }: Ctx) {
               venue={e.venue}
               bannerUrl={bannerUrl}
               logoUrl={e.logoUrl}
+              previewVersion={eventPreviewVersion({
+                title: e.title,
+                date: e.date,
+                venue: e.venue,
+                description: e.description,
+              })}
             />
           </div>
         )}

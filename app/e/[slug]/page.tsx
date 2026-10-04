@@ -14,6 +14,7 @@ import {
 } from "@/components/ui";
 import { formatCents } from "@/lib/money";
 import { SponsorsStrip, type SponsorAdInfo } from "@/components/sponsors-strip";
+import { eventPreviewVersion } from "@/lib/eventPreview";
 
 type TicketType = {
   id: string;
@@ -119,6 +120,7 @@ function PublicEventPageInner({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [slug, setSlug] = useState<string | null>(null);
   const [event, setEvent] = useState<EventData | null>(null);
   const [avail, setAvail] = useState<Availability>({});
   const [error, setError] = useState<string | null>(null);
@@ -156,8 +158,9 @@ function PublicEventPageInner({
   }, []);
 
   useEffect(() => {
-    params.then(async ({ slug }) => {
-      const res = await fetch(`/api/events/${encodeURIComponent(slug)}`);
+    params.then(async ({ slug: nextSlug }) => {
+      setSlug(nextSlug);
+      const res = await fetch(`/api/events/${encodeURIComponent(nextSlug)}`);
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "Event not found");
@@ -169,6 +172,22 @@ function PublicEventPageInner({
       setAttendeeWall(data.attendeeWall || []);
     });
   }, [params]);
+
+  // Chat apps cache a preview for the exact URL. Put the current date in
+  // the address bar so a link copied after a date change is a new URL.
+  useEffect(() => {
+    if (!event || !slug) return;
+    const version = eventPreviewVersion({
+      title: event.title,
+      date: event.date,
+      venue: event.venue,
+      description: event.description,
+    });
+    const params = new URLSearchParams(searchParams.toString());
+    if (params.get("v") === version) return;
+    params.set("v", version);
+    router.replace(`/e/${slug}?${params.toString()}`, { scroll: false });
+  }, [event, slug, router, searchParams]);
 
   // One slot per ticket, so each guest gets a name + meal choice.
   const slots: Slot[] = useMemo(() => {
