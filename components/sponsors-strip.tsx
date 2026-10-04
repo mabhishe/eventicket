@@ -130,8 +130,7 @@ export function SponsorsStrip({
             <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3">
               {items.map((a) => {
                 const onClick = () => reportSponsorStats([a.id], "clicks");
-                if (tier === "MENTION" && !a.imageUrl) {
-                  // Special mention: elegant text pill instead of a logo.
+                if (!a.imageUrl) {
                   const pill = (
                     <span className="rounded-full border border-amber-300/60 bg-amber-50 px-4 py-1.5 text-sm font-medium text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200">
                       {a.name}
