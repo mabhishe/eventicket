@@ -10,6 +10,7 @@ import { SponsorsStrip } from "@/components/sponsors-strip";
 import { ShareButton } from "@/components/ShareButton";
 import { InviteCard } from "@/components/invite-card";
 import { PendingOrderActions } from "@/components/PendingOrderActions";
+import { formatEventWhen } from "@/lib/datetime";
 import {
   eventShareDescription,
   eventShareTitle,
@@ -80,6 +81,7 @@ export default async function OrderPage({ params }: Ctx) {
       event: {
         include: {
           sponsorAds: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] },
+          organization: { select: { timezone: true } },
         },
       },
       items: { include: { ticketType: true, mealOption: true } },
@@ -106,12 +108,7 @@ export default async function OrderPage({ params }: Ctx) {
   const friendCount = await db.order.count({
     where: { eventId: e.id, invitedBy: inviteCode },
   });
-  const dateLabel = new Intl.DateTimeFormat("en-CA", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  }).format(new Date(e.date));
+  const dateLabel = formatEventWhen(e.date, e.organization?.timezone);
   let bannerUrl: string | null = null;
   try {
     const g = JSON.parse(e.imageUrls || "[]");
@@ -320,6 +317,7 @@ export default async function OrderPage({ params }: Ctx) {
               inviteCode={inviteCode}
               friendCount={friendCount}
               eventDateLabel={dateLabel}
+              venue={e.venue}
               bannerUrl={bannerUrl}
               logoUrl={e.logoUrl}
             />

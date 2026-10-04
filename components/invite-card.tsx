@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Card } from "@/components/ui";
 import { ShareButton } from "@/components/ShareButton";
+import { goingShareMessage } from "@/lib/goingShare";
 
 /**
  * "I'm going" brag card + invite link. The invite URL carries ?invite= so
@@ -14,6 +15,7 @@ export function InviteCard({
   inviteCode,
   friendCount,
   eventDateLabel,
+  venue,
   bannerUrl,
   logoUrl,
 }: {
@@ -22,17 +24,26 @@ export function InviteCard({
   inviteCode: string;
   friendCount: number;
   eventDateLabel: string;
+  venue?: string | null;
   bannerUrl?: string | null;
   logoUrl?: string | null;
 }) {
   const [copied, setCopied] = useState(false);
   const invitePath = `/e/${eventSlug}?invite=${inviteCode}`;
-  const shareText = `🎉 I'm going to ${eventTitle}! ${eventDateLabel} — grab your tickets and join me:`;
+  const shareText = goingShareMessage({
+    title: eventTitle,
+    when: eventDateLabel,
+    venue,
+  });
 
-  async function copyLink() {
-    const full = `${window.location.origin}${invitePath}`;
+  function inviteUrl() {
+    if (typeof window === "undefined") return invitePath;
+    return `${window.location.origin}${invitePath}`;
+  }
+
+  async function copyMessage() {
     try {
-      await navigator.clipboard.writeText(full);
+      await navigator.clipboard.writeText(`${shareText}\n${inviteUrl()}`);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -40,7 +51,7 @@ export function InviteCard({
     }
   }
 
-  const waHref = `https://wa.me/?text=${encodeURIComponent(`${shareText} ${typeof window !== "undefined" ? window.location.origin + invitePath : invitePath}`)}`;
+  const waHref = `https://wa.me/?text=${encodeURIComponent(`${shareText}\n${inviteUrl()}`)}`;
 
   return (
     <Card className="overflow-hidden text-center">
@@ -71,8 +82,8 @@ export function InviteCard({
           <h2 className="mt-1 text-lg font-bold">I&rsquo;m going!</h2>
         </>
       )}
-      <p className="mt-1 text-sm text-stone-500">
-        {eventTitle} · {eventDateLabel}
+      <p className="mt-3 whitespace-pre-line text-left text-sm text-stone-700 dark:text-stone-200">
+        {shareText}
       </p>
       <p className="mt-2 text-sm text-stone-500">
         Show it off — and bring your friends along.
@@ -90,7 +101,7 @@ export function InviteCard({
         <ShareButton
           url={invitePath}
           title={`I'm going to ${eventTitle}!`}
-          text={shareText}
+          text={`${shareText}\n`}
         />
         <a
           href={waHref}
@@ -102,15 +113,12 @@ export function InviteCard({
         </a>
         <button
           type="button"
-          onClick={copyLink}
+          onClick={copyMessage}
           className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium transition hover:bg-stone-100 dark:border-stone-700 dark:hover:bg-stone-800"
         >
-          {copied ? "Copied ✓" : "Copy invite link"}
+          {copied ? "Copied ✓" : "Copy message"}
         </button>
       </div>
-      <p className="mt-3 break-all font-mono text-xs text-stone-400">
-        {invitePath}
-      </p>
     </Card>
   );
 }
