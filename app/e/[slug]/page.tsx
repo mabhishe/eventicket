@@ -474,9 +474,9 @@ function PublicEventPageInner({
                       <p className="mt-1 text-sm font-semibold">
                         {formatCents(t.priceCents, event.currency)}
                       </p>
-                      <p className="text-xs text-stone-400">
-                        {left > 0 ? `${left} left` : "Sold out"}
-                      </p>
+                      {left <= 0 && (
+                        <p className="text-xs text-stone-400">Sold out</p>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <button
