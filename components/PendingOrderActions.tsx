@@ -268,8 +268,8 @@ export function PendingOrderActions({
                       <div>
                         <p className="text-sm font-medium">{t.name}</p>
                         <p className="text-xs text-stone-500">
-                          {formatCents(t.priceCents, event.currency)} ·{" "}
-                          {left > 0 ? `${left} left` : "Sold out"}
+                          {formatCents(t.priceCents, event.currency)}
+                          {left <= 0 ? " · Sold out" : ""}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
