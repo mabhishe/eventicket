@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
@@ -9,10 +10,61 @@ import { SponsorsStrip } from "@/components/sponsors-strip";
 import { ShareButton } from "@/components/ShareButton";
 import { InviteCard } from "@/components/invite-card";
 import { PendingOrderActions } from "@/components/PendingOrderActions";
+import {
+  eventShareDescription,
+  eventShareTitle,
+  requestMetadataBase,
+} from "@/lib/eventShare";
 
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
+
+export async function generateMetadata({ params }: Ctx): Promise<Metadata> {
+  const { id } = await params;
+  const order = await db.order.findUnique({
+    where: { id },
+    select: {
+      event: {
+        select: {
+          title: true,
+          slug: true,
+          date: true,
+          venue: true,
+          description: true,
+          organization: { select: { timezone: true } },
+        },
+      },
+    },
+  });
+  const metadataBase = await requestMetadataBase();
+  if (!order) return { title: "EventPass", ...(metadataBase ? { metadataBase } : {}) };
+  const e = order.event;
+  const title = eventShareTitle(e.title);
+  const description = eventShareDescription({
+    date: e.date,
+    venue: e.venue,
+    description: e.description,
+    timeZone: e.organization?.timezone,
+  });
+  return {
+    ...(metadataBase ? { metadataBase } : {}),
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      images: [`/e/${e.slug}/opengraph-image`],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [`/e/${e.slug}/opengraph-image`],
+    },
+  };
+}
 
 const tone: Record<string, "amber" | "green" | "red" | "stone"> = {
   PENDING_PAYMENT: "amber",
