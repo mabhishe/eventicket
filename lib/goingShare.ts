@@ -7,6 +7,6 @@ export function goingShareMessage(input: {
   const lines = [`I'm going to ${input.title.trim()}!`, "", input.when.trim()];
   const venue = input.venue?.trim();
   if (venue) lines.push(venue);
-  lines.push("", "Join me:");
+  lines.push("", "Are you joining?");
   return lines.join("\n");
 }
