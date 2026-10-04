@@ -1,0 +1,97 @@
+# Writes a consistent SQLite snapshot on the production VM at midnight
+# and noon in America/Toronto.
+#
+# The database stays on the server, in backups/scheduled-<timestamp>.db.
+# This repository is public, and the file contains guest names, emails,
+# and phone numbers, so the job never uploads it to GitHub.
+#
+# Uses the same secrets as the deploy workflow:
+#   SERVER_IP, SERVER_USERNAME, SSH_PRIVATE_KEY
+
+name: Database snapshot
+
+on:
+  schedule:
+    # GitHub schedules are UTC. These four hours cover midnight and noon
+    # in America/Toronto during both EDT (UTC-4) and EST (UTC-5).
+    # The job skips the two hours that are not 00:00 or 12:00 locally.
+    - cron: "0 4,5,16,17 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: database-snapshot
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Run at midnight and noon Toronto time
+        id: gate
+        run: |
+          set -eu
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual run."
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          hour="$(TZ=America/Toronto date +%H)"
+          echo "America/Toronto hour is ${hour}."
+          if [ "$hour" = "00" ] || [ "$hour" = "12" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Skipping. This UTC slot is the other side of daylight saving time."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Snapshot the database on the server
+        if: steps.gate.outputs.run == 'true'
+        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 10m
+          script: |
+            set -eu
+            cd /opt/event-ticketing
+
+            if ! sudo -n docker compose version >/dev/null 2>&1; then
+              echo "sudo docker needs a password, and GitHub cannot type one."
+              echo "On the server, run this once and enter your password:"
+              echo "  echo '$(id -un) ALL=(ALL) NOPASSWD: /usr/bin/docker' | sudo tee /etc/sudoers.d/eventpass-deploy"
+              echo "  sudo chmod 440 /etc/sudoers.d/eventpass-deploy"
+              exit 1
+            fi
+
+            if [ ! -f data/app.db ]; then
+              echo "No data/app.db — nothing to snapshot"
+              exit 1
+            fi
+
+            mkdir -p backups
+            stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+            echo "Database: $(stat -c%s data/app.db) bytes"
+            echo "Writing backups/scheduled-${stamp}.db"
+            if ! sudo -n docker compose exec -T backup sqlite3 /app/data/app.db ".backup main '/backups/scheduled-${stamp}.db'"; then
+              echo "Backup sidecar unavailable; taking a one-off snapshot"
+              sudo -n docker run --rm \
+                -v "$PWD/data:/data:ro" \
+                -v "$PWD/backups:/backups" \
+                alpine:3.21 \
+                sh -c "apk add --no-cache sqlite >/dev/null && sqlite3 /data/app.db \".backup main '/backups/scheduled-${stamp}.db'\""
+            fi
+            test -s "backups/scheduled-${stamp}.db"
+            echo "Snapshot: $(stat -c%s backups/scheduled-${stamp}.db) bytes (file backups/scheduled-${stamp}.db)"
+            echo "Live database left in place: $(stat -c%s data/app.db) bytes"
+
+            # Only these twice-daily files. Hourly app-*.db and
+            # predeploy-*.db are pruned by their own jobs.
+            sudo -n docker run --rm \
+              -v "$PWD/backups:/backups" \
+              alpine:3.21 \
+              find /backups -maxdepth 1 -name 'scheduled-*.db' -mtime +30 -delete
