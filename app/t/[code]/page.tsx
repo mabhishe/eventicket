@@ -6,6 +6,7 @@ import { Container, Card, Badge } from "@/components/ui";
 import { SponsorsStrip } from "@/components/sponsors-strip";
 import { ShareButton } from "@/components/ShareButton";
 import { InviteCard } from "@/components/invite-card";
+import { formatEventWhen } from "@/lib/datetime";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,7 @@ export default async function TicketPage({ params }: Ctx) {
     include: {
       ticketType: true,
       mealOption: true,
-      order: { include: { event: { include: { sponsorAds: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } } } } },
+      order: { include: { event: { include: { sponsorAds: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] }, organization: { select: { timezone: true } } } } } },
     },
   });
   if (!ticket) notFound();
@@ -34,12 +35,7 @@ export default async function TicketPage({ params }: Ctx) {
   const partySize = await db.ticket.count({
     where: { orderId: ticket.order.id, status: { not: "CANCELLED" } },
   });
-  const dateLabel = new Intl.DateTimeFormat("en-CA", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  }).format(new Date(e.date));
+  const dateLabel = formatEventWhen(e.date, e.organization?.timezone);
   let bannerUrl: string | null = null;
   try {
     const g = JSON.parse(e.imageUrls || "[]");
@@ -120,6 +116,7 @@ export default async function TicketPage({ params }: Ctx) {
             inviteCode={inviteCode}
             friendCount={friendCount}
             eventDateLabel={dateLabel}
+            venue={e.venue}
             bannerUrl={bannerUrl}
             logoUrl={e.logoUrl}
           />
