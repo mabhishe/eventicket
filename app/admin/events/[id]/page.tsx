@@ -133,6 +133,10 @@ export default function ManageEventPage({
   const [spLink, setSpLink] = useState("");
   const [spTier, setSpTier] = useState<string>("SILVER");
   const [spBusy, setSpBusy] = useState(false);
+  const [sponsorNote, setSponsorNote] = useState<{
+    ok: boolean;
+    text: string;
+  } | null>(null);
   // bulk add
   const [bulkTier, setBulkTier] = useState<string>("SILVER");
   const [bulkLink, setBulkLink] = useState("");
@@ -515,9 +519,11 @@ export default function ManageEventPage({
       return;
     }
     setError(null);
+    setSponsorNote(null);
     setSpBusy(true);
+    const savedName = spName.trim();
     const form = new FormData();
-    form.append("name", spName.trim());
+    form.append("name", savedName);
     form.append("tier", spTier);
     if (spLink.trim()) form.append("linkUrl", spLink.trim());
     if (file) form.append("file", file);
@@ -528,12 +534,15 @@ export default function ManageEventPage({
     const d = await res.json();
     setSpBusy(false);
     if (!res.ok) {
-      setError(d.error || "Could not add sponsor");
+      const message = d.error || "Could not add sponsor";
+      setError(message);
+      setSponsorNote({ ok: false, text: message });
       return;
     }
     setSpName("");
     setSpLink("");
     setSpTier("SILVER");
+    setSponsorNote({ ok: true, text: `${savedName} is on the public page.` });
     const input = document.querySelector<HTMLInputElement>("input[name=spFile]");
     if (input) input.value = "";
     await loadSponsors(id);
@@ -547,16 +556,14 @@ export default function ManageEventPage({
       setError("Sponsor name is required");
       return;
     }
-    if (file) {
-      if (!isAcceptedImage(file)) {
-        setError("Only JPG, PNG, WebP, or GIF images are allowed");
-        return;
-      }
-      setError(null);
-      setSponsorLogo({ file, purpose: "sponsor-new" });
+    if (file && !isAcceptedImage(file)) {
+      const message = "Only JPG, PNG, WebP, or GIF images are allowed";
+      setError(message);
+      setSponsorNote({ ok: false, text: message });
       return;
     }
-    void postSponsor(null);
+    setError(null);
+    void postSponsor(file || null);
   }
 
   async function addSponsorsBulk(e: React.FormEvent<HTMLFormElement>) {
@@ -1393,7 +1400,7 @@ export default function ManageEventPage({
                   placeholder="https://example.com"
                 />
               </Field>
-              <Field label="Logo (optional for special mentions). You’ll see it at Gold and Silver size before it is saved.">
+              <Field label="Logo (optional). Add sponsor saves it onto the public page.">
                 <input
                   type="file"
                   name="spFile"
@@ -1404,6 +1411,17 @@ export default function ManageEventPage({
               <button className={btnSecondary} disabled={spBusy}>
                 {spBusy ? "Adding…" : "Add sponsor"}
               </button>
+              {sponsorNote && (
+                <p
+                  className={
+                    sponsorNote.ok
+                      ? "text-sm text-emerald-700 dark:text-emerald-400"
+                      : "text-sm text-red-700 dark:text-red-400"
+                  }
+                >
+                  {sponsorNote.text}
+                </p>
+              )}
             </form>
           </Card>
 

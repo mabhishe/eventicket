@@ -18,8 +18,16 @@ function eventDir(eventId: string) {
   return path.join(process.cwd(), "public", "uploads", eventId);
 }
 
+function extensionFor(file: File): string | null {
+  const fromType = ALLOWED.get(file.type);
+  if (fromType) return fromType;
+  const match = file.name.toLowerCase().match(/\.(jpe?g|png|webp|gif)$/);
+  if (!match) return null;
+  return match[1] === "jpeg" || match[1] === "jpg" ? "jpg" : match[1];
+}
+
 async function storeFile(eventId: string, file: File) {
-  const ext = ALLOWED.get(file.type);
+  const ext = extensionFor(file);
   if (!ext) {
     return { error: "Only JPG, PNG, WebP or GIF images are allowed" };
   }

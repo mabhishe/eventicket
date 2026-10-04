@@ -8,7 +8,9 @@ import { TIER_LOGO_CLASS } from "@/lib/sponsors";
 const ACCEPT = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
 export function isAcceptedImage(file: File) {
-  return ACCEPT.includes(file.type);
+  if (ACCEPT.includes(file.type)) return true;
+  // Some pickers leave the type blank for a .jpeg named images.jpeg.
+  return /\.(jpe?g|png|webp|gif)$/i.test(file.name);
 }
 
 export function ImageCropDialog({
