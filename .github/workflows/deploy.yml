@@ -93,4 +93,7 @@ jobs:
             # Old snapshots only. The sidecar may still be starting; a
             # miss here must not fail the deploy.
             sudo -n docker compose exec -T backup find /backups -maxdepth 1 -name 'predeploy-*.db' -mtime +30 -delete || true
+            # Untagged images left by the previous build. Does not remove
+            # named images, build cache, volumes, or data/app.db.
+            sudo -n docker image prune -f || true
             sudo -n docker compose ps

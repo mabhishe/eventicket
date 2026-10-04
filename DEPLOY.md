@@ -282,6 +282,8 @@ What the action does, in order:
    `Caddyfile` is still on the server (`git stash list`). The copy in
    git already lists `eventpass.aicloudconsult.com`.
 3. Runs `sudo docker compose up -d --build`.
+4. Deletes untagged images left by the previous build (`docker image prune`).
+   Named images, the build cache, volumes, and `data/app.db` stay.
 
 Watch it under the **Actions** tab. After a deploy, confirm an order
 you already know is still listed. A bad release can be put back by
