@@ -29,6 +29,7 @@ import {
   isAcceptedImage,
 } from "@/components/image-crop-dialog";
 import { datetimeLocalToISO, toDatetimeLocalValue } from "@/lib/datetime";
+import { eventPreviewVersion, withPreviewVersion } from "@/lib/eventPreview";
 
 type TicketType = {
   id: string;
@@ -239,7 +240,11 @@ export default function ManageEventPage({
     if (!payload) return false;
     const ok = await patch(payload);
     if (ok) {
-      setDetailsNote("Draft saved. It stays off the public page until you publish.");
+      setDetailsNote(
+        event?.status === "PUBLISHED"
+          ? "Saved. The public page uses this date. Copy the public link again so a new chat shows it."
+          : "Draft saved. It stays off the public page until you publish."
+      );
     }
     return ok;
   }
@@ -702,6 +707,16 @@ export default function ManageEventPage({
     );
   }
 
+  const publicPath = withPreviewVersion(
+    `/e/${event.slug}`,
+    eventPreviewVersion({
+      title: event.title,
+      date: event.date,
+      venue: event.venue,
+      description: event.description,
+    })
+  );
+
   return (
     <Container>
       <PageTitle
@@ -848,8 +863,8 @@ export default function ManageEventPage({
             {event.status === "PUBLISHED" && (
               <p className="mt-2 text-sm">
                 Public link:{" "}
-                <Link href={`/e/${event.slug}`} className="underline">
-                  /e/{event.slug}
+                <Link href={publicPath} className="underline break-all">
+                  {publicPath}
                 </Link>
               </p>
             )}

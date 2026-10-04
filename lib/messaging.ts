@@ -14,6 +14,7 @@
  */
 import { db } from "./db";
 import { sendEmail, shell, appUrl } from "./email";
+import { eventPreviewVersion, withPreviewVersion } from "./eventPreview";
 import {
   sendWhatsAppTemplate,
   normalizePhone,
@@ -116,6 +117,7 @@ export type EventLike = {
   title: string;
   date: Date | string;
   venue?: string | null;
+  description?: string | null;
   currency: string;
   etransferEmail?: string | null;
   zelleHandle?: string | null;
@@ -134,7 +136,17 @@ export function orderVars(
     "event.title": event.title,
     "event.date": fmtDate(event.date),
     "event.venue": event.venue || "",
-    "event.url": base ? `${base}/e/${event.slug}` : "",
+    "event.url": base
+      ? withPreviewVersion(
+          `${base}/e/${event.slug}`,
+          eventPreviewVersion({
+            title: event.title,
+            date: event.date,
+            venue: event.venue,
+            description: event.description,
+          })
+        )
+      : "",
     "order.refCode": order.refCode || "",
     "order.entryCode": order.entryCode || "",
     "order.total": formatCents(order.totalCents, event.currency),

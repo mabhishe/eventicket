@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui";
 import { ShareButton } from "@/components/ShareButton";
 import { goingShareMessage } from "@/lib/goingShare";
+import { withPreviewVersion } from "@/lib/eventPreview";
 
 /**
  * "I'm going" brag card + invite link. The invite URL carries ?invite= so
@@ -18,6 +19,7 @@ export function InviteCard({
   venue,
   bannerUrl,
   logoUrl,
+  previewVersion,
 }: {
   eventTitle: string;
   eventSlug: string;
@@ -27,9 +29,13 @@ export function InviteCard({
   venue?: string | null;
   bannerUrl?: string | null;
   logoUrl?: string | null;
+  /** Changes when the event date or title changes, so a new share is a new link. */
+  previewVersion?: string;
 }) {
   const [copied, setCopied] = useState(false);
-  const invitePath = `/e/${eventSlug}?invite=${inviteCode}`;
+  const invitePath = previewVersion
+    ? withPreviewVersion(`/e/${eventSlug}?invite=${inviteCode}`, previewVersion)
+    : `/e/${eventSlug}?invite=${inviteCode}`;
   const shareText = goingShareMessage({
     title: eventTitle,
     when: eventDateLabel,
