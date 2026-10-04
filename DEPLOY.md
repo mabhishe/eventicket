@@ -141,13 +141,21 @@ hourly `sqlite3 .backup` snapshot of the live database into `./backups` on
 the server (timestamped `app-YYYYMMDDTHHMMSSZ.db`) and deletes backups older
 than 7 days. `./backups` is created automatically on first start.
 
+GitHub Actions also writes `backups/scheduled-<timestamp>.db` at midnight
+and noon America/Toronto (see **Database snapshot** under Actions). Those
+copies are kept for 30 days. The database is not uploaded to GitHub. This
+repository is public, and the file contains guest names, emails, and phone
+numbers. Run it by hand from the Actions tab when you want a snapshot now.
+
 ### Restore from backup
 
 1. Stop the app and the backup sidecar so nothing writes while you restore:
    ```bash
    docker compose stop app backup
    ```
-2. Copy the backup you want over the live database file:
+2. Copy the backup you want over the live database file. Hourly copies
+   are `app-<timestamp>.db`, twice-daily copies are `scheduled-<timestamp>.db`,
+   and deploy copies are `predeploy-<timestamp>.db`:
    ```bash
    cp backups/app-<timestamp>.db data/app.db
    ```
