@@ -7,10 +7,12 @@ import OrgSwitcher from "@/components/org-switcher";
 
 export default function NavMenuClient({
   appName,
+  companyName,
   links,
   signedIn,
 }: {
   appName: string;
+  companyName: string;
   links: { href: string; label: string }[];
   signedIn: boolean;
 }) {
@@ -18,7 +20,7 @@ export default function NavMenuClient({
   return (
     <header className="sticky top-0 z-40 border-b border-stone-200/70 bg-[#faf6ef]/90 backdrop-blur dark:border-stone-800 dark:bg-stone-950/90">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
-        <Link href="/" className="flex items-center gap-2 text-lg font-bold tracking-tight">
+        <Link href="/" className="flex items-center gap-2">
           <svg
             width="22"
             height="22"
@@ -39,7 +41,12 @@ export default function NavMenuClient({
               strokeDasharray="2 2"
             />
           </svg>
-          {appName}
+          <span className="leading-none">
+            <span className="block text-lg font-bold tracking-tight">{appName}</span>
+            <span className="mt-0.5 block text-[11px] font-medium tracking-normal text-stone-500 dark:text-stone-400">
+              by {companyName}
+            </span>
+          </span>
         </Link>
         {/* Desktop nav */}
         <nav className="hidden items-center gap-5 text-sm sm:flex">

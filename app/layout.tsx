@@ -5,6 +5,7 @@ import { getSession, resolveActiveMembership } from "@/lib/auth";
 import { isPlatformAdmin } from "@/lib/platform";
 import { db } from "@/lib/db";
 import NavMenuClient from "@/components/nav-menu";
+import { COMPANY_NAME } from "@/lib/brand";
 import { publicSignupEnabled } from "@/lib/publicSignup";
 
 const geistSans = Geist({
@@ -59,7 +60,14 @@ async function Nav() {
       links.push({ href: "/signup", label: "Create account" });
     }
   }
-  return <NavMenuClient appName={appName} links={links} signedIn={!!session} />;
+  return (
+    <NavMenuClient
+      appName={appName}
+      companyName={COMPANY_NAME}
+      links={links}
+      signedIn={!!session}
+    />
+  );
 }
 
 export default function RootLayout({
@@ -76,9 +84,9 @@ export default function RootLayout({
         <div className="flex min-h-screen flex-col">
           <Nav />
           <main className="flex-1">{children}</main>
-          <footer className="border-t border-stone-200/70 py-5 text-center text-xs text-stone-500 dark:border-stone-800 dark:text-stone-400">
-            {process.env.APP_NAME || "EventPass"} — made for community
-            gatherings ·{" "}
+          <footer className="border-t border-stone-200/70 px-4 py-5 text-center text-xs text-stone-500 dark:border-stone-800 dark:text-stone-400">
+            {process.env.APP_NAME || "EventPass"} by {COMPANY_NAME} — made
+            for community gatherings ·{" "}
             <a href="/pricing" className="font-medium underline decoration-orange-700/40 underline-offset-2 hover:text-orange-700">
               Pricing
             </a>
