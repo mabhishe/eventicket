@@ -347,7 +347,7 @@ function PublicEventPageInner({
         {(event.sponsorAds || []).some((a) => (a.tier || "SILVER") === "GOLD") && (
           <SponsorsStrip
             ads={(event.sponsorAds || []).filter((a) => (a.tier || "SILVER") === "GOLD")}
-            heading="Presented by"
+            heading="Gold sponsors"
           />
         )}
         <div className="mb-4 flex items-center gap-4">
