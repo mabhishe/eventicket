@@ -128,7 +128,11 @@ export default async function TicketPage({ params }: Ctx) {
             })}
           />
         </div>
-        <SponsorsStrip ads={e.sponsorAds || []} />
+        <SponsorsStrip
+          ads={(e.sponsorAds || []).filter((a) => (a.tier || "SILVER") === "GOLD")}
+          heading="Gold sponsors"
+          variant="gold"
+        />
       </div>
     </Container>
   );

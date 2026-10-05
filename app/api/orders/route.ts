@@ -15,6 +15,7 @@ import {
   orderReceivedWaFallback,
 } from "@/lib/messaging";
 import { checkRateLimit, clientIp } from "@/lib/rateLimit";
+import { goldSponsorEmailHtml } from "@/lib/sponsorEmail";
 
 // Seat-squatting protection: 10 orders per hour per IP.
 const ORDER_LIMIT = { limit: 10, windowMs: 60 * 60 * 1000 };
@@ -111,6 +112,11 @@ export async function POST(req: NextRequest) {
             eventId: event.id,
             orderId: order.id,
             kind: "TEMPLATE",
+            sponsorHtml: goldSponsorEmailHtml(
+              await db.sponsorAd.findMany({
+                where: { eventId: event.id, tier: "GOLD" },
+              })
+            ),
             // Rich default kept until the org customizes the template.
             richHtml: orderConfirmationHtml(
               {

@@ -344,12 +344,6 @@ function PublicEventPageInner({
             />
           </div>
         )}
-        {(event.sponsorAds || []).some((a) => (a.tier || "SILVER") === "GOLD") && (
-          <SponsorsStrip
-            ads={(event.sponsorAds || []).filter((a) => (a.tier || "SILVER") === "GOLD")}
-            heading="Gold sponsors"
-          />
-        )}
         <div className="mb-4 flex items-center gap-4">
           {event.logoUrl && (
             /* eslint-disable-next-line @next/next/no-img-element */
@@ -376,6 +370,11 @@ function PublicEventPageInner({
             />
           </div>
         </div>
+        <SponsorsStrip
+          ads={(event.sponsorAds || []).filter((a) => (a.tier || "SILVER") === "GOLD")}
+          heading="Gold sponsors"
+          variant="gold"
+        />
         {event.description && (
           <Card className="mb-6">
             <p className="whitespace-pre-wrap text-sm">{event.description}</p>
@@ -746,11 +745,21 @@ function PublicEventPageInner({
             </div>
           </>
         )}
-        {(event.sponsorAds || []).some((a) => (a.tier || "SILVER") !== "GOLD") && (
-          <SponsorsStrip
-            ads={(event.sponsorAds || []).filter((a) => (a.tier || "SILVER") !== "GOLD")}
-          />
-        )}
+        <SponsorsStrip
+          ads={(event.sponsorAds || []).filter((a) => (a.tier || "SILVER") === "SILVER")}
+          heading="Silver sponsors"
+          variant="tier"
+        />
+        <SponsorsStrip
+          ads={(event.sponsorAds || []).filter((a) => (a.tier || "SILVER") === "BRONZE")}
+          heading="Bronze sponsors"
+          variant="tier"
+        />
+        <SponsorsStrip
+          ads={(event.sponsorAds || []).filter((a) => (a.tier || "SILVER") === "MENTION")}
+          heading="Special mentions"
+          variant="mention"
+        />
         <p className="mt-6 text-center text-sm text-stone-500">
           Already ordered?{" "}
           <a href="/find-tickets" className="font-semibold underline">

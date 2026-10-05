@@ -5,6 +5,7 @@ import {
   sendTemplatedWhatsApp,
   orderVars,
 } from "@/lib/messaging";
+import { goldSponsorEmailHtml } from "@/lib/sponsorEmail";
 import { sendOrganizerDaySummaries } from "@/lib/sendOrganizerDigest";
 
 /**
@@ -35,6 +36,18 @@ export async function GET(req: NextRequest) {
   const now = new Date();
   let remindersSent = 0;
   let nudgesSent = 0;
+  const sponsorHtmlCache = new Map<string, Promise<string>>();
+  function sponsorHtml(eventId: string) {
+    let pending = sponsorHtmlCache.get(eventId);
+    if (!pending) {
+      pending = db.sponsorAd
+        .findMany({ where: { eventId, tier: "GOLD" } })
+        .then((ads) => goldSponsorEmailHtml(ads))
+        .catch(() => "");
+      sponsorHtmlCache.set(eventId, pending);
+    }
+    return pending;
+  }
   let summariesSent = 0;
 
   // --- Job 1: scheduled event reminders ---
@@ -91,6 +104,7 @@ export async function GET(req: NextRequest) {
           eventId: r.eventId,
           orderId: order.id,
           kind: "REMINDER",
+          sponsorHtml: await sponsorHtml(r.eventId),
         }).catch(() => false);
         if (sent) remindersSent++;
       } else if (r.channel === "WHATSAPP" && order.buyerPhone) {
@@ -175,6 +189,7 @@ export async function GET(req: NextRequest) {
           eventId: order.event.id,
           orderId: order.id,
           kind: "PAYMENT_NUDGE",
+          sponsorHtml: await sponsorHtml(order.event.id),
         }).catch(() => false);
         if (sent) nudgesSent++;
       }

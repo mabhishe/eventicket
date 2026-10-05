@@ -14,6 +14,7 @@
  */
 import { db } from "./db";
 import { sendEmail, shell, appUrl } from "./email";
+import { insertBeforeEmailFooter } from "./sponsorEmail";
 import { eventPreviewVersion, withPreviewVersion } from "./eventPreview";
 import {
   sendWhatsAppTemplate,
@@ -269,6 +270,8 @@ export async function sendTemplatedEmail(opts: {
   orderId?: string | null;
   kind?: string;
   richHtml?: string | null;
+  /** Gold sponsor block inserted above the footer. Buyers see it; organizers do not. */
+  sponsorHtml?: string | null;
   attachments?: { filename: string; content: string }[];
 }): Promise<boolean> {
   const tpl = await getEffectiveTemplate(
@@ -280,14 +283,16 @@ export async function sendTemplatedEmail(opts: {
   const bodyHtml = opts.richHtml && !tpl.custom ? opts.richHtml : tpl.body;
   const rendered = renderVars(bodyHtml, opts.vars);
   // Custom bodies are wrapped in the branded shell; rich defaults already include it.
-  const html =
+  const html = insertBeforeEmailFooter(
     opts.richHtml && !tpl.custom
       ? rendered
       : shell({
           accent: "#c2410c",
           preheader: subject,
           body: rendered,
-        });
+        }),
+    opts.sponsorHtml || ""
+  );
   const sent = await sendEmail({
     to: opts.to,
     subject,
