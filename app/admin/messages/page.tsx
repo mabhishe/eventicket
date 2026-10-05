@@ -241,7 +241,7 @@ export default function MessagesPage() {
     <Container>
       <PageTitle
         title="Messages"
-        sub="Email templates, event reminders, and mass messages for your organization. At 10:00 p.m. you get a summary of who registered, who paid, and who is still unpaid."
+        sub="Email templates, event reminders, and mass messages for your organization. At 10:00 p.m. you get a summary of who registered, who paid, and who is still unpaid, plus adult, kid, and meal counts."
       />
       <ErrorNote message={error} />
 

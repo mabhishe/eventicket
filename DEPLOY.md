@@ -198,9 +198,10 @@ Notes:
   WhatsApp template for that message (Meta requires pre-approved templates).
 - At 10:00 p.m. in the organization's timezone, owners and admins (and the
   organization support email, when set) get one summary: who registered
-  today, who was marked paid, and who is still unpaid. A night with no
-  registrations, no payments, and nobody waiting sends nothing. A missed
-  10 p.m. run still sends at 11 p.m.
+  today, who was marked paid, and who is still unpaid. It also totals
+  adults, kids, veg, non-veg, and no-onion-garlic meals for each upcoming
+  event. A night with no registrations, no payments, and nobody waiting
+  sends nothing. A missed 10 p.m. run still sends at 11 p.m.
 - The endpoint returns `{ ok, remindersSent, nudgesSent, summariesSent }` JSON
   so you can verify it in the server logs.
 

@@ -12,7 +12,13 @@ import {
 
 const orderInclude = {
   event: { select: { title: true, currency: true } },
-  items: { select: { qty: true } },
+  items: {
+    select: {
+      qty: true,
+      ticketType: { select: { name: true } },
+      mealOption: { select: { name: true, tag: true } },
+    },
+  },
   payments: { select: { kind: true, amountCents: true } },
 } as const;
 
@@ -64,7 +70,7 @@ export async function sendOrganizerDaySummaries(now = new Date()): Promise<numbe
     const pending = recipients.filter((email) => !done.has(email.toLowerCase()));
     if (pending.length === 0) continue;
 
-    const [registeredRows, paidRows, waitingRows] = await Promise.all([
+    const [registeredRows, paidRows, waitingRows, headcountRows] = await Promise.all([
       db.order.findMany({
         where: {
           status: { not: "CANCELLED" },
@@ -92,6 +98,14 @@ export async function sendOrganizerDaySummaries(now = new Date()): Promise<numbe
         include: orderInclude,
         orderBy: { createdAt: "asc" },
       }),
+      db.order.findMany({
+        where: {
+          status: { not: "CANCELLED" },
+          event: { organizationId: org.id, date: { gt: now } },
+        },
+        include: orderInclude,
+        orderBy: { createdAt: "asc" },
+      }),
     ]);
 
     const registered = registeredRows.map(toDigestOrder);
@@ -99,11 +113,19 @@ export async function sendOrganizerDaySummaries(now = new Date()): Promise<numbe
     const waiting = waitingRows.map(toDigestOrder);
     if (!digestHasNews({ registered, paid, waiting })) continue;
 
+    const byEvent = new Map<string, { eventTitle: string; lines: typeof registered[number]["lines"] }>();
+    for (const order of headcountRows.map(toDigestOrder)) {
+      const bucket = byEvent.get(order.eventTitle) ?? { eventTitle: order.eventTitle, lines: [] };
+      bucket.lines.push(...order.lines);
+      byEvent.set(order.eventTitle, bucket);
+    }
+
     const { subject, html } = digestHtml({
       orgName: org.name,
       registered,
       paid,
       waiting,
+      headcount: [...byEvent.values()],
     });
 
     for (const to of pending) {

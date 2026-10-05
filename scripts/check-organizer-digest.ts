@@ -5,6 +5,10 @@ import {
   digestHtml,
   digestRecipients,
   digestSubject,
+  classifyAge,
+  classifyMeal,
+  countLines,
+  formatHeadcount,
   localClock,
   localDayStart,
   toDigestOrder,
@@ -40,11 +44,26 @@ const gopal = toDigestOrder({
   payMethod: "ETRANSFER",
   status: "PENDING_PAYMENT",
   event: { title: "Kumar Utsav - 2026", currency: "CAD" },
-  items: [{ qty: 1 }, { qty: 1 }, { qty: 1 }, { qty: 1 }],
+  items: [
+    { qty: 1, ticketType: { name: "KIDS (5-10 yrs)" }, mealOption: { name: "Veg - NOG", tag: "veg" } },
+    { qty: 1, ticketType: { name: "CANOSA MEMBER - ADULT" }, mealOption: { name: "Veg", tag: "veg" } },
+    { qty: 1, ticketType: { name: "CANOSA MEMBER - ADULT" }, mealOption: { name: "Veg", tag: "veg" } },
+    { qty: 1, ticketType: { name: "CANOSA MEMBER - ADULT" }, mealOption: { name: "Non-veg", tag: "nonveg" } },
+  ],
   payments: [],
 });
 assert.equal(gopal.ticketCount, 4);
 assert.equal(gopal.owingCents, 9500);
+assert.equal(classifyAge("KIDS (5-10 yrs)"), "kid");
+assert.equal(classifyAge("CANOSA MEMBER - ADULT"), "adult");
+assert.equal(classifyMeal("Veg - NOG", "veg"), "nog");
+assert.equal(classifyMeal("Veg", "veg"), "veg");
+assert.equal(classifyMeal("Chicken", "nonveg"), "nonveg");
+const gopalCounts = countLines(gopal.lines);
+assert.deepEqual(formatHeadcount(gopalCounts), [
+  "Adult 3 · Kid 1",
+  "Veg 2 · Non-veg 1 · No onion garlic veg 1",
+]);
 
 const partial = toDigestOrder({
   ...{
@@ -74,12 +93,16 @@ const mail = digestHtml({
   registered: [gopal],
   paid: [],
   waiting: [gopal],
+  headcount: [{ eventTitle: "Kumar Utsav - 2026", lines: gopal.lines }],
 });
 assert.equal(mail.subject, "Tonight — 1 still unpaid");
 assert.match(mail.html, /Gopal Rao/);
 assert.match(mail.html, /QDB68J/);
 assert.match(mail.html, /\$95\.00/);
 assert.match(mail.html, /still unpaid/);
+assert.match(mail.html, /Adult 3 · Kid 1/);
+assert.match(mail.html, /No onion garlic veg 1/);
+assert.match(mail.html, /3 adult · 1 kid · 2 veg · 1 non-veg · 1 no onion garlic veg/);
 assert.match(mail.html, /No payments confirmed today/);
 assert.match(mail.html, /Buyers do not receive this email/);
 assert.doesNotMatch(mail.html, /If you didn't place this order/);

@@ -10,6 +10,13 @@ const PAY_LABEL: Record<string, string> = {
   CASH: "Cash",
 };
 
+export type DigestLine = {
+  qty: number;
+  ticketTypeName: string;
+  mealName: string | null;
+  mealTag: string | null;
+};
+
 export type DigestOrder = {
   buyerName: string;
   buyerEmail?: string | null;
@@ -22,6 +29,23 @@ export type DigestOrder = {
   ticketCount: number;
   receivedCents: number;
   owingCents: number;
+  lines: DigestLine[];
+};
+
+export type AgeMealCounts = {
+  adult: number;
+  kid: number;
+  otherTickets: { name: string; count: number }[];
+  veg: number;
+  nonveg: number;
+  nog: number;
+  otherMeals: { name: string; count: number }[];
+  mealsChosen: number;
+};
+
+export type EventHeadcount = {
+  eventTitle: string;
+  lines: DigestLine[];
 };
 
 export function localClock(
@@ -162,7 +186,119 @@ function orderBlock(order: DigestOrder, detail: string): string {
   const email = order.buyerEmail
     ? `<br><span style="color:#71717a;">${esc(order.buyerEmail)}</span>`
     : "";
-  return `<p style="margin:0 0 12px;font-size:14px;"><strong>${esc(order.buyerName)}</strong>${code}${email}<br><span style="color:#52525b;">${esc(order.eventTitle)} · ${order.ticketCount} ticket${order.ticketCount === 1 ? "" : "s"} · ${esc(detail)}</span></p>`;
+  const mix = formatOrderMix(countLines(order.lines));
+  const mixHtml = mix
+    ? `<br><span style="color:#52525b;">${esc(mix)}</span>`
+    : "";
+  return `<p style="margin:0 0 12px;font-size:14px;"><strong>${esc(order.buyerName)}</strong>${code}${email}<br><span style="color:#52525b;">${esc(order.eventTitle)} · ${order.ticketCount} ticket${order.ticketCount === 1 ? "" : "s"} · ${esc(detail)}</span>${mixHtml}</p>`;
+}
+
+/** Adult / kid from the ticket name. Kid wins when a name mentions both. */
+export function classifyAge(ticketTypeName: string): "adult" | "kid" | "other" {
+  const n = ticketTypeName.toLowerCase();
+  if (/\b(kids?|children|child)\b/.test(n)) return "kid";
+  if (/\badults?\b/.test(n)) return "adult";
+  return "other";
+}
+
+/** No-onion-garlic is its own meal, not also counted as veg. */
+export function classifyMeal(
+  mealName: string | null | undefined,
+  mealTag: string | null | undefined
+): "veg" | "nonveg" | "nog" | "other" | "none" {
+  const name = (mealName || "").trim();
+  const tag = (mealTag || "").trim().toLowerCase();
+  if (!name && !tag) return "none";
+  const n = name.toLowerCase();
+  if (/\bnog\b/.test(n) || /no[\s-]*onion/.test(n) || /no[\s-]*garlic/.test(n)) return "nog";
+  if (tag === "nonveg" || /non[-\s]?veg/.test(n)) return "nonveg";
+  if (tag === "veg" || /\bveg/.test(n)) return "veg";
+  return "other";
+}
+
+export function countLines(lines: DigestLine[]): AgeMealCounts {
+  const counts: AgeMealCounts = {
+    adult: 0,
+    kid: 0,
+    otherTickets: [],
+    veg: 0,
+    nonveg: 0,
+    nog: 0,
+    otherMeals: [],
+    mealsChosen: 0,
+  };
+  const otherTickets = new Map<string, number>();
+  const otherMeals = new Map<string, number>();
+  for (const line of lines) {
+    const qty = line.qty;
+    const age = classifyAge(line.ticketTypeName);
+    if (age === "adult") counts.adult += qty;
+    else if (age === "kid") counts.kid += qty;
+    else if (line.ticketTypeName.trim()) {
+      const name = line.ticketTypeName.trim();
+      otherTickets.set(name, (otherTickets.get(name) || 0) + qty);
+    }
+    const meal = classifyMeal(line.mealName, line.mealTag);
+    if (meal === "none") continue;
+    counts.mealsChosen += qty;
+    if (meal === "veg") counts.veg += qty;
+    else if (meal === "nonveg") counts.nonveg += qty;
+    else if (meal === "nog") counts.nog += qty;
+    else if (line.mealName?.trim()) {
+      const name = line.mealName.trim();
+      otherMeals.set(name, (otherMeals.get(name) || 0) + qty);
+    }
+  }
+  counts.otherTickets = [...otherTickets.entries()].map(([name, count]) => ({ name, count }));
+  counts.otherMeals = [...otherMeals.entries()].map(([name, count]) => ({ name, count }));
+  return counts;
+}
+
+/** Event total: include a zero so the kitchen sees that nobody ordered non-veg. */
+export function formatHeadcount(counts: AgeMealCounts): string[] {
+  const age = [
+    counts.adult ? `Adult ${counts.adult}` : "",
+    counts.kid ? `Kid ${counts.kid}` : "",
+    ...counts.otherTickets.map((t) => `${t.name} ${t.count}`),
+  ].filter(Boolean);
+  const lines: string[] = [];
+  if (age.length) lines.push(age.join(" · "));
+  if (counts.mealsChosen > 0) {
+    const meals = [
+      `Veg ${counts.veg}`,
+      `Non-veg ${counts.nonveg}`,
+      `No onion garlic veg ${counts.nog}`,
+      ...counts.otherMeals.map((m) => `${m.name} ${m.count}`),
+    ];
+    lines.push(meals.join(" · "));
+  }
+  return lines;
+}
+
+/** One order: only the choices they actually made. */
+export function formatOrderMix(counts: AgeMealCounts): string {
+  const parts = [
+    counts.adult ? `${counts.adult} adult` : "",
+    counts.kid ? `${counts.kid} kid` : "",
+    ...counts.otherTickets.map((t) => `${t.count} ${t.name}`),
+    counts.veg ? `${counts.veg} veg` : "",
+    counts.nonveg ? `${counts.nonveg} non-veg` : "",
+    counts.nog ? `${counts.nog} no onion garlic veg` : "",
+    ...counts.otherMeals.map((m) => `${m.count} ${m.name}`),
+  ].filter(Boolean);
+  return parts.join(" · ");
+}
+
+function headcountSection(events: EventHeadcount[]): string {
+  const blocks = events
+    .map((event) => {
+      const lines = formatHeadcount(countLines(event.lines));
+      if (lines.length === 0) return "";
+      return `<p style="margin:0 0 12px;font-size:14px;"><strong>${esc(event.eventTitle)}</strong><br><span style="color:#52525b;">${lines.map((line) => esc(line)).join("<br>")}</span></p>`;
+    })
+    .filter(Boolean);
+  if (blocks.length === 0) return "";
+  return `<p style="margin:16px 0 8px;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#a1a1aa;">Headcount</p>${blocks.join("")}`;
 }
 
 function section(title: string, empty: string, orders: DigestOrder[], line: (o: DigestOrder) => string): string {
@@ -178,6 +314,7 @@ export function digestHtml(input: {
   registered: DigestOrder[];
   paid: DigestOrder[];
   waiting: DigestOrder[];
+  headcount?: EventHeadcount[];
 }): { subject: string; html: string } {
   const subject = digestSubject({
     registered: input.registered.length,
@@ -192,6 +329,7 @@ export function digestHtml(input: {
 <p style="margin:0 0 8px;font-size:20px;font-weight:700;">Tonight’s orders</p>
 <p style="margin:0 0 4px;font-size:14px;color:#52525b;">10:00 p.m. summary for <strong>${esc(input.orgName)}</strong>.</p>
 <p style="margin:0;font-size:14px;color:#52525b;">Match each code to the e-Transfer, then confirm the order. A short payment stays pending until the rest arrives.</p>
+${headcountSection(input.headcount || [])}
 ${section("Registered today", "No new registrations today.", input.registered, (o) => `${formatCents(o.totalCents, o.currency)} · ${payLabel(o.payMethod)} · ${statusLabel(o)}`)}
 ${section("Paid today", "No payments confirmed today.", input.paid, (o) => `${formatCents(o.totalCents, o.currency)} · ${payLabel(o.payMethod)} · paid`)}
 ${section("Still waiting", "Nothing waiting.", input.waiting, (o) => {
@@ -220,7 +358,11 @@ export function toDigestOrder(order: {
   payMethod: string;
   status: string;
   event: { title: string; currency: string };
-  items: { qty: number }[];
+  items: {
+    qty: number;
+    ticketType?: { name: string } | null;
+    mealOption?: { name: string; tag?: string | null } | null;
+  }[];
   payments: { kind: string; amountCents: number }[];
 }): DigestOrder {
   const sum = summarizePayments(order.payments, order.totalCents);
@@ -237,5 +379,11 @@ export function toDigestOrder(order: {
     ticketCount: order.items.reduce((n, it) => n + it.qty, 0),
     receivedCents: legacyPaid ? order.totalCents : sum.net,
     owingCents: legacyPaid ? 0 : Math.max(0, order.totalCents - sum.net - sum.waived),
+    lines: order.items.map((it) => ({
+      qty: it.qty,
+      ticketTypeName: it.ticketType?.name || "",
+      mealName: it.mealOption?.name || null,
+      mealTag: it.mealOption?.tag || null,
+    })),
   };
 }
