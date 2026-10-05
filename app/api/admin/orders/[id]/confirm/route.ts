@@ -15,6 +15,7 @@ import {
   orderQrPngBuffer,
   appUrl,
 } from "@/lib/email";
+import { goldSponsorEmailHtml } from "@/lib/sponsorEmail";
 import {
   sendWhatsAppTemplate,
   normalizePhone,
@@ -144,6 +145,11 @@ export async function POST(req: NextRequest, { params }: Ctx) {
           eventId: full.event.id,
           orderId: full.id,
           kind: "TEMPLATE",
+          sponsorHtml: goldSponsorEmailHtml(
+            await db.sponsorAd.findMany({
+              where: { eventId: full.event.id, tier: "GOLD" },
+            })
+          ),
           // Rich default (with QR attached) kept until the org customizes.
           richHtml: ticketsIssuedHtml(
             mailInfo,
