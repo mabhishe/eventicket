@@ -454,7 +454,7 @@ function PublicEventPageInner({
 
         <Card>
           <h2 className="mb-4 text-lg font-bold">
-            <StepNum n={1} /> Choose tickets
+            <StepNum n={1} /> Choose passes
           </h2>
           <div className="space-y-4">
             {event.ticketTypes.map((t) => {
