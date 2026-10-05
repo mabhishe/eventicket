@@ -176,8 +176,9 @@ docker compose start
 
 ## 10. Reminder cron (scheduled emails + nightly payment nudges)
 
-The messaging center's scheduled event reminders and the 8pm payment-nudge
-emails are sent by `GET /api/cron/reminders`, which must be called hourly.
+The messaging center's scheduled event reminders, the 8pm payment-nudge
+emails, and the 10pm organizer summary are sent by `GET /api/cron/reminders`,
+which must be called hourly.
 It is protected by `CRON_SECRET` (set in section 5). On the server, add a
 cron entry for the deploy user:
 
@@ -195,8 +196,14 @@ Notes:
   Without them the dispatcher runs but sends nothing.
 - WhatsApp reminders only send if the organization configured a custom
   WhatsApp template for that message (Meta requires pre-approved templates).
-- The endpoint returns `{ ok, remindersSent, nudgesSent }` JSON so you can
-  verify it in the server logs.
+- At 10:00 p.m. in the organization's timezone, owners and admins (and the
+  organization support email, when set) get one summary: who registered
+  today, who was marked paid, and who is still unpaid. It also totals
+  adults, kids, veg, non-veg, and no-onion-garlic meals for each upcoming
+  event. A night with no registrations, no payments, and nobody waiting
+  sends nothing. A missed 10 p.m. run still sends at 11 p.m.
+- The endpoint returns `{ ok, remindersSent, nudgesSent, summariesSent }` JSON
+  so you can verify it in the server logs.
 
 ## 11. Updating later
 

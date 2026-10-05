@@ -119,7 +119,11 @@ export function shell(opts: {
   accent: string;
   preheader: string;
   body: string;
+  footer?: string;
 }): string {
+  const footer =
+    opts.footer ??
+    "Sent by EventPass for the event organizer. If you didn't place this order, you can ignore this email.";
   return `<!doctype html><html><body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${esc(opts.preheader)}</div>
 <div style="max-width:560px;margin:0 auto;padding:24px 16px;">
@@ -129,7 +133,7 @@ export function shell(opts: {
 </div>
 <div style="padding:24px;">${opts.body}</div>
 <div style="padding:16px 24px;border-top:1px solid #f4f4f5;">
-<p style="margin:0;font-size:12px;color:#a1a1aa;">Sent by EventPass for the event organizer. If you didn't place this order, you can ignore this email.</p>
+<p style="margin:0;font-size:12px;color:#a1a1aa;">${esc(footer)}</p>
 </div>
 </div>
 </div>

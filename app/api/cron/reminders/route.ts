@@ -5,17 +5,21 @@ import {
   sendTemplatedWhatsApp,
   orderVars,
 } from "@/lib/messaging";
+import { sendOrganizerDaySummaries } from "@/lib/sendOrganizerDigest";
 
 /**
  * Cron dispatcher for the messaging center. Call hourly, e.g.:
  *   curl -s -H "Authorization: Bearer $CRON_SECRET" https://events.example.com/api/cron/reminders
  *
- * Requires CRON_SECRET env to match. Does two jobs:
+ * Requires CRON_SECRET env to match. Does three jobs:
  *  1. Scheduled event reminders — fires each enabled ScheduledReminder once
  *     per confirmed order when (event.start - offsetMinutes) has passed.
  *  2. Nightly payment nudges — after 8pm in the org's timezone, emails every
  *     PENDING_PAYMENT order (unpaid, non-zero total, event in the future)
  *     that hasn't been nudged in the last 20 hours.
+ *  3. Organizer day summary — at 10pm in the org's timezone, one email to
+ *     owners and admins: who registered today, who was marked paid, and who
+ *     is still unpaid. A quiet night sends nothing.
  *
  * Email sending is skipped gracefully when Resend is unconfigured; WhatsApp
  * reminders only send when the org configured a custom WhatsApp template
@@ -31,6 +35,7 @@ export async function GET(req: NextRequest) {
   const now = new Date();
   let remindersSent = 0;
   let nudgesSent = 0;
+  let summariesSent = 0;
 
   // --- Job 1: scheduled event reminders ---
   const due = await db.scheduledReminder.findMany({
@@ -188,5 +193,11 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, remindersSent, nudgesSent });
+  // --- Job 3: 10pm organizer summary (org-local) ---
+  summariesSent = await sendOrganizerDaySummaries(now).catch((e) => {
+    console.error("[cron] organizer summary failed", e instanceof Error ? e.message : e);
+    return 0;
+  });
+
+  return NextResponse.json({ ok: true, remindersSent, nudgesSent, summariesSent });
 }
