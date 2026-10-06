@@ -44,6 +44,8 @@ next-env.d.ts
 /prisma-cli-modules
 
 # local sqlite + runtime uploads (never commit)
+# DATABASE_URL=file:./prisma/dev.db is resolved relative to prisma/schema.prisma,
+# so the file lands at prisma/prisma/dev.db.
 /prisma/*.db*
 /prisma/*.db-journal
 /prisma/prisma/
