@@ -1,6 +1,8 @@
 import QRCode from "qrcode";
 import { formatCents } from "./money";
 import { formatEventWhen } from "./datetime";
+import { eventPreviewVersion, withPreviewVersion } from "./eventPreview";
+import { eventShareImagePath } from "./eventSharePath";
 
 function esc(s: string | null | undefined): string {
   return String(s ?? "")
@@ -218,6 +220,77 @@ ${list}
 
 export function appUrl(): string {
   return (process.env.APP_URL || "").replace(/\/$/, "");
+}
+
+/** Personal "I'm going" link. The ?v= value matches the order page share. */
+export function buyerInviteUrl(input: {
+  slug: string;
+  inviteCode: string | null | undefined;
+  title: string;
+  date: Date | string;
+  venue?: string | null;
+  description?: string | null;
+}): string {
+  const base = appUrl();
+  const code = input.inviteCode?.trim();
+  if (!base || !code) return "";
+  return withPreviewVersion(
+    `${base}/e/${input.slug}?invite=${encodeURIComponent(code)}`,
+    eventPreviewVersion({
+      title: input.title,
+      date: input.date,
+      venue: input.venue,
+      description: input.description,
+    })
+  );
+}
+
+/** Banner plus invite link, placed above the email footer. */
+export function inviteShareEmailHtml(input: {
+  title: string;
+  when: string;
+  venue?: string | null;
+  inviteUrl: string;
+  imageUrl: string;
+}): string {
+  if (!input.inviteUrl) return "";
+  const venue = input.venue?.trim() ? `<br>${esc(input.venue.trim())}` : "";
+  const image = input.imageUrl
+    ? `<a href="${esc(input.inviteUrl)}" style="text-decoration:none;"><img src="${esc(input.imageUrl)}" alt="${esc(`I'm going to ${input.title}`)}" width="512" style="display:block;width:100%;max-width:512px;height:auto;border:0;border-radius:12px;" /></a>`
+    : "";
+  return `<div style="margin:20px 0 0;padding-top:16px;border-top:1px solid #e4e4e7;">
+<p style="margin:0 0 12px;font-size:16px;font-weight:700;color:#1c1917;">I'm going to ${esc(input.title)}!</p>
+${image}
+<p style="margin:12px 0 0;font-size:14px;color:#52525b;">${esc(input.when)}${venue}</p>
+<p style="margin:12px 0 0;font-size:14px;color:#1c1917;">Are you joining?</p>
+<p style="margin:12px 0 0;"><a href="${esc(input.inviteUrl)}" style="display:inline-block;background:#c2410c;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:10px;font-weight:600;font-size:14px;">Send this to a friend</a></p>
+<p style="margin:10px 0 0;font-size:12px;color:#71717a;word-break:break-all;">${esc(input.inviteUrl)}</p>
+</div>`;
+}
+
+export function eventShareImageUrl(slug: string): string {
+  const base = appUrl();
+  if (!base) return "";
+  return `${base}${eventShareImagePath(slug)}`;
+}
+
+/** Invite block for the order-received and payment-confirmed emails. */
+export function buyerInviteEmailBlock(input: {
+  slug: string;
+  inviteCode: string | null | undefined;
+  title: string;
+  date: Date | string;
+  venue?: string | null;
+  description?: string | null;
+  timezone?: string | null;
+}): string {
+  return inviteShareEmailHtml({
+    title: input.title,
+    when: formatEventWhen(input.date, input.timezone),
+    venue: input.venue,
+    inviteUrl: buyerInviteUrl(input),
+    imageUrl: eventShareImageUrl(input.slug),
+  });
 }
 
 /** "Verify your email" — sent after signup / team invite. */
