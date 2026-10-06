@@ -1,4 +1,10 @@
 /**
+ * Bump when the preview image URL changes. WhatsApp keeps a failed card
+ * for the exact link it already fetched, including ?v=.
+ */
+const PREVIEW_REV = "2";
+
+/**
  * Short key for the fields a chat preview shows. It changes when the title,
  * date, place, or description changes, so a newly copied link is a new URL.
  * Chat apps keep the old card for a URL they have already previewed.
@@ -12,6 +18,7 @@ export function eventPreviewVersion(input: {
   const when = new Date(input.date);
   const date = Number.isNaN(when.getTime()) ? String(input.date) : when.toISOString();
   const raw = [
+    PREVIEW_REV,
     input.title.trim(),
     date,
     (input.venue || "").trim(),

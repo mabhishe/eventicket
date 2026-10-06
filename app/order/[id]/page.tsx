@@ -14,8 +14,11 @@ import { formatEventWhen } from "@/lib/datetime";
 import { eventPreviewVersion } from "@/lib/eventPreview";
 import {
   eventShareDescription,
+  eventShareImagePath,
   eventShareTitle,
   requestMetadataBase,
+  SHARE_HEIGHT,
+  SHARE_WIDTH,
 } from "@/lib/eventShare";
 
 export const dynamic = "force-dynamic";
@@ -58,13 +61,21 @@ export async function generateMetadata({ params }: Ctx): Promise<Metadata> {
       title,
       description,
       type: "website",
-      images: [`/e/${e.slug}/opengraph-image`],
+      images: [
+        {
+          url: eventShareImagePath(e.slug),
+          width: SHARE_WIDTH,
+          height: SHARE_HEIGHT,
+          type: "image/jpeg",
+          alt: e.title,
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: [`/e/${e.slug}/opengraph-image`],
+      images: [eventShareImagePath(e.slug)],
     },
   };
 }

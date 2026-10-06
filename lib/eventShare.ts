@@ -7,6 +7,8 @@ import { formatEventWhen } from "@/lib/datetime";
 export const SHARE_WIDTH = 1200;
 export const SHARE_HEIGHT = 630;
 
+export { eventShareImagePath } from "@/lib/eventSharePath";
+
 /** Browser tab and chat preview title. */
 export function eventShareTitle(title: string): string {
   const name = title.trim() || "Event";
