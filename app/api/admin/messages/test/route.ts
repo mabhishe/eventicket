@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
       refCode: "9AZM6J",
       entryCode: "482913",
       totalCents: 11000,
+      payMethod: "ETRANSFER",
     },
     {
       id: "sample",
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
       date: new Date(Date.now() + 7 * 86400000),
       venue: "Community Hall",
       currency: "CAD",
+      etransferEmail: "payments@example.com",
     },
     org?.name || "Your organization"
   );

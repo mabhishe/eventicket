@@ -179,6 +179,8 @@ export async function GET(req: NextRequest) {
           venue: order.event.venue,
           currency: order.event.currency,
           etransferEmail: order.event.etransferEmail,
+          zelleHandle: order.event.zelleHandle,
+          cashNote: order.event.cashNote,
         },
         org.name
       );

@@ -103,6 +103,7 @@ export async function POST(req: NextRequest) {
           currency: event.currency,
           etransferEmail: event.etransferEmail,
           zelleHandle: event.zelleHandle,
+          cashNote: event.cashNote,
         },
         org?.name || ""
       );

@@ -137,20 +137,54 @@ export function shell(opts: {
 </body></html>`;
 }
 
+export type PayInstructionInput = {
+  payMethod?: string | null;
+  refCode?: string | null;
+  totalCents: number;
+  currency: string;
+  etransferEmail?: string | null;
+  zelleHandle?: string | null;
+  cashNote?: string | null;
+};
+
+/** Plain-text payment line shared by the order email, reminders, and WhatsApp. */
+export function payInstructionsText(input: PayInstructionInput): string {
+  const total = formatCents(input.totalCents, input.currency);
+  const code = input.refCode?.trim();
+  const method = input.payMethod;
+  let action: string;
+  if (method === "ETRANSFER" && input.etransferEmail) {
+    action = `Send ${total} by Interac e-Transfer to ${input.etransferEmail}.`;
+  } else if (method === "ETRANSFER") {
+    action = `Send ${total} by Interac e-Transfer.`;
+  } else if (method === "ZELLE" && input.zelleHandle) {
+    action = `Send ${total} by Zelle to ${input.zelleHandle}.`;
+  } else if (method === "ZELLE") {
+    action = `Send ${total} by Zelle.`;
+  } else if (method === "CASH") {
+    const note = input.cashNote?.trim();
+    action = note ? `Pay ${total} in cash. ${note}` : `Pay ${total} in cash.`;
+  } else {
+    action = `Amount due: ${total}.`;
+  }
+  if (code && method !== "CASH") {
+    const where = method === "ZELLE" ? "memo" : "e-Transfer message";
+    return `${action} Put reference code ${code} in the ${where}.`;
+  }
+  return action;
+}
+
 function paymentInstructions(order: OrderMailInfo, event: EventMailInfo): string {
-  const memo = order.refCode
-    ? `<p style="margin:8px 0 0;font-size:14px;">Include this code in your transfer message: <strong style="font-family:monospace;letter-spacing:2px;">${esc(order.refCode)}</strong></p>`
-    : "";
-  if (order.payMethod === "ETRANSFER" && event.etransferEmail) {
-    return `<p style="margin:0 0 8px;font-size:14px;"><strong>How to pay:</strong> send ${formatCents(order.totalCents, order.currency)} by Interac e-Transfer to <strong>${esc(event.etransferEmail)}</strong>.</p>${memo}`;
-  }
-  if (order.payMethod === "ZELLE" && event.zelleHandle) {
-    return `<p style="margin:0 0 8px;font-size:14px;"><strong>How to pay:</strong> send ${formatCents(order.totalCents, order.currency)} by Zelle to <strong>${esc(event.zelleHandle)}</strong>.</p>${memo}`;
-  }
-  if (order.payMethod === "CASH" && event.cashNote) {
-    return `<p style="margin:0 0 8px;font-size:14px;"><strong>How to pay:</strong> ${esc(event.cashNote)}</p>${memo}`;
-  }
-  return `<p style="margin:0 0 8px;font-size:14px;"><strong>Amount due:</strong> ${formatCents(order.totalCents, order.currency)}.${memo}</p>`;
+  const text = payInstructionsText({
+    payMethod: order.payMethod,
+    refCode: order.refCode,
+    totalCents: order.totalCents,
+    currency: order.currency,
+    etransferEmail: event.etransferEmail,
+    zelleHandle: event.zelleHandle,
+    cashNote: event.cashNote,
+  });
+  return `<p style="margin:0 0 8px;font-size:14px;"><strong>How to pay:</strong> ${esc(text)}</p>`;
 }
 
 function orderLines(order: OrderMailInfo): string {
