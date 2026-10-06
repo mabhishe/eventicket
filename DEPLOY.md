@@ -226,6 +226,29 @@ migrations. The first-run admin seed does nothing once a user exists.
 The site is briefly unavailable while the new container starts. Orders,
 guests, and images remain.
 
+### Reload Caddy after a Caddyfile change
+
+Compose mounts only `./Caddyfile` into the container, read-only, at
+`/etc/caddy/Caddyfile` (`docker-compose.yml`). That is the file Caddy
+reads. Copies sitting next to it on the server, including `Caddyfilecc`,
+`Caddyfileccc`, and `CaddyfileG`, are not mounted. Edit `Caddyfile`.
+
+`sudo docker compose up -d --build` does not restart Caddy when the
+Caddyfile is the only change, and `sudo docker compose up -d caddy`
+leaves an already-running container in place. Caddy keeps the config it
+loaded at start. From `/opt/event-ticketing`, reload that mounted file:
+
+```bash
+sudo docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile
+```
+
+If reload fails, recreate the Caddy container only. Certificates stay in
+the `caddy_data` volume:
+
+```bash
+sudo docker compose up -d --force-recreate --no-deps caddy
+```
+
 ### Automatic deploy when `main` changes
 
 GitHub Actions can do that update for you. The workflow is
@@ -288,7 +311,9 @@ What the action does, in order:
    not include `data/`, `uploads/`, `backups/`, or `.env`. A stashed
    `Caddyfile` is still on the server (`git stash list`). The copy in
    git already lists `eventpass.aicloudconsult.com`.
-3. Runs `sudo docker compose up -d --build`.
+3. Runs `sudo docker compose up -d --build`. That rebuilds the app. It
+   does not reload Caddy when only `Caddyfile` changed. After a Caddyfile
+   deploy, run the reload command in the section above.
 4. Deletes untagged images left by the previous build (`docker image prune`).
    Named images, the build cache, volumes, and `data/app.db` stay.
 
