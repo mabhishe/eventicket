@@ -85,7 +85,11 @@ async function main() {
   try {
     const pageRes = await fetch(`${BASE}/e/community-feast-test`);
     check("event page 200", pageRes.status === 200);
-    // The page is client-rendered; UI markers live in the built JS chunks.
+    const html = await pageRes.text();
+    check("event HTML includes the title", html.includes("Community Feast"));
+    check("event HTML includes passes", html.includes("Choose passes"));
+    check("event HTML is not a loading shell", !html.includes("Loading…"));
+    // Interactive copy is also in the client bundle.
     const markers = [
       "Same meal for all",
       "checkout-form",
@@ -94,7 +98,7 @@ async function main() {
       "/terms",
       "Your details",
       "Place order",
-      "Choose tickets",
+      "Choose passes",
     ];
     const found = execSync(
       `grep -rh -o ${markers.map((m) => `-e "${m}"`).join(" ")} .next/static/chunks/ 2>/dev/null | sort -u`,

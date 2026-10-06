@@ -37,6 +37,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
           slug: true,
           title: true,
           date: true,
+          timezone: true,
           venue: true,
           currency: true,
           etransferEmail: true,

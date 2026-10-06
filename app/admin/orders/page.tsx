@@ -29,7 +29,7 @@ type Order = LedgerOrder & {
   notes: string | null;
   refCode: string | null;
   createdAt: string;
-  event: { title: string; currency: string };
+  event: { title: string; currency: string; timezone?: string | null };
   seller: { name: string } | null;
   items: OrderItem[];
   _count: { tickets: number };
@@ -268,7 +268,7 @@ function OrdersInner() {
                 </div>
               </div>
               <OrderLedger
-                order={{ ...o, currency: o.event.currency }}
+                order={{ ...o, currency: o.event.currency, timeZone: o.event.timezone }}
                 busy={busy === o.id}
                 onChanged={load}
                 onError={setError}

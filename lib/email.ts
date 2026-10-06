@@ -1,5 +1,6 @@
 import QRCode from "qrcode";
 import { formatCents } from "./money";
+import { formatEventWhen } from "./datetime";
 
 function esc(s: string | null | undefined): string {
   return String(s ?? "")
@@ -87,6 +88,7 @@ type EventMailInfo = {
   title: string;
   date: Date;
   venue: string | null;
+  timezone?: string | null;
   brandColor: string | null;
   etransferEmail: string | null;
   zelleHandle: string | null;
@@ -104,15 +106,8 @@ type OrderMailInfo = {
   items: { qty: number; name: string; holderName: string | null }[];
 };
 
-function fmtDate(d: Date): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(d);
+function fmtDate(d: Date, timeZone?: string | null): string {
+  return formatEventWhen(d, timeZone);
 }
 
 export function shell(opts: {
@@ -174,7 +169,7 @@ export function orderConfirmationHtml(
   const accent = accentOf(event.brandColor);
   const body = `
 <p style="margin:0 0 8px;font-size:20px;font-weight:700;">We've got your order, ${esc(order.buyerName.split(" ")[0])}! 🎉</p>
-<p style="margin:0 0 16px;font-size:14px;color:#52525b;">You're registered for <strong>${esc(event.title)}</strong><br>${fmtDate(event.date)}${event.venue ? ` · ${esc(event.venue)}` : ""}</p>
+<p style="margin:0 0 16px;font-size:14px;color:#52525b;">You're registered for <strong>${esc(event.title)}</strong><br>${fmtDate(event.date, event.timezone)}${event.venue ? ` · ${esc(event.venue)}` : ""}</p>
 <table style="width:100%;border-collapse:collapse;margin:0 0 16px;">${orderLines(order)}
 <tr><td style="padding:8px 0 0;border-top:1px solid #e4e4e7;font-size:15px;font-weight:700;">Total due: ${formatCents(order.totalCents, order.currency)}</td></tr></table>
 ${paymentInstructions(order, event)}
@@ -209,7 +204,7 @@ export function ticketsIssuedHtml(
       : "";
   const body = `
 <p style="margin:0 0 8px;font-size:20px;font-weight:700;">You're in! 🎟️</p>
-<p style="margin:0 0 16px;font-size:14px;color:#52525b;">Your payment for <strong>${esc(event.title)}</strong> is confirmed.<br>${fmtDate(event.date)}${event.venue ? ` · ${esc(event.venue)}` : ""}</p>
+<p style="margin:0 0 16px;font-size:14px;color:#52525b;">Your payment for <strong>${esc(event.title)}</strong> is confirmed.<br>${fmtDate(event.date, event.timezone)}${event.venue ? ` · ${esc(event.venue)}` : ""}</p>
 <p style="margin:0 0 12px;font-size:14px;color:#52525b;">Each person shows their own QR at the door and at the food line. Open that person's link and save the QR.</p>
 ${list}
 <p style="margin:0 0 16px;font-size:14px;color:#52525b;">Family lookup code <strong style="font-family:monospace;letter-spacing:2px;">${esc(groupCode)}</strong> is for staff if someone arrives without their own QR. It does not check a person in by itself.</p>

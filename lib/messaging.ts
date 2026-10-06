@@ -16,6 +16,7 @@ import { db } from "./db";
 import { sendEmail, shell, appUrl } from "./email";
 import { insertBeforeEmailFooter } from "./sponsorEmail";
 import { eventPreviewVersion, withPreviewVersion } from "./eventPreview";
+import { formatEventWhen } from "./datetime";
 import {
   sendWhatsAppTemplate,
   normalizePhone,
@@ -90,15 +91,8 @@ export function renderVars(text: string, vars: VarMap): string {
   });
 }
 
-function fmtDate(d: Date | string): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(d));
+function fmtDate(d: Date | string, timeZone?: string | null): string {
+  return formatEventWhen(d, timeZone);
 }
 
 export type OrderLike = {
@@ -117,6 +111,7 @@ export type EventLike = {
   slug: string;
   title: string;
   date: Date | string;
+  timezone?: string | null;
   venue?: string | null;
   description?: string | null;
   currency: string;
@@ -135,7 +130,7 @@ export function orderVars(
   return {
     "buyer.name": order.buyerName,
     "event.title": event.title,
-    "event.date": fmtDate(event.date),
+    "event.date": fmtDate(event.date, event.timezone),
     "event.venue": event.venue || "",
     "event.url": base
       ? withPreviewVersion(
@@ -379,7 +374,7 @@ export function orderReceivedWaFallback(
       bodyParams: [
         order.buyerName.split(" ")[0],
         event.title,
-        fmtDate(event.date),
+        fmtDate(event.date, event.timezone),
         total,
         payLine,
         order.refCode || "—",

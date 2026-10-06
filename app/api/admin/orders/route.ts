@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
       skip: (page - 1) * pageSize,
       take: pageSize,
       include: {
-        event: { select: { title: true, currency: true } },
+        event: { select: { title: true, currency: true, timezone: true } },
         seller: { select: { name: true } },
         confirmedBy: { select: { name: true } },
         emergencyAdmittedBy: { select: { name: true } },

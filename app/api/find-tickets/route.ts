@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       OR: [{ buyerEmail: emailContact }, { buyerPhone: contact }],
     },
     include: {
-      event: { select: { title: true, date: true, status: true } },
+      event: { select: { title: true, date: true, timezone: true, status: true } },
       _count: { select: { tickets: true } },
     },
     orderBy: { createdAt: "desc" },
@@ -59,6 +59,7 @@ export async function POST(req: NextRequest) {
       orderId: o.id,
       eventTitle: o.event.title,
       eventDate: o.event.date,
+      eventTimezone: o.event.timezone,
       status: o.status,
       tickets: o._count.tickets,
     }));

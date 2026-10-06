@@ -118,7 +118,7 @@ export default async function AdminDashboard() {
       <div className="flex items-start justify-between gap-2">
         <div>
           <h3 className="font-semibold">{e.title}</h3>
-          <p className="text-sm text-stone-500">{fmtDate(e.date, timeZone)}</p>
+          <p className="text-sm text-stone-500">{fmtDate(e.date, e.timezone || timeZone)}</p>
         </div>
         <Badge tone={statusTone[e.status]}>{e.status}</Badge>
       </div>

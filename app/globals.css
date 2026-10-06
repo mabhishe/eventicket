@@ -29,6 +29,13 @@ body {
   font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
+/* stone-500 (#78716c) on paper (#faf6ef) is about 4.4:1. Darken it in light mode. */
+@media (prefers-color-scheme: light) {
+  .text-stone-500 {
+    color: #6b645c;
+  }
+}
+
 ::selection {
   background: #fed7aa; /* orange-200 */
   color: #7c2d12;

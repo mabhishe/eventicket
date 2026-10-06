@@ -19,6 +19,7 @@ export type LedgerOrder = {
   status: string;
   totalCents: number;
   currency?: string;
+  timeZone?: string | null;
   emergencyAdmittedAt: string | null;
   emergencyAdmitReason: string | null;
   emergencyAdmittedBy?: { name: string } | null;
@@ -26,6 +27,14 @@ export type LedgerOrder = {
   confirmedBy?: { name: string } | null;
   payments: PaymentRow[];
 };
+
+function fmtStamp(iso: string, timeZone?: string | null) {
+  return new Intl.DateTimeFormat("en-CA", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: timeZone || "America/Toronto",
+  }).format(new Date(iso));
+}
 
 const kindLabel: Record<string, string> = {
   RECEIVED: "Received",
@@ -101,13 +110,13 @@ export function OrderLedger({
       )}
       {order.confirmedAt && (
         <p className="mt-1 text-xs text-stone-400">
-          Confirmed {new Date(order.confirmedAt).toLocaleString()}
+          Confirmed {fmtStamp(order.confirmedAt, order.timeZone)}
           {order.confirmedBy ? ` by ${order.confirmedBy.name}` : ""}
         </p>
       )}
       {order.emergencyAdmittedAt && (
         <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
-          Emergency admit {new Date(order.emergencyAdmittedAt).toLocaleString()}
+          Emergency admit {fmtStamp(order.emergencyAdmittedAt, order.timeZone)}
           {order.emergencyAdmittedBy ? ` by ${order.emergencyAdmittedBy.name}` : ""}
           {order.emergencyAdmitReason ? ` — ${order.emergencyAdmitReason}` : ""}
         </p>

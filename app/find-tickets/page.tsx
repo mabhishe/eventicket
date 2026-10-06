@@ -13,11 +13,13 @@ import {
   ErrorNote,
 } from "@/components/ui";
 import { formatCents } from "@/lib/money";
+import { formatEventWhenShort } from "@/lib/datetime";
 
 type Found = {
   orderId: string;
   eventTitle: string;
   eventDate: string;
+  eventTimezone?: string | null;
   status: string;
   tickets: number;
 };
@@ -26,7 +28,7 @@ type SavedOrder = {
   id: string;
   status: string;
   totalCents: number;
-  event: { title: string; date: string; currency: string };
+  event: { title: string; date: string; currency: string; timezone?: string | null };
   items: { qty: number; ticketType: { name: string } }[];
 };
 
@@ -146,9 +148,7 @@ export default function FindTicketsPage() {
                     key={o.id}
                     orderId={o.id}
                     title={o.event.title}
-                    sub={`${new Intl.DateTimeFormat("en-CA", {
-                      dateStyle: "medium",
-                    }).format(new Date(o.event.date))} · ${qty} ticket${
+                    sub={`${formatEventWhenShort(o.event.date, o.event.timezone)} · ${qty} ticket${
                       qty === 1 ? "" : "s"
                     }`}
                     status={o.status}
@@ -202,9 +202,7 @@ export default function FindTicketsPage() {
                       key={o.orderId}
                       orderId={o.orderId}
                       title={o.eventTitle}
-                      sub={`${new Intl.DateTimeFormat("en-CA", {
-                        dateStyle: "medium",
-                      }).format(new Date(o.eventDate))} · ${
+                      sub={`${formatEventWhenShort(o.eventDate, o.eventTimezone)} · ${
                         o.status === "CONFIRMED"
                           ? `${o.tickets} ticket(s)`
                           : "payment pending"

@@ -15,6 +15,7 @@ import {
   ErrorNote,
 } from "@/components/ui";
 import { formatCents } from "@/lib/money";
+import { formatEventWhen } from "@/lib/datetime";
 
 type TicketType = {
   id: string;
@@ -29,6 +30,7 @@ type DoorData = {
     id: string;
     title: string;
     date: string;
+    timezone?: string | null;
     venue: string | null;
     currency: string;
   };
@@ -139,11 +141,12 @@ function RosterView({
   );
 }
 
-function fmtTime(iso: string | null) {
+function fmtTime(iso: string | null, timeZone?: string | null) {
   if (!iso) return "";
   return new Intl.DateTimeFormat("en-CA", {
     hour: "numeric",
     minute: "2-digit",
+    timeZone: timeZone || "America/Toronto",
   }).format(new Date(iso));
 }
 
@@ -302,7 +305,7 @@ export default function DoorConsole({
         (d.partyFull
           ? "All meals already served"
           : d.already
-            ? `Already collected at ${fmtTime(t?.foodCollectedAt ?? null)}`
+            ? `Already collected at ${fmtTime(t?.foodCollectedAt ?? null, data?.event.timezone)}`
             : "Food served ✓"),
       ticket: t,
       party: d.party ?? null,
@@ -558,7 +561,7 @@ export default function DoorConsole({
     <Container>
       <PageTitle
         title={data.event.title}
-        sub={`${data.counts.checkedIn} / ${data.counts.issued} in · ${data.counts.foodCollected} fed`}
+        sub={`${formatEventWhen(data.event.date, data.event.timezone)} · ${data.counts.checkedIn} / ${data.counts.issued} in · ${data.counts.foodCollected} fed`}
         action={
           <div className="flex gap-2">
             <Link href={`/door/${data.event.id}/sheet`} className={btnSecondary}>
@@ -841,7 +844,7 @@ export default function DoorConsole({
                       {t.foodCollectedAt ? (
                         <>
                           <Badge tone="amber">
-                            Fed {fmtTime(t.foodCollectedAt)}
+                            Fed {fmtTime(t.foodCollectedAt, data.event.timezone)}
                           </Badge>
                           <button
                             className={btnSecondary + " px-3 py-2 text-xs"}

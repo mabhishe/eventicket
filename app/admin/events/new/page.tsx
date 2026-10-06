@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -13,19 +13,25 @@ import {
   btnSecondary,
   ErrorNote,
 } from "@/components/ui";
-import { datetimeLocalToISO } from "@/lib/datetime";
-
-function toLocalInput(d: Date) {
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(
-    d.getHours()
-  )}:${p(d.getMinutes())}`;
-}
+import { datetimeLocalToISO, toDatetimeLocalValue } from "@/lib/datetime";
 
 export default function NewEventPage() {
   const router = useRouter();
   const [title, setTitle] = useState("");
-  const [date, setDate] = useState(() => toLocalInput(new Date(Date.now() + 14 * 864e5)));
+  const [timeZone, setTimeZone] = useState("America/Toronto");
+  const [date, setDate] = useState(() =>
+    toDatetimeLocalValue(new Date(Date.now() + 14 * 864e5), "America/Toronto")
+  );
+
+  useEffect(() => {
+    fetch("/api/admin/organization")
+      .then((r) => r.json())
+      .then((d) => {
+        const tz = d.organization?.timezone;
+        if (typeof tz === "string" && tz) setTimeZone(tz);
+      })
+      .catch(() => {});
+  }, []);
   const [venue, setVenue] = useState("");
   const [description, setDescription] = useState("");
   const [etransferEmail, setEtransferEmail] = useState("");
@@ -40,7 +46,7 @@ export default function NewEventPage() {
     setBusy(true);
     setError(null);
     const fd = new FormData(e.currentTarget);
-    const iso = datetimeLocalToISO(String(fd.get("date") || ""));
+    const iso = datetimeLocalToISO(String(fd.get("date") || ""), timeZone);
     if (!iso) {
       setError("Enter a valid date and time");
       setBusy(false);
@@ -52,6 +58,7 @@ export default function NewEventPage() {
       body: JSON.stringify({
         title: String(fd.get("title") || ""),
         date: iso,
+        timezone: timeZone,
         venue: String(fd.get("venue") || ""),
         description: String(fd.get("description") || ""),
         etransferEmail: String(fd.get("etransferEmail") || ""),
@@ -89,7 +96,7 @@ export default function NewEventPage() {
               />
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Date & time">
+              <Field label={`Date & time (${timeZone})`}>
                 <input
                   className={inputCls}
                   type="datetime-local"

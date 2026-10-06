@@ -82,6 +82,7 @@ export async function POST(req: NextRequest) {
         slug: event.slug,
         title: event.title,
         date: event.date,
+        timezone: event.timezone,
         venue: event.venue,
         currency: event.currency,
       },

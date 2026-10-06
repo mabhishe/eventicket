@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import fs from "fs/promises";
-import { randomUUID } from "crypto";
 import { requireOrgApiUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { isValidTier, normalizeTier, sortSponsorAds } from "@/lib/sponsors";
+import { storeOptimizedImage } from "@/lib/uploadImage";
 
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED = new Map([
@@ -34,12 +34,9 @@ async function storeFile(eventId: string, file: File) {
   if (file.size > MAX_BYTES) {
     return { error: "Image must be 5 MB or smaller" };
   }
-  const dir = eventDir(eventId);
-  await fs.mkdir(dir, { recursive: true });
-  const name = `${randomUUID()}.${ext}`;
   const buf = Buffer.from(await file.arrayBuffer());
-  await fs.writeFile(path.join(dir, name), buf);
-  return { url: `/uploads/${eventId}/${name}` };
+  const url = await storeOptimizedImage(eventDir(eventId), buf, `/uploads/${eventId}`);
+  return { url };
 }
 
 function cleanLink(raw: string | null): string | null {

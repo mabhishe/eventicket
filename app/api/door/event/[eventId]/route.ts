@@ -70,6 +70,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
       id: event.id,
       title: event.title,
       date: event.date,
+      timezone: event.timezone,
       venue: event.venue,
       currency: event.currency,
       status: event.status,
