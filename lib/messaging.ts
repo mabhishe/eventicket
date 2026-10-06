@@ -13,7 +13,7 @@
  * Every send is recorded in MessageLog (used for dedup + audit).
  */
 import { db } from "./db";
-import { sendEmail, shell, appUrl } from "./email";
+import { sendEmail, shell, appUrl, buyerInviteUrl, eventShareImageUrl } from "./email";
 import { insertBeforeEmailFooter } from "./sponsorEmail";
 import { eventPreviewVersion, withPreviewVersion } from "./eventPreview";
 import { formatEventWhen } from "./datetime";
@@ -78,6 +78,8 @@ export const TEMPLATE_VARS = [
   "{{order.entryCode}}",
   "{{order.total}}",
   "{{order.url}}",
+  "{{order.inviteUrl}}",
+  "{{event.shareImage}}",
   "{{org.name}}",
   "{{app.url}}",
 ] as const;
@@ -102,6 +104,7 @@ export type OrderLike = {
   buyerPhone?: string | null;
   refCode?: string | null;
   entryCode?: string | null;
+  inviteCode?: string | null;
   totalCents: number;
   payMethod?: string | null;
 };
@@ -147,6 +150,15 @@ export function orderVars(
     "order.entryCode": order.entryCode || "",
     "order.total": formatCents(order.totalCents, event.currency),
     "order.url": base ? `${base}/order/${order.id}` : "",
+    "order.inviteUrl": buyerInviteUrl({
+      slug: event.slug,
+      inviteCode: order.inviteCode,
+      title: event.title,
+      date: event.date,
+      venue: event.venue,
+      description: event.description,
+    }),
+    "event.shareImage": eventShareImageUrl(event.slug),
     "org.name": orgName,
     "app.url": base,
   };
@@ -160,14 +172,16 @@ const DEFAULT_EMAIL: Record<TemplateKey, { subject: string; body: string }> = {
 <p>We've got your order for <strong>{{event.title}}</strong> ({{event.date}}).</p>
 <p>Your reference code is <strong>{{order.refCode}}</strong> and your total due is <strong>{{order.total}}</strong>.</p>
 <p>Once the organizer confirms your full payment, each person gets their own QR code.</p>
-<p><a href="{{order.url}}">View your order</a></p>`,
+<p><a href="{{order.url}}">View your order</a></p>
+<p>I'm going to {{event.title}}! Are you joining? <a href="{{order.inviteUrl}}">{{order.inviteUrl}}</a></p>`,
   },
   TICKETS_ISSUED: {
     subject: "You're in! Tickets for {{event.title}} 🎟️",
     body: `<p>Hi {{buyer.name}},</p>
 <p>Your payment for <strong>{{event.title}}</strong> is confirmed — you're in!</p>
 <p>Each person shows their own QR from the order page at the door and the food line. Family lookup code: <strong>{{order.entryCode}}</strong>.</p>
-<p><a href="{{order.url}}">Open your tickets</a></p>`,
+<p><a href="{{order.url}}">Open your tickets</a></p>
+<p>I'm going to {{event.title}}! Are you joining? <a href="{{order.inviteUrl}}">{{order.inviteUrl}}</a></p>`,
   },
   PAYMENT_REMINDER: {
     subject: "Reminder: payment due for {{event.title}}",
