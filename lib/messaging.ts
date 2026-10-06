@@ -13,7 +13,7 @@
  * Every send is recorded in MessageLog (used for dedup + audit).
  */
 import { db } from "./db";
-import { sendEmail, shell, appUrl, buyerInviteUrl, eventShareImageUrl } from "./email";
+import { sendEmail, shell, appUrl, buyerInviteUrl, eventShareImageUrl, payInstructionsText } from "./email";
 import { insertBeforeEmailFooter } from "./sponsorEmail";
 import { eventPreviewVersion, withPreviewVersion } from "./eventPreview";
 import { formatEventWhen } from "./datetime";
@@ -77,6 +77,8 @@ export const TEMPLATE_VARS = [
   "{{order.refCode}}",
   "{{order.entryCode}}",
   "{{order.total}}",
+  "{{order.payInstructions}}",
+  "{{event.etransferEmail}}",
   "{{order.url}}",
   "{{order.inviteUrl}}",
   "{{event.shareImage}}",
@@ -120,6 +122,7 @@ export type EventLike = {
   currency: string;
   etransferEmail?: string | null;
   zelleHandle?: string | null;
+  cashNote?: string | null;
   organizationId?: string | null;
 };
 
@@ -149,6 +152,16 @@ export function orderVars(
     "order.refCode": order.refCode || "",
     "order.entryCode": order.entryCode || "",
     "order.total": formatCents(order.totalCents, event.currency),
+    "order.payInstructions": payInstructionsText({
+      payMethod: order.payMethod,
+      refCode: order.refCode,
+      totalCents: order.totalCents,
+      currency: event.currency,
+      etransferEmail: event.etransferEmail,
+      zelleHandle: event.zelleHandle,
+      cashNote: event.cashNote,
+    }),
+    "event.etransferEmail": event.etransferEmail || "",
     "order.url": base ? `${base}/order/${order.id}` : "",
     "order.inviteUrl": buyerInviteUrl({
       slug: event.slug,
@@ -165,12 +178,13 @@ export function orderVars(
 }
 
 /** Built-in default email templates (used when the org has no custom row). */
-const DEFAULT_EMAIL: Record<TemplateKey, { subject: string; body: string }> = {
+export const DEFAULT_EMAIL: Record<TemplateKey, { subject: string; body: string }> = {
   ORDER_RECEIVED: {
     subject: "Order received — {{event.title}}",
     body: `<p>Hi {{buyer.name}},</p>
 <p>We've got your order for <strong>{{event.title}}</strong> ({{event.date}}).</p>
 <p>Your reference code is <strong>{{order.refCode}}</strong> and your total due is <strong>{{order.total}}</strong>.</p>
+<p><strong>How to pay:</strong> {{order.payInstructions}}</p>
 <p>Once the organizer confirms your full payment, each person gets their own QR code.</p>
 <p><a href="{{order.url}}">View your order</a></p>
 <p>I'm going to {{event.title}}! Are you joining? <a href="{{order.inviteUrl}}">{{order.inviteUrl}}</a></p>`,
@@ -187,8 +201,8 @@ const DEFAULT_EMAIL: Record<TemplateKey, { subject: string; body: string }> = {
     subject: "Reminder: payment due for {{event.title}}",
     body: `<p>Hi {{buyer.name}},</p>
 <p>This is a friendly reminder that your order for <strong>{{event.title}}</strong> ({{event.date}}) is still awaiting payment.</p>
-<p>Total due: <strong>{{order.total}}</strong> · Reference code: <strong>{{order.refCode}}</strong></p>
-<p>Please send your e-Transfer with the reference code in the message, and your tickets will follow as soon as it's confirmed.</p>
+<p><strong>How to pay:</strong> {{order.payInstructions}}</p>
+<p>Your tickets will follow as soon as the payment is confirmed.</p>
 <p><a href="{{order.url}}">View your order</a></p>`,
   },
   EVENT_REMINDER: {
@@ -265,6 +279,31 @@ async function logMessage(opts: {
   }
 }
 
+const PAY_INSTRUCTION_KEYS = new Set<TemplateKey>([
+  "ORDER_RECEIVED",
+  "PAYMENT_REMINDER",
+]);
+
+/**
+ * Saved templates from before pay instructions existed still go out as-is.
+ * Add the how-to-pay line unless the organizer already wrote one.
+ */
+export function ensurePayInstructions(templateKey: string, body: string): string {
+  if (!PAY_INSTRUCTION_KEYS.has(templateKey as TemplateKey)) return body;
+  if (body.includes("{{order.payInstructions}}") || /how to pay/i.test(body)) {
+    return body;
+  }
+  const block = `<p><strong>How to pay:</strong> {{order.payInstructions}}</p>`;
+  const refAt = body.indexOf("{{order.refCode}}");
+  if (refAt >= 0) {
+    const close = body.indexOf("</p>", refAt);
+    if (close >= 0) {
+      return body.slice(0, close + 4) + block + body.slice(close + 4);
+    }
+  }
+  return body + block;
+}
+
 /**
  * Send a templated email. Returns true when actually sent.
  * `richHtml` bypasses the template body (used to keep the existing rich
@@ -289,11 +328,14 @@ export async function sendTemplatedEmail(opts: {
     "EMAIL"
   );
   const subject = renderVars(tpl.subject, opts.vars);
-  const bodyHtml = opts.richHtml && !tpl.custom ? opts.richHtml : tpl.body;
+  const useRich = Boolean(opts.richHtml && !tpl.custom);
+  const bodyHtml = useRich
+    ? opts.richHtml!
+    : ensurePayInstructions(opts.templateKey, tpl.body);
   const rendered = renderVars(bodyHtml, opts.vars);
   // Custom bodies are wrapped in the branded shell; rich defaults already include it.
   const html = insertBeforeEmailFooter(
-    opts.richHtml && !tpl.custom
+    useRich
       ? rendered
       : shell({
           accent: "#c2410c",
@@ -375,13 +417,15 @@ export function orderReceivedWaFallback(
   to: string
 ): () => Promise<boolean> {
   return async () => {
-    const total = formatCents(order.totalCents, event.currency);
-    const payLine =
-      order.payMethod === "ETRANSFER" && event.etransferEmail
-        ? `send ${total} by Interac e-Transfer to ${event.etransferEmail}`
-        : order.payMethod === "ZELLE" && event.zelleHandle
-          ? `send ${total} by Zelle to ${event.zelleHandle}`
-          : `pay ${total} as instructed by the organizer`;
+    const payLine = payInstructionsText({
+      payMethod: order.payMethod,
+      refCode: order.refCode,
+      totalCents: order.totalCents,
+      currency: event.currency,
+      etransferEmail: event.etransferEmail,
+      zelleHandle: event.zelleHandle,
+      cashNote: event.cashNote,
+    });
     return sendWhatsAppTemplate({
       to,
       template: orderTemplateName(),
@@ -389,7 +433,7 @@ export function orderReceivedWaFallback(
         order.buyerName.split(" ")[0],
         event.title,
         fmtDate(event.date, event.timezone),
-        total,
+        formatCents(order.totalCents, event.currency),
         payLine,
         order.refCode || "—",
       ],
