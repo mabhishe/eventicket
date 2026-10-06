@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import {
   orderConfirmationHtml,
   appUrl,
+  buyerInviteEmailBlock,
 } from "@/lib/email";
 import {
   normalizePhone,
@@ -87,6 +88,7 @@ export async function POST(req: NextRequest) {
           buyerPhone: order.buyerPhone,
           refCode: order.refCode,
           entryCode: null,
+          inviteCode: order.inviteCode,
           totalCents: order.totalCents,
           payMethod: order.payMethod,
         },
@@ -97,6 +99,7 @@ export async function POST(req: NextRequest) {
           date: event.date,
           timezone: event.timezone,
           venue: event.venue,
+          description: event.description,
           currency: event.currency,
           etransferEmail: event.etransferEmail,
           zelleHandle: event.zelleHandle,
@@ -113,11 +116,21 @@ export async function POST(req: NextRequest) {
             eventId: event.id,
             orderId: order.id,
             kind: "TEMPLATE",
-            sponsorHtml: goldSponsorEmailHtml(
-              await db.sponsorAd.findMany({
-                where: { eventId: event.id, tier: "GOLD" },
-              })
-            ),
+            sponsorHtml:
+              buyerInviteEmailBlock({
+                slug: event.slug,
+                inviteCode: order.inviteCode,
+                title: event.title,
+                date: event.date,
+                venue: event.venue,
+                description: event.description,
+                timezone: event.timezone,
+              }) +
+              goldSponsorEmailHtml(
+                await db.sponsorAd.findMany({
+                  where: { eventId: event.id, tier: "GOLD" },
+                })
+              ),
             // Rich default kept until the org customizes the template.
             richHtml: orderConfirmationHtml(
               {

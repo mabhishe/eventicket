@@ -3,7 +3,7 @@ import { promises as fs } from "fs";
 import path from "path";
 import { db } from "@/lib/db";
 import { requireOrgApiUser } from "@/lib/auth";
-import { issueTickets, ensureOrderRefCode } from "@/lib/orders";
+import { issueTickets, ensureOrderRefCode, ensureOrderInviteCode } from "@/lib/orders";
 import { formatCents, summarizePayments } from "@/lib/money";
 import {
   sendTemplatedEmail,
@@ -14,6 +14,7 @@ import {
   ticketsIssuedHtml,
   orderQrPngBuffer,
   appUrl,
+  buyerInviteEmailBlock,
 } from "@/lib/email";
 import { goldSponsorEmailHtml } from "@/lib/sponsorEmail";
 import {
@@ -86,6 +87,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     });
     if (full?.event) {
       const groupCode = await ensureOrderRefCode(id);
+      const inviteCode = full.inviteCode || (await ensureOrderInviteCode(id));
       const qr = await orderQrPngBuffer(groupCode);
       const orderUrl = `${appUrl()}/order/${full.id}`;
       // Public QR image for the WhatsApp template's image header.
@@ -130,6 +132,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
               buyerPhone: full.buyerPhone,
               refCode: full.refCode,
               entryCode: groupCode,
+              inviteCode,
               totalCents: full.totalCents,
             },
             {
@@ -139,6 +142,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
               date: full.event.date,
               timezone: full.event.timezone,
               venue: full.event.venue,
+              description: full.event.description,
               currency: full.event.currency,
             },
             org?.name || ""
@@ -146,11 +150,21 @@ export async function POST(req: NextRequest, { params }: Ctx) {
           eventId: full.event.id,
           orderId: full.id,
           kind: "TEMPLATE",
-          sponsorHtml: goldSponsorEmailHtml(
-            await db.sponsorAd.findMany({
-              where: { eventId: full.event.id, tier: "GOLD" },
-            })
-          ),
+          sponsorHtml:
+            buyerInviteEmailBlock({
+              slug: full.event.slug,
+              inviteCode,
+              title: full.event.title,
+              date: full.event.date,
+              venue: full.event.venue,
+              description: full.event.description,
+              timezone: full.event.timezone,
+            }) +
+            goldSponsorEmailHtml(
+              await db.sponsorAd.findMany({
+                where: { eventId: full.event.id, tier: "GOLD" },
+              })
+            ),
           // Rich default (with QR attached) kept until the org customizes.
           richHtml: ticketsIssuedHtml(
             mailInfo,
@@ -177,6 +191,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
               buyerName: full.buyerName,
               refCode: full.refCode,
               entryCode: groupCode,
+              inviteCode,
               totalCents: full.totalCents,
             },
             {
@@ -186,6 +201,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
               date: full.event.date,
               timezone: full.event.timezone,
               venue: full.event.venue,
+              description: full.event.description,
               currency: full.event.currency,
             },
             org?.name || ""
