@@ -69,6 +69,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       slug: slugify(source.title),
       description: source.description,
       date: source.date,
+      timezone: source.timezone,
       venue: source.venue,
       currency: source.currency,
       status: "DRAFT",
@@ -122,6 +123,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         data: source.mealOptions.map((m) => ({
           eventId: created.id,
           name: m.name,
+          description: m.description,
           tag: m.tag,
           sortOrder: m.sortOrder,
         })),

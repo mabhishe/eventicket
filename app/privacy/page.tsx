@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import { Container, Card } from "@/components/ui";
+
+export const metadata: Metadata = {
+  title: "Privacy · EventPass",
+  description: "How EventPass handles names, orders, and the public Who's going list.",
+  alternates: { canonical: "/privacy" },
+};
 
 export default function PrivacyPage() {
   return (
@@ -18,10 +25,12 @@ export default function PrivacyPage() {
             </p>
             <p>
               <strong className="text-stone-800">How it&rsquo;s used.</strong>{" "}
-              Your details are used to issue your tickets, confirm payment,
-              send event reminders, and check you in at the door. With your
-              opt-in, your first name and party size may appear on the
-              event&rsquo;s public &ldquo;Who&rsquo;s going&rdquo; wall.
+              Your details are used to issue your passes, confirm payment,
+              send event reminders, and check you in at the door. If you opt
+              in at checkout, the public &ldquo;Who&rsquo;s going&rdquo; list
+              shows only your first name, the initial of your last name, and
+              your party size. You are left off that list unless you choose
+              it. The organizer still sees the full name on the order.
             </p>
             <p>
               <strong className="text-stone-800">Who sees it.</strong> Your
@@ -41,7 +50,7 @@ export default function PrivacyPage() {
               credentials.
             </p>
             <p className="text-xs text-stone-400">
-              Last updated September 2026.
+              Last updated October 2026.
             </p>
           </div>
         </Card>

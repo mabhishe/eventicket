@@ -2,18 +2,9 @@ import Link from "next/link";
 import { db } from "@/lib/db";
 import { requireOrgUser } from "@/lib/auth";
 import { Container, Card, PageTitle } from "@/components/ui";
+import { formatEventWhenShort } from "@/lib/datetime";
 
 export const dynamic = "force-dynamic";
-
-function fmtDate(d: Date) {
-  return new Intl.DateTimeFormat("en-CA", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(d);
-}
 
 export default async function DoorPicker() {
   const { orgId } = await requireOrgUser(["ORG_OWNER", "ORG_ADMIN", "ORG_DOOR"]);
@@ -69,7 +60,9 @@ export default async function DoorPicker() {
               <Link key={e.id} href={`/door/${e.id}`}>
                 <Card className="h-full transition hover:shadow-md">
                   <h2 className="font-semibold">{e.title}</h2>
-                  <p className="text-sm text-stone-500">{fmtDate(e.date)}</p>
+                  <p className="text-sm text-stone-500">
+                    {formatEventWhenShort(e.date, e.timezone)}
+                  </p>
                   <p className="mt-2 text-sm">
                     {c?.checkedIn ?? 0} / {c?.issued ?? 0} checked in
                   </p>

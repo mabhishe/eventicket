@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     date: event.date,
     venue: event.venue,
     description: event.description,
-    timeZone: event.organization?.timezone,
+    timeZone: event.timezone || event.organization?.timezone,
   });
   return {
     ...(metadataBase ? { metadataBase } : {}),
@@ -36,6 +36,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       type: "website",
     },
+    alternates: { canonical: `/e/${slug}` },
     twitter: {
       card: "summary_large_image",
       title,

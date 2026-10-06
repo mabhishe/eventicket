@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireOrgApiUser } from "@/lib/auth";
 import { canPublishEvent, planOf } from "@/lib/plans";
+import { eventTimeZone, parseEventInstant } from "@/lib/datetime";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -86,8 +87,15 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       continue;
     }
     if (key === "date") {
-      const d = new Date(String(v));
-      if (isNaN(d.getTime())) {
+      const existingForZone = await db.event.findFirst({
+        where: { id, organizationId: orgId },
+        select: { timezone: true },
+      });
+      const d = parseEventInstant(
+        String(v),
+        eventTimeZone(existingForZone?.timezone)
+      );
+      if (!d) {
         return NextResponse.json({ error: "Invalid date" }, { status: 400 });
       }
       data.date = d;

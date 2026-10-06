@@ -1,9 +1,29 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Container, PageTitle, Card } from "@/components/ui";
 import { PLANS } from "@/lib/plans";
 import { publicSignupEnabled } from "@/lib/publicSignup";
 
-export const metadata = { title: "Pricing — EventPass" };
+export const metadata: Metadata = {
+  title: "Pricing · EventPass",
+  description:
+    "Start free. Request an organizer login, then upgrade when your events outgrow the free tier.",
+  alternates: { canonical: "/pricing" },
+  openGraph: {
+    title: "Pricing · EventPass",
+    description:
+      "Start free. Request an organizer login from the EventPass team.",
+    url: "/pricing",
+    siteName: "EventPass",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "Pricing · EventPass",
+    description:
+      "Start free. Request an organizer login from the EventPass team.",
+  },
+};
 
 const FREE_FEATURES = [
   "1 published event at a time",
@@ -17,7 +37,7 @@ const PRO_FEATURES = [
   "Unlimited published events",
   "Unlimited tickets per event",
   "Unlimited team seats",
-  "No EventPass badge on public pages",
+  "Your branding on the public event page",
   "Everything in Free",
 ];
 
@@ -35,7 +55,7 @@ export default function PricingPage() {
           <h2 className="text-lg font-bold">Free</h2>
           <p className="mt-1 text-3xl font-extrabold">
             $0
-            <span className="text-sm font-normal text-stone-500"> / forever</span>
+            <span className="text-sm font-normal text-stone-500"> CAD / forever</span>
           </p>
           <ul className="mt-4 space-y-2 text-sm">
             {FREE_FEATURES.map((f) => (
@@ -52,10 +72,24 @@ export default function PricingPage() {
               Start free
             </Link>
           ) : (
-            <p className="mt-6 text-sm text-stone-500">
-              New organizer accounts are added by the team already running this
-              site.
-            </p>
+            <>
+              <a
+                href="mailto:info@aicloudconsult.com?subject=EventPass%20organizer%20access"
+                className="mt-6 inline-block rounded-lg bg-orange-700 px-4 py-2 font-semibold text-white hover:bg-orange-800"
+              >
+                Request access
+              </a>
+              <p className="mt-3 text-sm text-stone-500">
+                Email{" "}
+                <a
+                  href="mailto:info@aicloudconsult.com"
+                  className="font-medium underline"
+                >
+                  info@aicloudconsult.com
+                </a>{" "}
+                and the team will set up your organizer login.
+              </p>
+            </>
           )}
         </Card>
         <Card>
@@ -82,7 +116,7 @@ export default function PricingPage() {
           <p className="mt-6 text-sm text-stone-500">
             {signupOpen
               ? "Pro launches soon — start free today, upgrade when it's here."
-              : "Pro launches soon. Organizer logins are created from Team."}
+              : "Pro launches soon. Request access and the team will be in touch."}
           </p>
         </Card>
       </div>

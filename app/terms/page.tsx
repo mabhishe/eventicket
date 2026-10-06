@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import { Container, Card } from "@/components/ui";
+
+export const metadata: Metadata = {
+  title: "Terms · EventPass",
+  description: "Terms for ordering passes and paying an event organizer directly.",
+  alternates: { canonical: "/terms" },
+};
 
 export default function TermsPage() {
   return (

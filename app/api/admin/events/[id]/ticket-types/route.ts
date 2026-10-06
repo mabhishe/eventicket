@@ -40,7 +40,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     data: {
       eventId: id,
       name,
-      description: String(body.description || "").trim() || null,
+      description: String(body.description || "").trim().slice(0, 160) || null,
       priceCents,
       quantityTotal,
       includesMeal: body.includesMeal === true,

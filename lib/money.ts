@@ -1,8 +1,12 @@
 export function formatCents(cents: number, currency = "CAD"): string {
-  return new Intl.NumberFormat("en-CA", {
+  const code = (currency || "CAD").toUpperCase();
+  const formatted = new Intl.NumberFormat("en-CA", {
     style: "currency",
-    currency,
+    currency: code,
   }).format(cents / 100);
+  // en-CA often prints "$40.00" for CAD. Keep the currency code visible.
+  if (formatted.toUpperCase().includes(code)) return formatted;
+  return `${formatted} ${code}`;
 }
 
 export type PaymentLike = { kind: string; amountCents: number };

@@ -36,7 +36,7 @@ export default async function TicketPage({ params }: Ctx) {
   const partySize = await db.ticket.count({
     where: { orderId: ticket.order.id, status: { not: "CANCELLED" } },
   });
-  const dateLabel = formatEventWhen(e.date, e.organization?.timezone);
+  const dateLabel = formatEventWhen(e.date, e.timezone || e.organization?.timezone);
   let bannerUrl: string | null = null;
   try {
     const g = JSON.parse(e.imageUrls || "[]");
@@ -55,14 +55,7 @@ export default async function TicketPage({ params }: Ctx) {
           </h1>
           <p className="text-sm text-stone-500">{ticket.ticketType.name}</p>
           <p className="text-sm text-stone-500">
-            {new Intl.DateTimeFormat("en-CA", {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-              hour: "numeric",
-              minute: "2-digit",
-            }).format(e.date)}
+            {formatEventWhen(e.date, e.timezone || e.organization?.timezone)}
             {e.venue ? ` · ${e.venue}` : ""}
           </p>
           {/* eslint-disable-next-line @next/next/no-img-element */}

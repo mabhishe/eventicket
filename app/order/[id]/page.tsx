@@ -34,6 +34,7 @@ export async function generateMetadata({ params }: Ctx): Promise<Metadata> {
           date: true,
           venue: true,
           description: true,
+          timezone: true,
           organization: { select: { timezone: true } },
         },
       },
@@ -47,7 +48,7 @@ export async function generateMetadata({ params }: Ctx): Promise<Metadata> {
     date: e.date,
     venue: e.venue,
     description: e.description,
-    timeZone: e.organization?.timezone,
+    timeZone: e.timezone || e.organization?.timezone,
   });
   return {
     ...(metadataBase ? { metadataBase } : {}),
@@ -109,7 +110,7 @@ export default async function OrderPage({ params }: Ctx) {
   const friendCount = await db.order.count({
     where: { eventId: e.id, invitedBy: inviteCode },
   });
-  const dateLabel = formatEventWhen(e.date, e.organization?.timezone);
+  const dateLabel = formatEventWhen(e.date, e.timezone || e.organization?.timezone);
   let bannerUrl: string | null = null;
   try {
     const g = JSON.parse(e.imageUrls || "[]");

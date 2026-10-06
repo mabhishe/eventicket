@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { connection } from "next/server";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { siteOrigin } from "@/lib/site";
 import { getSession, resolveActiveMembership } from "@/lib/auth";
 import { isPlatformAdmin } from "@/lib/platform";
 import { db } from "@/lib/db";
@@ -19,8 +22,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(siteOrigin()),
   title: process.env.APP_NAME || "EventPass",
-  description: "Community event ticketing — sell tickets, check guests in.",
+  description:
+    "Community event ticketing. Guests pay the organizer directly — e-Transfer and more.",
 };
 
 async function Nav() {
@@ -70,11 +75,13 @@ async function Nav() {
   );
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Nonce CSP is applied per request. Dynamic rendering lets Next attach it.
+  await connection();
   return (
     <html
       lang="en"
@@ -85,11 +92,30 @@ export default function RootLayout({
           <Nav />
           <main className="flex-1">{children}</main>
           <footer className="border-t border-stone-200/70 px-4 py-5 text-center text-xs text-stone-500 dark:border-stone-800 dark:text-stone-400">
-            {process.env.APP_NAME || "EventPass"} by {COMPANY_NAME} — made
-            for community gatherings ·{" "}
-            <a href="/pricing" className="font-medium underline decoration-orange-700/40 underline-offset-2 hover:text-orange-700">
-              Pricing
-            </a>
+            <p>
+              {process.env.APP_NAME || "EventPass"} by{" "}
+              <a
+                href="https://aicloudconsult.com"
+                className="font-medium underline decoration-orange-700/40 underline-offset-2 hover:text-orange-700"
+              >
+                {COMPANY_NAME}
+              </a>{" "}
+              — made for community gatherings
+            </p>
+            <p className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+              <Link href="/pricing" className="font-medium underline decoration-orange-700/40 underline-offset-2 hover:text-orange-700">
+                Pricing
+              </Link>
+              <Link href="/privacy" className="font-medium underline decoration-orange-700/40 underline-offset-2 hover:text-orange-700">
+                Privacy
+              </Link>
+              <Link href="/terms" className="font-medium underline decoration-orange-700/40 underline-offset-2 hover:text-orange-700">
+                Terms
+              </Link>
+              <Link href="/contact" className="font-medium underline decoration-orange-700/40 underline-offset-2 hover:text-orange-700">
+                Contact
+              </Link>
+            </p>
           </footer>
         </div>
       </body>

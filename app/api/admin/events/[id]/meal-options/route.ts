@@ -28,9 +28,10 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const rawTag = String(body.tag || "").trim();
   const tag = rawTag === "veg" || rawTag === "nonveg" ? rawTag : null;
 
+  const description = String(body.description || "").trim().slice(0, 120) || null;
   const count = await db.mealOption.count({ where: { eventId: id } });
   const mealOption = await db.mealOption.create({
-    data: { eventId: id, name, tag, sortOrder: count },
+    data: { eventId: id, name, description, tag, sortOrder: count },
   });
   return NextResponse.json({ mealOption }, { status: 201 });
 }

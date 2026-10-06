@@ -39,7 +39,12 @@ type TicketType = {
   quantityTotal: number;
   includesMeal: boolean;
 };
-type MealOption = { id: string; name: string; tag: string | null };
+type MealOption = {
+  id: string;
+  name: string;
+  description: string | null;
+  tag: string | null;
+};
 type ProgramItem = {
   id: string;
   timeLabel: string;
@@ -52,6 +57,7 @@ type EventData = {
   title: string;
   description: string | null;
   date: string;
+  timezone?: string | null;
   venue: string | null;
   currency: string;
   status: string;
@@ -96,10 +102,12 @@ export default function ManageEventPage({
 
   // ticket type form
   const [ttName, setTtName] = useState("");
+  const [ttDesc, setTtDesc] = useState("");
   const [ttPrice, setTtPrice] = useState("");
   const [ttQty, setTtQty] = useState("");
   const [ttMeal, setTtMeal] = useState(false);
   const [mealName, setMealName] = useState("");
+  const [mealDesc, setMealDesc] = useState("");
   const [mealTag, setMealTag] = useState("");
   const [mealError, setMealError] = useState<string | null>(null);
   const [progTime, setProgTime] = useState("");
@@ -178,7 +186,7 @@ export default function ManageEventPage({
     const e: EventData = data.event;
     setEvent(e);
     setTitle(e.title);
-    setDate(toDatetimeLocalValue(new Date(e.date)));
+    setDate(toDatetimeLocalValue(new Date(e.date), e.timezone));
     setVenue(e.venue || "");
     setDescription(e.description || "");
     setEtransferEmail(e.etransferEmail || "");
@@ -221,7 +229,7 @@ export default function ManageEventPage({
     const form = detailsRef.current;
     if (!form) return null;
     const fd = new FormData(form);
-    const iso = datetimeLocalToISO(String(fd.get("date") || ""));
+    const iso = datetimeLocalToISO(String(fd.get("date") || ""), event?.timezone);
     if (!iso) {
       setError("Enter a valid date and time");
       return null;
@@ -273,6 +281,7 @@ export default function ManageEventPage({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: ttName,
+        description: ttDesc,
         priceCents: Math.round(parseFloat(ttPrice) * 100),
         quantityTotal: parseInt(ttQty, 10),
         includesMeal: ttMeal,
@@ -284,6 +293,7 @@ export default function ManageEventPage({
       return;
     }
     setTtName("");
+    setTtDesc("");
     setTtPrice("");
     setTtQty("");
     setTtMeal(false);
@@ -307,7 +317,11 @@ export default function ManageEventPage({
     const res = await fetch(`/api/admin/events/${id}/meal-options`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: mealName, tag: mealTag || null }),
+      body: JSON.stringify({
+        name: mealName,
+        description: mealDesc,
+        tag: mealTag || null,
+      }),
     });
     const data = await res.json();
     if (!res.ok) {
@@ -316,6 +330,7 @@ export default function ManageEventPage({
     }
     setMealError(null);
     setMealName("");
+    setMealDesc("");
     setMealTag("");
     await load(id);
   }
@@ -764,7 +779,7 @@ export default function ManageEventPage({
               />
             </Field>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Date & time">
+              <Field label={`Date & time (${event?.timezone || "America/Toronto"})`}>
                 <input
                   className={inputCls}
                   type="datetime-local"
@@ -1444,6 +1459,7 @@ export default function ManageEventPage({
                       {formatCents(t.priceCents, event.currency)} ·{" "}
                       {t.quantityTotal} seats
                       {t.includesMeal ? " · includes meal" : ""}
+                      {t.description ? ` · ${t.description}` : ""}
                     </p>
                   </div>
                   <button
@@ -1464,6 +1480,15 @@ export default function ManageEventPage({
                   onChange={(e) => setTtName(e.target.value)}
                   placeholder="General admission"
                   required
+                />
+              </Field>
+              <Field label="Short description (optional)">
+                <input
+                  className={inputCls}
+                  value={ttDesc}
+                  onChange={(e) => setTtDesc(e.target.value)}
+                  placeholder="Shown under the pass name, e.g. Ages 12+"
+                  maxLength={160}
                 />
               </Field>
               <div className="grid grid-cols-2 gap-3">
@@ -1543,6 +1568,11 @@ export default function ManageEventPage({
                 >
                   <p className="text-sm font-medium">
                     {m.name}
+                    {m.description ? (
+                      <span className="ml-1 font-normal text-stone-500">
+                        — {m.description}
+                      </span>
+                    ) : null}
                     {m.tag === "veg" && (
                       <span className="ml-1 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-800 dark:bg-green-900 dark:text-green-200">
                         VEG
@@ -1577,6 +1607,14 @@ export default function ManageEventPage({
                   placeholder="Meal name — e.g. Veg dinner"
                   aria-label="Meal name"
                   required
+                />
+                <input
+                  className={inputCls + " min-w-0 flex-1"}
+                  value={mealDesc}
+                  onChange={(e) => setMealDesc(e.target.value)}
+                  placeholder="Short note — e.g. Veg - NOG"
+                  aria-label="Meal description"
+                  maxLength={120}
                 />
                 <select
                   className={inputCls + " sm:w-36 sm:shrink-0"}

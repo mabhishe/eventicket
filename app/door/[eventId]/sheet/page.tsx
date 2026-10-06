@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { requireOrgUser } from "@/lib/auth";
 import { Container, PageTitle, btnSecondary } from "@/components/ui";
 import PrintButton from "@/components/print-button";
+import { eventTimeZone, formatEventWhen } from "@/lib/datetime";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +61,7 @@ export default async function DoorSheetPage({
   const generatedAt = new Intl.DateTimeFormat("en-CA", {
     dateStyle: "medium",
     timeStyle: "short",
+    timeZone: eventTimeZone(event.timezone),
   }).format(new Date());
 
   return (
@@ -91,6 +93,9 @@ export default async function DoorSheetPage({
         <div className="mb-1 flex items-start justify-between">
           <div>
             <h1 className="text-xl font-bold">{event.title} — Door sheet</h1>
+            <p className="text-sm text-stone-500">
+              {formatEventWhen(event.date, event.timezone)}
+            </p>
             <p className="text-sm text-stone-500">
               Generated {generatedAt} · {orders.length} groups · {totalTickets}{" "}
               tickets

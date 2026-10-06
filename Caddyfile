@@ -4,10 +4,17 @@
 # host that is actually in DNS.
 eventpass.aicloudconsult.com, events.aicloudconsult.com {
 	header {
+		# HSTS without preload. Preload would cover every subdomain of this
+		# host and is painful to undo; the apex aicloudconsult.com is a
+		# different site and is not part of this file.
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Frame-Options "DENY"
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
+		# The full CSP (with a per-request script nonce) and the
+		# Permissions-Policy (camera only on /door) are set by Next.
+		# A second script-src here would block that nonce. This header
+		# only keeps framing off if the app header is missing.
 		Content-Security-Policy "frame-ancestors 'none'"
 		-Server
 		-X-Powered-By

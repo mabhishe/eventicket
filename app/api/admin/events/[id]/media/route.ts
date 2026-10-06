@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { randomUUID } from "crypto";
-import { mkdir, writeFile, unlink } from "fs/promises";
 import path from "path";
 import { db } from "@/lib/db";
 import { requireOrgApiUser } from "@/lib/auth";
+import { storeOptimizedImage, unlinkUpload } from "@/lib/uploadImage";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -88,17 +87,13 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     );
   }
 
-  const filename = `${randomUUID()}.${ext}`;
-  const dir = eventDir(id);
-  await mkdir(dir, { recursive: true });
   const buf = Buffer.from(await file.arrayBuffer());
-  await writeFile(path.join(dir, filename), buf);
-  const url = `/uploads/${id}/${filename}`;
+  const url = await storeOptimizedImage(eventDir(id), buf, `/uploads/${id}`);
 
   // Clean up the previous logo file so disk doesn't fill with orphans.
   if (kind === "logo" && event.logoUrl) {
     const oldPath = urlToPath(event.logoUrl);
-    if (oldPath) await unlink(oldPath).catch(() => {});
+    if (oldPath) await unlinkUpload(oldPath);
   }
 
   const updated = await db.event.update({
@@ -197,7 +192,7 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
   const updated = await db.event.update({ where: { id }, data });
 
   const filePath = urlToPath(url);
-  if (filePath) await unlink(filePath).catch(() => {});
+  if (filePath) await unlinkUpload(filePath);
 
   return NextResponse.json({
     logoUrl: updated.logoUrl,

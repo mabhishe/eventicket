@@ -50,6 +50,7 @@ next-env.d.ts
 /prisma/*.db-journal
 /prisma/prisma/
 /public/uploads/*
+/storage
 /data
 /uploads
 /backups

@@ -2,8 +2,8 @@
  * Plan tiers (Phase 3).
  *
  * FREE: 1 published event at a time, 500 tickets per event, 2 team seats,
- *       "Powered by EventPass" badge shown on public pages.
- * PRO (coming soon): unlimited events / tickets / seats, badge removed.
+ *       public pages use the shared EventPass footer.
+ * PRO (coming soon): unlimited events / tickets / seats.
  *
  * Platform admins can override any limit per organization
  * (Organization.max*Override); null override = plan default.

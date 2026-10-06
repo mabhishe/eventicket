@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireOrgApiUser } from "@/lib/auth";
+import { eventTimeZone, parseEventInstant } from "@/lib/datetime";
 
 function slugify(title: string): string {
   const base =
@@ -44,9 +45,15 @@ export async function POST(req: NextRequest) {
   if (!title) {
     return NextResponse.json({ error: "Title is required" }, { status: 400 });
   }
-  const dateRaw = String(body.date || "");
-  const date = new Date(dateRaw);
-  if (isNaN(date.getTime())) {
+  const org = await db.organization.findUnique({
+    where: { id: orgId },
+    select: { timezone: true },
+  });
+  const timezone = eventTimeZone(
+    typeof body.timezone === "string" ? body.timezone : org?.timezone
+  );
+  const date = parseEventInstant(String(body.date || ""), timezone);
+  if (!date) {
     return NextResponse.json(
       { error: "A valid event date/time is required" },
       { status: 400 }
@@ -59,6 +66,7 @@ export async function POST(req: NextRequest) {
       slug: slugify(title),
       description: String(body.description || "").trim() || null,
       date,
+      timezone,
       venue: String(body.venue || "").trim() || null,
       currency: String(body.currency || "CAD").trim() || "CAD",
       etransferEmail: String(body.etransferEmail || "").trim() || null,
