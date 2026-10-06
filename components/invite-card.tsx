@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { Card } from "@/components/ui";
 import { ShareButton } from "@/components/ShareButton";
+import { sharePicture, useShareImage } from "@/components/share-image";
 import { goingShareMessage } from "@/lib/goingShare";
+import { eventShareImagePath } from "@/lib/eventSharePath";
 import { withPreviewVersion } from "@/lib/eventPreview";
 
 /**
@@ -41,6 +43,7 @@ export function InviteCard({
     when: eventDateLabel,
     venue,
   });
+  const imageFile = useShareImage(eventShareImagePath(eventSlug));
 
   function inviteUrl() {
     if (typeof window === "undefined") return invitePath;
@@ -58,6 +61,17 @@ export function InviteCard({
   }
 
   const waHref = `https://wa.me/?text=${encodeURIComponent(`${shareText}\n${inviteUrl()}`)}`;
+
+  async function shareOnWhatsApp() {
+    const pictured = await sharePicture({
+      file: imageFile.current,
+      title: `I'm going to ${eventTitle}!`,
+      text: shareText,
+      url: inviteUrl(),
+    });
+    if (pictured === "shared" || pictured === "aborted") return;
+    window.open(waHref, "_blank", "noopener,noreferrer");
+  }
 
   return (
     <Card className="overflow-hidden text-center">
@@ -108,15 +122,15 @@ export function InviteCard({
           url={invitePath}
           title={`I'm going to ${eventTitle}!`}
           text={`${shareText}\n`}
+          imageFile={imageFile}
         />
-        <a
-          href={waHref}
-          target="_blank"
-          rel="noopener"
+        <button
+          type="button"
+          onClick={shareOnWhatsApp}
           className="rounded-lg bg-[#25D366] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-90"
         >
           WhatsApp
-        </a>
+        </button>
         <button
           type="button"
           onClick={copyMessage}

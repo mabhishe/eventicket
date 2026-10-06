@@ -2,8 +2,11 @@ import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import {
   eventShareDescription,
+  eventShareImagePath,
   eventShareTitle,
   requestMetadataBase,
+  SHARE_HEIGHT,
+  SHARE_WIDTH,
 } from "@/lib/eventShare";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -27,6 +30,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description: event.description,
     timeZone: event.timezone || event.organization?.timezone,
   });
+  const image = {
+    url: eventShareImagePath(slug),
+    width: SHARE_WIDTH,
+    height: SHARE_HEIGHT,
+    type: "image/jpeg",
+    alt: event.title,
+  };
   return {
     ...(metadataBase ? { metadataBase } : {}),
     title,
@@ -35,12 +45,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title,
       description,
       type: "website",
+      url: `/e/${slug}`,
+      images: [image],
     },
     alternates: { canonical: `/e/${slug}` },
     twitter: {
       card: "summary_large_image",
       title,
       description,
+      images: [image.url],
     },
   };
 }
