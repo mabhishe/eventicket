@@ -29,6 +29,91 @@ export const metadata: Metadata = {
   },
 };
 
+const iconProps = {
+  width: 20,
+  height: 20,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  "aria-hidden": true as const,
+};
+
+const organizerFeatures = [
+  {
+    title: "One page, sell passes",
+    body: "Publish an event page and sell passes without building a site.",
+    icon: (
+      <svg {...iconProps}>
+        <path
+          d="M7 3.5h7.5L19 8v12.5a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-16a1 1 0 0 1 1-1Z"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M14 3.5V8h5M8.5 12.5h7M8.5 16h5"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    ),
+  },
+  {
+    title: "Paid to you directly",
+    body: "Guests pay you by e-Transfer or the methods you turn on.",
+    icon: (
+      <svg {...iconProps}>
+        <rect
+          x="3"
+          y="6"
+          width="18"
+          height="12"
+          rx="2"
+          stroke="currentColor"
+          strokeWidth="1.8"
+        />
+        <path
+          d="M3 10h18M7 14.5h4"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
+      </svg>
+    ),
+  },
+  {
+    title: "Phone check-in",
+    body: "Scan tickets at the door with any phone.",
+    icon: (
+      <svg {...iconProps}>
+        <rect
+          x="7"
+          y="2.5"
+          width="10"
+          height="19"
+          rx="2"
+          stroke="currentColor"
+          strokeWidth="1.8"
+        />
+        <path
+          d="M10.5 17.5h3"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
+        <path
+          d="M9.5 11.5 11.2 13.2 14.8 9.5"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    ),
+  },
+];
+
 function firstImage(imageUrls: string | null): string | null {
   if (!imageUrls) return null;
   try {
@@ -161,21 +246,39 @@ export default async function Home() {
         )}
       </section>
 
-      <section className="mt-12 rounded-2xl border border-stone-200/70 bg-white p-6 text-center shadow-[0_1px_3px_rgba(120,53,15,0.07)] dark:border-stone-800 dark:bg-stone-900">
-        <h2 className="text-xl font-bold tracking-tight text-stone-900 dark:text-stone-50">
-          Run your event on EventPass
-        </h2>
-        <ul className="mx-auto mt-4 max-w-md space-y-2 text-left text-sm text-stone-600 dark:text-stone-300">
-          <li>Publish one page and sell passes without building a site.</li>
-          <li>Guests pay you directly — e-Transfer and the methods you turn on.</li>
-          <li>Check people in at the door with a phone.</li>
-        </ul>
-        <Link
-          href="/pricing"
-          className="mt-5 inline-flex items-center justify-center rounded-xl bg-orange-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-orange-800 dark:bg-orange-600 dark:hover:bg-orange-500"
-        >
-          See pricing
-        </Link>
+      <section className="mt-5">
+        <Card className="text-center">
+          <h2 className="text-xl font-bold tracking-tight text-stone-900 dark:text-stone-50">
+            Run your event on EventPass
+          </h2>
+          <p className="mx-auto mt-2 max-w-lg text-sm text-stone-600 dark:text-stone-300">
+            A public page, payment to you, and check-in from a phone.
+          </p>
+          <ul className="mt-5 grid gap-3 text-left md:grid-cols-3">
+            {organizerFeatures.map((feature) => (
+              <li
+                key={feature.title}
+                className="flex h-full flex-col rounded-xl border border-stone-200/80 bg-stone-50 p-4 dark:border-stone-800 dark:bg-stone-950"
+              >
+                <span className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-300">
+                  {feature.icon}
+                </span>
+                <p className="text-sm font-semibold text-stone-900 dark:text-stone-50">
+                  {feature.title}
+                </p>
+                <p className="mt-1 text-sm leading-snug text-stone-600 dark:text-stone-300">
+                  {feature.body}
+                </p>
+              </li>
+            ))}
+          </ul>
+          <Link
+            href="/pricing"
+            className="mt-5 inline-flex items-center justify-center rounded-xl bg-orange-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-orange-800 dark:bg-orange-600 dark:hover:bg-orange-500"
+          >
+            See pricing
+          </Link>
+        </Card>
       </section>
 
       <p className="mt-10 text-center text-sm text-stone-500 dark:text-stone-400">

@@ -11,13 +11,15 @@ eventpass.aicloudconsult.com, events.aicloudconsult.com {
 		X-Frame-Options "DENY"
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
-		# The full CSP (with a per-request script nonce) and the
-		# Permissions-Policy (camera only on /door) are set by Next.
-		# A second script-src here would block that nonce. This header
-		# only keeps framing off if the app header is missing.
-		Content-Security-Policy "frame-ancestors 'none'"
 		-Server
 		-X-Powered-By
 	}
+	# Next sets the real CSP (script nonce, frame-ancestors 'none', and
+	# the rest) and the Permissions-Policy (camera only on /door).
+	# A plain Content-Security-Policy line in the block above overwrites
+	# the app header on the way out, because deleting Server defers the
+	# whole block until the response is written. The ? prefix is a
+	# fallback written only when the app sent no CSP.
+	header ?Content-Security-Policy "frame-ancestors 'none'"
 	reverse_proxy app:3000
 }
