@@ -210,7 +210,19 @@ Caddyfile           # Reverse proxy config
 | `RESEND_API_KEY` / `EMAIL_FROM` | No | Transactional email (order confirmation + tickets with QR). Both or neither; when unset, email is skipped and everything else works. `EMAIL_FROM` must be a sender verified in Resend, e.g. `EventPass <tickets@events.aicloudconsult.com>`. |
 | `WHATSAPP_TOKEN` / `WHATSAPP_PHONE_NUMBER_ID` | No | WhatsApp notifications via Meta's Cloud API (order confirmation + tickets with QR image). Both or neither; when unset, WhatsApp is skipped. See "WhatsApp setup" below. |
 | `STRIPE_SECRET_KEY` / `STRIPE_PRO_PRICE_ID` / `STRIPE_WEBHOOK_SECRET` | No | Pro subscription billing (C$19/mo). All three or none; when unset, checkout/portal return 503 and the Plan page shows Free. Create a C$19/mo recurring product in Stripe, copy its price ID, and point a webhook at `/api/billing/webhook` for `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`. |
-| `PLATFORM_ADMIN_EMAILS` | No | Comma-separated login emails of EventPass operators. Unlocks `/admin/platform`: view every org, set Free/Pro plans, override limits per org. |
+| `PLATFORM_ADMIN_EMAILS` | No | Comma-separated login emails of EventPass operators. Unlocks `/admin/platform`: view every org, set Free/Pro plans, override limits per org, enable payment auto-match pilots. |
+
+### Payment auto-match (Pro / pilot)
+
+Inbox bots can `POST /api/webhooks/payments` with a Bearer secret to record
+Interac (and later Zelle) deposits against pending orders. Matching prefers a
+unique payment code in the message, then sender email + amount. Ambiguous
+cases stay in `PaymentIntake` as `NEEDS_REVIEW`.
+
+- **Pro** orgs get the feature; Free orgs need `paymentAutoMatchEnabled` (platform
+  admin toggle, or `node scripts/enable-payment-automatch.js <org-slug>`).
+- Org owners generate the webhook secret under **Settings → Payment auto-match**.
+- Body: `{ "externalId": "CA…", "amountCents": 2500, "message": "3UMS7U", "senderEmail": "…", "method": "ETRANSFER" }`.
 
 ## Docs
 

@@ -14,6 +14,7 @@ import {
 } from "@/components/ui";
 import { formatCents, summarizePayments } from "@/lib/money";
 import { OrderLedger, type LedgerOrder } from "@/components/order-ledger";
+import { PaymentBotQueue } from "@/components/payment-bot-queue";
 
 type OrderItem = {
   qty: number;
@@ -131,6 +132,7 @@ function OrdersInner() {
         }
       />
       <ErrorNote message={error} />
+      <PaymentBotQueue onLinked={load} onError={setError} />
       <div className="mb-4">
         <input
           className="w-full rounded-lg border border-stone-300 px-3 py-2.5 text-sm dark:border-stone-700 dark:bg-stone-900"
@@ -273,6 +275,11 @@ function OrdersInner() {
                 onChanged={load}
                 onError={setError}
               />
+              {o.payments.some((p) => p.kind === "RECEIVED" && !p.recordedBy) && (
+                <p className="mt-2 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                  Payment bot matched this order from an inbox deposit.
+                </p>
+              )}
             </Card>
             ))}
           </div>

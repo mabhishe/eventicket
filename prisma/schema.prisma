@@ -100,12 +100,17 @@ model Organization {
   maxEventsOverride  Int?
   maxTicketsOverride Int?
   maxSeatsOverride   Int?
+  // Payment inbox auto-match (Interac / Zelle adapters). Pro orgs get it;
+  // paymentAutoMatchEnabled lets a Free org pilot (e.g. Canosa) without Pro.
+  paymentAutoMatchEnabled Boolean @default(false)
+  paymentWebhookSecretHash String? // sha256 of the bearer secret; raw secret shown once
   createdAt        DateTime @default(now())
   memberships      Membership[]
   events           Event[]
   messageTemplates MessageTemplate[]
   scheduledReminders ScheduledReminder[]
   messageLogs      MessageLog[]
+  paymentIntakes   PaymentIntake[]
 }
 
 model Membership {
@@ -323,4 +328,35 @@ model MessageLog {
 
   @@index([organizationId, sentAt])
   @@index([eventId, kind, sentAt])
+}
+
+/**
+ * Inbound payment notification (Interac email bot, future Zelle, etc.).
+ * externalId is the provider reference (Interac CA… / Zelle confirmation)
+ * and is unique per org for idempotency when the same mail hits a group inbox.
+ */
+model PaymentIntake {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  externalId     String
+  method         String   // ETRANSFER | ZELLE
+  amountCents    Int
+  currency       String   @default("CAD")
+  message        String?
+  senderName     String?
+  senderEmail    String?
+  receivedAt     DateTime?
+  status         String   // APPLIED | NEEDS_REVIEW | IGNORED | ALREADY_PROCESSED
+  matchTier      String?  // CODE | EMAIL_AMOUNT | null
+  orderId        String?
+  paymentId      String?
+  confirmed      Boolean  @default(false)
+  payloadJson    String
+  createdAt      DateTime @default(now())
+  resolvedAt     DateTime?
+  resolvedById   String?
+
+  @@unique([organizationId, externalId])
+  @@index([organizationId, status])
 }

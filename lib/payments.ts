@@ -11,7 +11,8 @@ export type PaymentKindInput = "RECEIVED" | "REFUND" | "WAIVER";
 export async function recordPayment(opts: {
   orderId: string;
   orgId: string;
-  userId: string;
+  /** Null when recorded by an automated intake (Interac webhook, etc.). */
+  userId: string | null;
   kind: PaymentKindInput;
   amountCents: number;
   reason?: string | null;
@@ -40,7 +41,7 @@ export async function recordPayment(opts: {
         amountCents: opts.amountCents,
         method: (opts.method || order.payMethod || "ETRANSFER").trim(),
         reason: reason || null,
-        recordedById: opts.userId,
+        recordedById: opts.userId || null,
       },
     });
   }
@@ -67,7 +68,7 @@ export async function recordPayment(opts: {
       amountCents: opts.amountCents,
       method: null,
       reason,
-      recordedById: opts.userId,
+      recordedById: opts.userId || null,
     },
   });
 }

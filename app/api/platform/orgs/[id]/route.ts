@@ -26,8 +26,10 @@ function parseOverride(v: unknown): number | null | undefined {
 
 /**
  * Update an org's plan or limit overrides. Platform admins only.
- * Body: { plan?: "FREE"|"PRO", maxEventsOverride?, maxTicketsOverride?, maxSeatsOverride? }
+ * Body: { plan?, maxEventsOverride?, maxTicketsOverride?, maxSeatsOverride?,
+ *         paymentAutoMatchEnabled? }
  * Overrides accept a non-negative integer, or null/"" to clear back to the plan default.
+ * paymentAutoMatchEnabled pilots Free orgs (e.g. Canosa) without requiring Pro.
  */
 export async function PATCH(req: NextRequest, { params }: Ctx) {
   if (!(await requirePlatformAdmin())) {
@@ -46,6 +48,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     maxEventsOverride?: number | null;
     maxTicketsOverride?: number | null;
     maxSeatsOverride?: number | null;
+    paymentAutoMatchEnabled?: boolean;
   } = {};
   if (body.plan !== undefined) {
     if (body.plan !== "FREE" && body.plan !== "PRO") {
@@ -59,6 +62,9 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   if (me !== undefined) data.maxEventsOverride = me;
   if (mt !== undefined) data.maxTicketsOverride = mt;
   if (ms !== undefined) data.maxSeatsOverride = ms;
+  if (typeof body.paymentAutoMatchEnabled === "boolean") {
+    data.paymentAutoMatchEnabled = body.paymentAutoMatchEnabled;
+  }
 
   if (Object.keys(data).length === 0) {
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
@@ -73,6 +79,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
         maxEventsOverride: org.maxEventsOverride,
         maxTicketsOverride: org.maxTicketsOverride,
         maxSeatsOverride: org.maxSeatsOverride,
+        paymentAutoMatchEnabled: org.paymentAutoMatchEnabled,
+        paymentWebhookConfigured: !!org.paymentWebhookSecretHash,
       },
     });
   } catch {

@@ -53,6 +53,8 @@ export async function GET(req: NextRequest) {
       maxEventsOverride: o.maxEventsOverride,
       maxTicketsOverride: o.maxTicketsOverride,
       maxSeatsOverride: o.maxSeatsOverride,
+      paymentAutoMatchEnabled: o.paymentAutoMatchEnabled,
+      paymentWebhookConfigured: !!o.paymentWebhookSecretHash,
       seats: o._count.memberships,
       publishedEvents: o._count.events,
       ownerEmail: o.memberships[0]?.user.email ?? null,
