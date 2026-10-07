@@ -74,6 +74,10 @@ ADMIN_PASSWORD=<redacted>
 # Generate: openssl rand -hex 32
 CRON_SECRET=<redacted>
 
+# Payment auto-match (Interac inbox bot) is per-organization — enable the
+# pilot flag or Pro in /admin/platform, then generate the Bearer secret under
+# Organization settings. POST /api/webhooks/payments (no extra env var).
+
 # Public "create account" is off unless this is exactly true.
 # Leave it unset for a single community event. Organizers and door
 # staff are added from Team. Set true only if strangers should be

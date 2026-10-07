@@ -43,6 +43,10 @@ export default function OrgSettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [autoMatchAvailable, setAutoMatchAvailable] = useState(false);
+  const [webhookConfigured, setWebhookConfigured] = useState(false);
+  const [newWebhookSecret, setNewWebhookSecret] = useState<string | null>(null);
+  const [rotating, setRotating] = useState(false);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/admin/organization");
@@ -51,12 +55,14 @@ export default function OrgSettingsPage() {
       setError(data.error || "Could not load settings");
       return;
     }
-    const org = data.organization as Record<string, string | null>;
+    const org = data.organization as Record<string, string | boolean | null>;
     const v: Record<string, string> = {};
-    for (const f of FIELDS) v[f.key] = org[f.key] || "";
+    for (const f of FIELDS) v[f.key] = String(org[f.key] || "");
     setValues(v);
-    setTimezone(org.timezone || "America/Toronto");
-    setBrandColor(org.brandColor || "");
+    setTimezone(String(org.timezone || "America/Toronto"));
+    setBrandColor(String(org.brandColor || ""));
+    setAutoMatchAvailable(!!org.paymentAutoMatchAvailable);
+    setWebhookConfigured(!!org.paymentWebhookConfigured);
   }, []);
 
   useEffect(() => {
@@ -85,6 +91,25 @@ export default function OrgSettingsPage() {
       return;
     }
     setSaved(true);
+  }
+
+  async function rotateWebhookSecret() {
+    setError(null);
+    setNewWebhookSecret(null);
+    setRotating(true);
+    const res = await fetch("/api/admin/organization", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rotatePaymentWebhookSecret: true }),
+    });
+    const data = await res.json();
+    setRotating(false);
+    if (!res.ok) {
+      setError(data.error || "Could not rotate webhook secret");
+      return;
+    }
+    setWebhookConfigured(true);
+    setNewWebhookSecret(String(data.paymentWebhookSecret || ""));
   }
 
   return (
@@ -184,6 +209,42 @@ export default function OrgSettingsPage() {
           </button>
         </div>
       </form>
+      {autoMatchAvailable && (
+        <Card className="mt-6">
+          <h2 className="mb-2 font-semibold">Payment auto-match</h2>
+          <p className="mb-3 text-sm text-stone-500">
+            Let an inbox bot POST Interac (or Zelle) deposit details to{" "}
+            <code className="text-xs">/api/webhooks/payments</code>. Matching
+            uses the payment code in the message, or sender email + amount when
+            the code is missing. Generate a secret once and put it in the bot
+            as a Bearer token.
+          </p>
+          <p className="mb-3 text-sm text-stone-600 dark:text-stone-300">
+            Webhook secret:{" "}
+            {webhookConfigured ? "configured" : "not set yet"}
+          </p>
+          <button
+            type="button"
+            className={btnPrimary}
+            disabled={rotating}
+            onClick={rotateWebhookSecret}
+          >
+            {rotating
+              ? "Generating…"
+              : webhookConfigured
+                ? "Rotate webhook secret"
+                : "Generate webhook secret"}
+          </button>
+          {newWebhookSecret && (
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm dark:border-amber-900 dark:bg-amber-950">
+              <p className="font-semibold text-amber-900 dark:text-amber-100">
+                Copy this secret now — it will not be shown again.
+              </p>
+              <code className="mt-2 block break-all text-xs">{newWebhookSecret}</code>
+            </div>
+          )}
+        </Card>
+      )}
       <div className="mt-6">
         <PlanCard />
       </div>

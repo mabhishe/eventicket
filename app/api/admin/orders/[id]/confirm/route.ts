@@ -1,27 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { promises as fs } from "fs";
-import path from "path";
-import { db } from "@/lib/db";
 import { requireOrgApiUser } from "@/lib/auth";
-import { issueTickets, ensureOrderRefCode, ensureOrderInviteCode } from "@/lib/orders";
-import { formatCents, summarizePayments } from "@/lib/money";
-import {
-  sendTemplatedEmail,
-  sendTemplatedWhatsApp,
-  orderVars,
-} from "@/lib/messaging";
-import {
-  ticketsIssuedHtml,
-  orderQrPngBuffer,
-  appUrl,
-  buyerInviteEmailBlock,
-} from "@/lib/email";
-import { goldSponsorEmailHtml } from "@/lib/sponsorEmail";
-import {
-  sendWhatsAppTemplate,
-  normalizePhone,
-  ticketsTemplateName,
-} from "@/lib/whatsapp";
+import { confirmPendingOrder } from "@/lib/confirmOrder";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -32,199 +11,17 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const { orgId } = auth.user;
   const { id } = await params;
 
-  const order = await db.order.findFirst({
-    where: { id, event: { organizationId: orgId } },
-    include: { payments: true, event: { select: { currency: true } } },
+  const result = await confirmPendingOrder({
+    orderId: id,
+    orgId,
+    confirmedById: auth.user.id,
   });
-  if (!order) {
-    return NextResponse.json({ error: "Order not found" }, { status: 404 });
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status });
   }
-  if (order.status === "CONFIRMED") {
-    const tickets = await issueTickets(id); // idempotent
-    return NextResponse.json({ order, tickets, already: true });
-  }
-  if (order.status !== "PENDING_PAYMENT") {
-    return NextResponse.json(
-      { error: `Order is ${order.status}` },
-      { status: 400 }
-    );
-  }
-
-  const sum = summarizePayments(order.payments, order.totalCents);
-  if (!sum.canConfirm) {
-    return NextResponse.json(
-      {
-        error: `Recorded payment is ${formatCents(sum.net, order.event.currency)} of ${formatCents(order.totalCents, order.event.currency)}. This order stays pending until the rest arrives.`,
-      },
-      { status: 400 }
-    );
-  }
-
-  const claimed = await db.order.updateMany({
-    where: { id, status: "PENDING_PAYMENT" },
-    data: {
-      status: "CONFIRMED",
-      confirmedAt: new Date(),
-      confirmedById: auth.user.id,
-    },
+  return NextResponse.json({
+    order: result.order,
+    tickets: result.tickets,
+    ...(result.already ? { already: true } : {}),
   });
-  if (claimed.count === 0) {
-    const tickets = await issueTickets(id);
-    const current = await db.order.findUnique({ where: { id } });
-    return NextResponse.json({ order: current, tickets, already: true });
-  }
-  const updated = await db.order.findUnique({ where: { id } });
-  const tickets = await issueTickets(id);
-  // Tickets notifications: email (QR attached) + WhatsApp (QR as image).
-  // Neither may fail the confirmation.
-  try {
-    const full = await db.order.findUnique({
-      where: { id },
-      include: {
-        event: true,
-        items: { include: { ticketType: true } },
-      },
-    });
-    if (full?.event) {
-      const groupCode = await ensureOrderRefCode(id);
-      const inviteCode = full.inviteCode || (await ensureOrderInviteCode(id));
-      const qr = await orderQrPngBuffer(groupCode);
-      const orderUrl = `${appUrl()}/order/${full.id}`;
-      // Public QR image for the WhatsApp template's image header.
-      let qrImageUrl: string | null = null;
-      try {
-        const qrDir = path.join(process.cwd(), "public", "uploads", "qr");
-        await fs.mkdir(qrDir, { recursive: true });
-        await fs.writeFile(path.join(qrDir, `${full.id}.png`), qr);
-        const base = appUrl();
-        if (base) qrImageUrl = `${base}/uploads/qr/${full.id}.png`;
-      } catch (e) {
-        console.error("[confirm] QR file write failed", e instanceof Error ? e.message : e);
-      }
-      const mailInfo = {
-        id: full.id,
-        buyerName: full.buyerName,
-        buyerEmail: full.buyerEmail,
-        payMethod: full.payMethod,
-        refCode: full.refCode,
-        totalCents: full.totalCents,
-        currency: full.event.currency,
-        items: full.items.map((it) => ({
-          qty: it.qty,
-          name: it.ticketType.name,
-          holderName: it.holderName,
-        })),
-      };
-      if (full.buyerEmail) {
-        const org = await db.organization.findUnique({
-          where: { id: orgId },
-          select: { id: true, name: true },
-        });
-        await sendTemplatedEmail({
-          organizationId: orgId,
-          templateKey: "TICKETS_ISSUED",
-          to: full.buyerEmail,
-          vars: orderVars(
-            {
-              id: full.id,
-              buyerName: full.buyerName,
-              buyerEmail: full.buyerEmail,
-              buyerPhone: full.buyerPhone,
-              refCode: full.refCode,
-              entryCode: groupCode,
-              inviteCode,
-              totalCents: full.totalCents,
-            },
-            {
-              id: full.event.id,
-              slug: full.event.slug,
-              title: full.event.title,
-              date: full.event.date,
-              timezone: full.event.timezone,
-              venue: full.event.venue,
-              description: full.event.description,
-              currency: full.event.currency,
-            },
-            org?.name || ""
-          ),
-          eventId: full.event.id,
-          orderId: full.id,
-          kind: "TEMPLATE",
-          sponsorHtml:
-            buyerInviteEmailBlock({
-              slug: full.event.slug,
-              inviteCode,
-              title: full.event.title,
-              date: full.event.date,
-              venue: full.event.venue,
-              description: full.event.description,
-              timezone: full.event.timezone,
-            }) +
-            goldSponsorEmailHtml(
-              await db.sponsorAd.findMany({
-                where: { eventId: full.event.id, tier: "GOLD" },
-              })
-            ),
-          // Rich default (with QR attached) kept until the org customizes.
-          richHtml: ticketsIssuedHtml(
-            mailInfo,
-            full.event,
-            groupCode,
-            orderUrl,
-            tickets.map((t) => ({ code: t.code, holderName: t.holderName }))
-          ),
-        });
-      }
-      const waTo = normalizePhone(full.buyerPhone);
-      if (waTo) {
-        const org = await db.organization.findUnique({
-          where: { id: orgId },
-          select: { name: true },
-        });
-        await sendTemplatedWhatsApp({
-          organizationId: orgId,
-          templateKey: "TICKETS_ISSUED",
-          to: waTo,
-          vars: orderVars(
-            {
-              id: full.id,
-              buyerName: full.buyerName,
-              refCode: full.refCode,
-              entryCode: groupCode,
-              inviteCode,
-              totalCents: full.totalCents,
-            },
-            {
-              id: full.event.id,
-              slug: full.event.slug,
-              title: full.event.title,
-              date: full.event.date,
-              timezone: full.event.timezone,
-              venue: full.event.venue,
-              description: full.event.description,
-              currency: full.event.currency,
-            },
-            org?.name || ""
-          ),
-          eventId: full.event.id,
-          orderId: full.id,
-          kind: "TEMPLATE",
-          fallback: async () =>
-            sendWhatsAppTemplate({
-              to: waTo,
-              template: ticketsTemplateName(),
-              ...(qrImageUrl ? { headerImageUrl: qrImageUrl } : {}),
-              bodyParams: [
-                full.buyerName.split(" ")[0],
-                full.event.title,
-                groupCode,
-              ],
-            }),
-        });
-      }
-    }
-  } catch (e) {
-    console.error("[confirm] tickets notifications failed", e instanceof Error ? e.message : e);
-  }
-  return NextResponse.json({ order: updated, tickets });
 }

@@ -20,6 +20,8 @@ type Org = {
   maxEventsOverride: number | null;
   maxTicketsOverride: number | null;
   maxSeatsOverride: number | null;
+  paymentAutoMatchEnabled: boolean;
+  paymentWebhookConfigured: boolean;
   seats: number;
   publishedEvents: number;
   ownerEmail: string | null;
@@ -35,6 +37,7 @@ export default function PlatformOrgsClient() {
     maxEventsOverride: "",
     maxTicketsOverride: "",
     maxSeatsOverride: "",
+    paymentAutoMatchEnabled: false,
   });
   const [busy, setBusy] = useState(false);
 
@@ -59,6 +62,7 @@ export default function PlatformOrgsClient() {
       maxEventsOverride: o.maxEventsOverride?.toString() ?? "",
       maxTicketsOverride: o.maxTicketsOverride?.toString() ?? "",
       maxSeatsOverride: o.maxSeatsOverride?.toString() ?? "",
+      paymentAutoMatchEnabled: o.paymentAutoMatchEnabled,
     });
     setError(null);
   }
@@ -74,6 +78,7 @@ export default function PlatformOrgsClient() {
         maxEventsOverride: form.maxEventsOverride,
         maxTicketsOverride: form.maxTicketsOverride,
         maxSeatsOverride: form.maxSeatsOverride,
+        paymentAutoMatchEnabled: form.paymentAutoMatchEnabled,
       }),
     });
     const data = await res.json();
@@ -104,6 +109,7 @@ export default function PlatformOrgsClient() {
                 <th className="py-2 pr-4">Events</th>
                 <th className="py-2 pr-4">Seats</th>
                 <th className="py-2 pr-4">Overrides</th>
+                <th className="py-2 pr-4">Pay match</th>
                 <th className="py-2">Actions</th>
               </tr>
             </thead>
@@ -192,6 +198,30 @@ export default function PlatformOrgsClient() {
                       ]
                         .filter(Boolean)
                         .join(" · ")
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="py-3 pr-4 text-xs">
+                    {editing === o.id ? (
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={form.paymentAutoMatchEnabled}
+                          onChange={(e) =>
+                            setForm({
+                              ...form,
+                              paymentAutoMatchEnabled: e.target.checked,
+                            })
+                          }
+                        />
+                        Pilot on
+                      </label>
+                    ) : o.paymentAutoMatchEnabled || o.plan === "PRO" ? (
+                      <span className="text-stone-600 dark:text-stone-300">
+                        {o.paymentAutoMatchEnabled ? "Pilot" : "Pro"}
+                        {o.paymentWebhookConfigured ? " · secret set" : " · no secret"}
+                      </span>
                     ) : (
                       "—"
                     )}
