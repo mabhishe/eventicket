@@ -5,6 +5,7 @@ import {
   digestHtml,
   digestRecipients,
   digestSubject,
+  partitionDigest,
   classifyAge,
   classifyMeal,
   countLines,
@@ -88,23 +89,81 @@ assert.equal(digestSubject({ registered: 2, paid: 2, waiting: 0 }), "Tonight —
 assert.equal(digestHasNews({ registered: [], paid: [], waiting: [] }), false);
 assert.equal(digestHasNews({ registered: [gopal], paid: [], waiting: [] }), true);
 
+const groups = partitionDigest({ registered: [gopal], paid: [gopal], waiting: [gopal] });
+assert.equal(groups.newUnpaid.length, 1);
+assert.equal(groups.newPaid.length, 0);
+assert.equal(groups.paidEarlier.length, 0);
+assert.equal(groups.waitingEarlier.length, 0);
+
 const mail = digestHtml({
   orgName: "Canosa",
   registered: [gopal],
-  paid: [],
+  paid: [gopal],
   waiting: [gopal],
   headcount: [{ eventTitle: "Kumar Utsav - 2026", lines: gopal.lines }],
 });
 assert.equal(mail.subject, "Tonight — 1 still unpaid");
-assert.match(mail.html, /Gopal Rao/);
+assert.equal(mail.html.match(/Gopal Rao/g)?.length, 1);
+assert.match(mail.html, /1 new order, still unpaid/);
+assert.match(mail.html, /New today, not paid yet \(1\)/);
+assert.match(mail.html, /border-top:2px solid #a8a29e/);
+assert.doesNotMatch(mail.html, /Paid today/);
+assert.doesNotMatch(mail.html, /Still unpaid from before today/);
 assert.match(mail.html, /QDB68J/);
 assert.match(mail.html, /\$95\.00/);
-assert.match(mail.html, /still unpaid/);
+assert.match(mail.html, /owing/);
 assert.match(mail.html, /Adult 3 · Kid 1/);
 assert.match(mail.html, /No onion garlic veg 1/);
 assert.match(mail.html, /3 adult · 1 kid · 2 veg · 1 non-veg · 1 no onion garlic veg/);
-assert.match(mail.html, /No payments confirmed today/);
 assert.match(mail.html, /Buyers do not receive this email/);
 assert.doesNotMatch(mail.html, /If you didn't place this order/);
+
+const paidToday = toDigestOrder({
+  buyerName: "Binay Ranjan Swain",
+  buyerEmail: "swain.binayranjan@gmail.com",
+  refCode: "UQD02V",
+  totalCents: 7400,
+  payMethod: "ETRANSFER",
+  status: "CONFIRMED",
+  event: { title: "Kumar Utsav - 2026", currency: "CAD" },
+  items: [{ qty: 2, ticketType: { name: "CANOSA MEMBER - ADULT" }, mealOption: { name: "Non-veg", tag: "nonveg" } }],
+  payments: [{ kind: "RECEIVED", amountCents: 7400 }],
+});
+const paidEarlier = toDigestOrder({
+  buyerName: "Earlier Guest",
+  refCode: "OLDER1",
+  totalCents: 2500,
+  payMethod: "ETRANSFER",
+  status: "CONFIRMED",
+  event: { title: "Kumar Utsav - 2026", currency: "CAD" },
+  items: [{ qty: 1, ticketType: { name: "CANOSA MEMBER - ADULT" } }],
+  payments: [{ kind: "RECEIVED", amountCents: 2500 }],
+});
+const waitingEarlier = toDigestOrder({
+  buyerName: "Older Unpaid",
+  refCode: "OLDER2",
+  totalCents: 5000,
+  payMethod: "ETRANSFER",
+  status: "PENDING_PAYMENT",
+  event: { title: "Kumar Utsav - 2026", currency: "CAD" },
+  items: [{ qty: 2, ticketType: { name: "CANOSA MEMBER - ADULT" } }],
+  payments: [],
+});
+const split = digestHtml({
+  orgName: "Canosa",
+  registered: [gopal, paidToday],
+  paid: [paidToday, paidEarlier],
+  waiting: [gopal, waitingEarlier],
+});
+assert.equal(split.html.match(/Gopal Rao/g)?.length, 1);
+assert.equal(split.html.match(/Binay Ranjan Swain/g)?.length, 1);
+assert.match(split.html, /2 new orders: 1 paid, 1 still unpaid/);
+assert.match(split.html, /New today, paid \(1\)/);
+assert.match(split.html, /New today, not paid yet \(1\)/);
+assert.match(split.html, /Paid today, ordered earlier \(1\)/);
+assert.match(split.html, /Earlier Guest/);
+assert.match(split.html, /Still unpaid from before today \(1\)/);
+assert.match(split.html, /Older Unpaid/);
+assert.equal(split.subject, "Tonight — 2 still unpaid");
 
 console.log("organizer digest checks passed");

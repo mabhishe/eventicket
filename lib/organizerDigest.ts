@@ -170,15 +170,6 @@ function payLabel(method: string): string {
   return PAY_LABEL[method] || method;
 }
 
-function statusLabel(order: DigestOrder): string {
-  if (order.status === "CONFIRMED") return "paid";
-  if (order.status === "CANCELLED") return "cancelled";
-  if (order.receivedCents > 0 && order.owingCents > 0) {
-    return `received ${formatCents(order.receivedCents, order.currency)} of ${formatCents(order.totalCents, order.currency)}`;
-  }
-  return "still unpaid";
-}
-
 function orderBlock(order: DigestOrder, detail: string): string {
   const code = order.refCode
     ? ` · code <strong style="font-family:monospace;letter-spacing:1px;">${esc(order.refCode)}</strong>`
@@ -298,15 +289,77 @@ function headcountSection(events: EventHeadcount[]): string {
     })
     .filter(Boolean);
   if (blocks.length === 0) return "";
-  return `<p style="margin:16px 0 8px;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#a1a1aa;">Headcount</p>${blocks.join("")}`;
+  return `<div style="margin:22px 0 0;padding-top:16px;border-top:2px solid #a8a29e;"><p style="margin:0 0 8px;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#a1a1aa;">Headcount</p>${blocks.join("")}</div>`;
 }
 
-function section(title: string, empty: string, orders: DigestOrder[], line: (o: DigestOrder) => string): string {
-  const body =
-    orders.length === 0
-      ? `<p style="margin:0 0 16px;font-size:14px;color:#71717a;">${esc(empty)}</p>`
-      : orders.map((o) => orderBlock(o, line(o))).join("");
-  return `<p style="margin:16px 0 8px;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#a1a1aa;">${esc(title)} (${orders.length})</p>${body}`;
+function orderKey(order: DigestOrder): string {
+  const code = order.refCode?.trim().toUpperCase();
+  if (code) return `code:${code}`;
+  return `name:${order.buyerName}|${order.buyerEmail || ""}|${order.eventTitle}|${order.totalCents}|${order.ticketCount}`;
+}
+
+/** Each order belongs to one section. A new order is not repeated under paid or waiting. */
+export function partitionDigest(input: {
+  registered: DigestOrder[];
+  paid: DigestOrder[];
+  waiting: DigestOrder[];
+}): {
+  newPaid: DigestOrder[];
+  newUnpaid: DigestOrder[];
+  paidEarlier: DigestOrder[];
+  waitingEarlier: DigestOrder[];
+} {
+  const newKeys = new Set(input.registered.map(orderKey));
+  const newPaid: DigestOrder[] = [];
+  const newUnpaid: DigestOrder[] = [];
+  for (const order of input.registered) {
+    if (order.status === "CONFIRMED") newPaid.push(order);
+    else newUnpaid.push(order);
+  }
+  return {
+    newPaid,
+    newUnpaid,
+    paidEarlier: input.paid.filter((order) => !newKeys.has(orderKey(order))),
+    waitingEarlier: input.waiting.filter((order) => !newKeys.has(orderKey(order))),
+  };
+}
+
+function plural(n: number, word: string): string {
+  return `${n} ${word}${n === 1 ? "" : "s"}`;
+}
+
+function digestLead(
+  input: { registered: DigestOrder[]; waiting: DigestOrder[] },
+  groups: ReturnType<typeof partitionDigest>
+): string {
+  const parts: string[] = [];
+  const n = input.registered.length;
+  if (n > 0) {
+    if (groups.newPaid.length && groups.newUnpaid.length) {
+      parts.push(
+        `${plural(n, "new order")}: ${groups.newPaid.length} paid, ${groups.newUnpaid.length} still unpaid.`
+      );
+    } else if (groups.newPaid.length) {
+      parts.push(`${plural(n, "new order")}, already paid.`);
+    } else {
+      parts.push(`${plural(n, "new order")}, still unpaid.`);
+    }
+  }
+  if (groups.paidEarlier.length) {
+    parts.push(`${plural(groups.paidEarlier.length, "earlier order")} marked paid today.`);
+  }
+  if (groups.waitingEarlier.length) {
+    parts.push(
+      `${plural(groups.waitingEarlier.length, "order")} from before today still unpaid.`
+    );
+  }
+  return parts.join(" ");
+}
+
+function section(title: string, orders: DigestOrder[], line: (o: DigestOrder) => string): string {
+  if (orders.length === 0) return "";
+  const body = orders.map((o) => orderBlock(o, line(o))).join("");
+  return `<div style="margin:22px 0 0;padding-top:16px;border-top:2px solid #a8a29e;"><p style="margin:0 0 8px;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#a1a1aa;">${esc(title)} (${orders.length})</p>${body}</div>`;
 }
 
 export function digestHtml(input: {
@@ -321,23 +374,32 @@ export function digestHtml(input: {
     paid: input.paid.length,
     waiting: input.waiting.length,
   });
+  const groups = partitionDigest(input);
   const ordersUrl = appUrl() ? `${appUrl()}/admin/orders` : "";
   const button = ordersUrl
     ? `<p style="margin:16px 0 0;"><a href="${esc(ordersUrl)}" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px;">Open orders</a></p>`
     : "";
-  const body = `
-<p style="margin:0 0 8px;font-size:20px;font-weight:700;">Tonight’s orders</p>
-<p style="margin:0 0 4px;font-size:14px;color:#52525b;">10:00 p.m. summary for <strong>${esc(input.orgName)}</strong>.</p>
-<p style="margin:0;font-size:14px;color:#52525b;">Match each code to the e-Transfer, then confirm the order. A short payment stays pending until the rest arrives.</p>
-${headcountSection(input.headcount || [])}
-${section("Registered today", "No new registrations today.", input.registered, (o) => `${formatCents(o.totalCents, o.currency)} · ${payLabel(o.payMethod)} · ${statusLabel(o)}`)}
-${section("Paid today", "No payments confirmed today.", input.paid, (o) => `${formatCents(o.totalCents, o.currency)} · ${payLabel(o.payMethod)} · paid`)}
-${section("Still waiting", "Nothing waiting.", input.waiting, (o) => {
+  const lead = digestLead(input, groups);
+  const match =
+    input.waiting.length > 0
+      ? "Match each code on an unpaid order to the e-Transfer, then confirm it. A short payment stays pending until the rest arrives."
+      : "Nothing is waiting on a payment.";
+  const owingLine = (o: DigestOrder) => {
     const owing = `${formatCents(o.owingCents, o.currency)} owing · ${payLabel(o.payMethod)}`;
     return o.receivedCents > 0
       ? `${owing} · received ${formatCents(o.receivedCents, o.currency)} of ${formatCents(o.totalCents, o.currency)}`
       : owing;
-  })}
+  };
+  const body = `
+<p style="margin:0 0 8px;font-size:20px;font-weight:700;">Tonight’s orders</p>
+<p style="margin:0 0 4px;font-size:14px;color:#52525b;">10:00 p.m. summary for <strong>${esc(input.orgName)}</strong>.</p>
+<p style="margin:0 0 4px;font-size:14px;color:#1c1917;">${esc(lead)}</p>
+<p style="margin:0;font-size:14px;color:#52525b;">${esc(match)}</p>
+${headcountSection(input.headcount || [])}
+${section("New today, paid", groups.newPaid, (o) => `${formatCents(o.totalCents, o.currency)} · ${payLabel(o.payMethod)} · paid`)}
+${section("New today, not paid yet", groups.newUnpaid, owingLine)}
+${section("Paid today, ordered earlier", groups.paidEarlier, (o) => `${formatCents(o.totalCents, o.currency)} · ${payLabel(o.payMethod)} · paid`)}
+${section("Still unpaid from before today", groups.waitingEarlier, owingLine)}
 ${button}`;
   return {
     subject,
