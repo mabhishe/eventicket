@@ -13,7 +13,7 @@
  * Every send is recorded in MessageLog (used for dedup + audit).
  */
 import { db } from "./db";
-import { sendEmail, shell, appUrl, buyerInviteUrl, eventShareImageUrl, payInstructionsText } from "./email";
+import { sendEmail, shell, appUrl, buyerInviteUrl, eventShareImageUrl, payInstructionsHtml, payInstructionsText, ticketFollowUpHtml } from "./email";
 import { insertBeforeEmailFooter } from "./sponsorEmail";
 import { eventPreviewVersion, withPreviewVersion } from "./eventPreview";
 import { formatEventWhen } from "./datetime";
@@ -123,6 +123,8 @@ export type EventLike = {
   etransferEmail?: string | null;
   zelleHandle?: string | null;
   cashNote?: string | null;
+  /** Buyer help address. Usually the organization support email. */
+  contactEmail?: string | null;
   organizationId?: string | null;
 };
 
@@ -152,7 +154,7 @@ export function orderVars(
     "order.refCode": order.refCode || "",
     "order.entryCode": order.entryCode || "",
     "order.total": formatCents(order.totalCents, event.currency),
-    "order.payInstructions": payInstructionsText({
+    "order.payInstructions": payInstructionsHtml({
       payMethod: order.payMethod,
       refCode: order.refCode,
       totalCents: order.totalCents,
@@ -161,6 +163,7 @@ export function orderVars(
       zelleHandle: event.zelleHandle,
       cashNote: event.cashNote,
     }),
+    "order.ticketFollowUp": ticketFollowUpHtml(event.contactEmail || event.etransferEmail),
     "event.etransferEmail": event.etransferEmail || "",
     "order.url": base ? `${base}/order/${order.id}` : "",
     "order.inviteUrl": buyerInviteUrl({
@@ -186,6 +189,7 @@ export const DEFAULT_EMAIL: Record<TemplateKey, { subject: string; body: string 
 <p>Your reference code is <strong>{{order.refCode}}</strong> and your total due is <strong>{{order.total}}</strong>.</p>
 <p><strong>How to pay:</strong> {{order.payInstructions}}</p>
 <p>Once the organizer confirms your full payment, each person gets their own QR code.</p>
+{{order.ticketFollowUp}}
 <p><a href="{{order.url}}">View your order</a></p>
 <p>I'm going to {{event.title}}! Are you joining? <a href="{{order.inviteUrl}}">{{order.inviteUrl}}</a></p>`,
   },
@@ -304,6 +308,20 @@ export function ensurePayInstructions(templateKey: string, body: string): string
   return body + block;
 }
 
+/** Saved order emails written before the 24-hour note existed still get it. */
+export function ensureTicketFollowUp(templateKey: string, body: string): string {
+  if (templateKey !== "ORDER_RECEIVED") return body;
+  if (body.includes("{{order.ticketFollowUp}}") || /24 hours/i.test(body)) return body;
+  const block = "{{order.ticketFollowUp}}";
+  const marker = "own QR code";
+  const at = body.indexOf(marker);
+  if (at >= 0) {
+    const close = body.indexOf("</p>", at);
+    if (close >= 0) return body.slice(0, close + 4) + block + body.slice(close + 4);
+  }
+  return body + block;
+}
+
 /**
  * Send a templated email. Returns true when actually sent.
  * `richHtml` bypasses the template body (used to keep the existing rich
@@ -331,7 +349,10 @@ export async function sendTemplatedEmail(opts: {
   const useRich = Boolean(opts.richHtml && !tpl.custom);
   const bodyHtml = useRich
     ? opts.richHtml!
-    : ensurePayInstructions(opts.templateKey, tpl.body);
+    : ensureTicketFollowUp(
+        opts.templateKey,
+        ensurePayInstructions(opts.templateKey, tpl.body)
+      );
   const rendered = renderVars(bodyHtml, opts.vars);
   // Custom bodies are wrapped in the branded shell; rich defaults already include it.
   const html = insertBeforeEmailFooter(

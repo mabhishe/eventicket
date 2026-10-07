@@ -95,6 +95,8 @@ type EventMailInfo = {
   etransferEmail: string | null;
   zelleHandle: string | null;
   cashNote: string | null;
+  /** Where a buyer asks for help. Support email, or the e-Transfer address. */
+  contactEmail?: string | null;
 };
 
 type OrderMailInfo = {
@@ -174,8 +176,23 @@ export function payInstructionsText(input: PayInstructionInput): string {
   return action;
 }
 
+/** Same sentence as payInstructionsText, with the reference code in bold. */
+export function payInstructionsHtml(input: PayInstructionInput): string {
+  const text = esc(payInstructionsText(input));
+  const code = input.refCode?.trim();
+  if (!code || input.payMethod === "CASH") return text;
+  return text.replaceAll(esc(code), `<strong>${esc(code)}</strong>`);
+}
+
+/** Shown on the registration email. Empty when the organizer has no contact address. */
+export function ticketFollowUpHtml(email: string | null | undefined): string {
+  const addr = email?.trim();
+  if (!addr) return "";
+  return `<p>If you do not receive your tickets within 24 hours of payment, contact us at <strong>${esc(addr)}</strong>.</p>`;
+}
+
 function paymentInstructions(order: OrderMailInfo, event: EventMailInfo): string {
-  const text = payInstructionsText({
+  const text = payInstructionsHtml({
     payMethod: order.payMethod,
     refCode: order.refCode,
     totalCents: order.totalCents,
@@ -184,7 +201,7 @@ function paymentInstructions(order: OrderMailInfo, event: EventMailInfo): string
     zelleHandle: event.zelleHandle,
     cashNote: event.cashNote,
   });
-  return `<p style="margin:0 0 8px;font-size:14px;"><strong>How to pay:</strong> ${esc(text)}</p>`;
+  return `<p style="margin:0 0 8px;font-size:14px;"><strong>How to pay:</strong> ${text}</p>`;
 }
 
 function orderLines(order: OrderMailInfo): string {
@@ -210,6 +227,7 @@ export function orderConfirmationHtml(
 <tr><td style="padding:8px 0 0;border-top:1px solid #e4e4e7;font-size:15px;font-weight:700;">Total due: ${formatCents(order.totalCents, order.currency)}</td></tr></table>
 ${paymentInstructions(order, event)}
 <p style="margin:16px 0 0;font-size:14px;color:#52525b;">Once the organizer confirms your full payment, each person gets their own QR code. A short payment stays pending until the rest arrives.</p>
+${ticketFollowUpHtml(event.contactEmail || event.etransferEmail)}
 <p style="margin:16px 0 0;"><a href="${esc(orderUrl)}" style="display:inline-block;background:${accent};color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:10px;font-weight:600;font-size:14px;">View your order</a></p>`;
   return shell({
     accent,

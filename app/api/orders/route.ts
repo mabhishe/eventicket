@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
       const org = event.organizationId
         ? await db.organization.findUnique({
             where: { id: event.organizationId },
-            select: { id: true, name: true },
+            select: { id: true, name: true, supportEmail: true },
           })
         : null;
       const orgId = org?.id || "";
@@ -104,6 +104,7 @@ export async function POST(req: NextRequest) {
           etransferEmail: event.etransferEmail,
           zelleHandle: event.zelleHandle,
           cashNote: event.cashNote,
+          contactEmail: org?.supportEmail || event.etransferEmail,
         },
         org?.name || ""
       );
@@ -148,7 +149,7 @@ export async function POST(req: NextRequest) {
                   holderName: it.holderName,
                 })),
               },
-              event,
+              { ...event, contactEmail: org?.supportEmail || event.etransferEmail },
               `${appUrl()}/order/${order.id}`
             ),
           });
