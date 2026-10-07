@@ -289,7 +289,7 @@ function headcountSection(events: EventHeadcount[]): string {
     })
     .filter(Boolean);
   if (blocks.length === 0) return "";
-  return `<p style="margin:16px 0 8px;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#a1a1aa;">Headcount</p>${blocks.join("")}`;
+  return `<div style="margin:22px 0 0;padding-top:16px;border-top:2px solid #a8a29e;"><p style="margin:0 0 8px;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#a1a1aa;">Headcount</p>${blocks.join("")}</div>`;
 }
 
 function orderKey(order: DigestOrder): string {
@@ -359,7 +359,7 @@ function digestLead(
 function section(title: string, orders: DigestOrder[], line: (o: DigestOrder) => string): string {
   if (orders.length === 0) return "";
   const body = orders.map((o) => orderBlock(o, line(o))).join("");
-  return `<p style="margin:16px 0 8px;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#a1a1aa;">${esc(title)} (${orders.length})</p>${body}`;
+  return `<div style="margin:22px 0 0;padding-top:16px;border-top:2px solid #a8a29e;"><p style="margin:0 0 8px;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#a1a1aa;">${esc(title)} (${orders.length})</p>${body}</div>`;
 }
 
 export function digestHtml(input: {

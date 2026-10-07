@@ -106,6 +106,7 @@ assert.equal(mail.subject, "Tonight — 1 still unpaid");
 assert.equal(mail.html.match(/Gopal Rao/g)?.length, 1);
 assert.match(mail.html, /1 new order, still unpaid/);
 assert.match(mail.html, /New today, not paid yet \(1\)/);
+assert.match(mail.html, /border-top:2px solid #a8a29e/);
 assert.doesNotMatch(mail.html, /Paid today/);
 assert.doesNotMatch(mail.html, /Still unpaid from before today/);
 assert.match(mail.html, /QDB68J/);
