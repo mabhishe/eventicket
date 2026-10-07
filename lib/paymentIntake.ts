@@ -325,13 +325,14 @@ export async function processPaymentIntake(opts: {
   }
 
   const order = matched.order;
+  const methodLabel = method === "ZELLE" ? "Zelle" : "Interac";
   const payment = await recordPayment({
     orderId: order.id,
     orgId,
     userId: null,
     kind: "RECEIVED",
     amountCents,
-    reason: `${method} ${externalId}`.slice(0, 200),
+    reason: `Payment bot · ${methodLabel} ${externalId}`.slice(0, 200),
     method,
   });
 

@@ -97,21 +97,37 @@ export function OrderLedger({
           : ""}
       </p>
       {order.payments.length > 0 && (
-        <ul className="mt-2 space-y-1 text-xs text-stone-500">
-          {order.payments.map((p) => (
-            <li key={p.id}>
-              {kindLabel[p.kind] || p.kind} {formatCents(p.amountCents, currency)}
-              {p.method ? ` · ${p.method}` : ""}
-              {p.reason ? ` · ${p.reason}` : ""}
-              {p.recordedBy ? ` · ${p.recordedBy.name}` : ""}
-            </li>
-          ))}
+        <ul className="mt-2 space-y-1.5 text-xs text-stone-500">
+          {order.payments.map((p) => {
+            const byBot = p.kind === "RECEIVED" && !p.recordedBy;
+            return (
+              <li key={p.id} className="flex flex-wrap items-center gap-1.5">
+                <span>
+                  {kindLabel[p.kind] || p.kind}{" "}
+                  {formatCents(p.amountCents, currency)}
+                  {p.method ? ` · ${p.method}` : ""}
+                  {p.reason ? ` · ${p.reason}` : ""}
+                  {p.recordedBy ? ` · ${p.recordedBy.name}` : ""}
+                </span>
+                {byBot && (
+                  <span
+                    className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300"
+                    title="Recorded automatically from an Interac/Zelle notification"
+                  >
+                    Payment bot
+                  </span>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
       {order.confirmedAt && (
         <p className="mt-1 text-xs text-stone-400">
           Confirmed {fmtStamp(order.confirmedAt, order.timeZone)}
-          {order.confirmedBy ? ` by ${order.confirmedBy.name}` : ""}
+          {order.confirmedBy
+            ? ` by ${order.confirmedBy.name}`
+            : " by payment bot"}
         </p>
       )}
       {order.emergencyAdmittedAt && (
