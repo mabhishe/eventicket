@@ -105,6 +105,21 @@ export function ShareEvent({
     }
   }
 
+  async function instagramShare() {
+    // Instagram has no web share URL. On phones the native share sheet
+    // lists Instagram as a target, so prefer it; on desktop fall back to
+    // copy-link for pasting into the app.
+    if (canNativeShare) {
+      try {
+        await navigator.share({ title, text: shareText, url });
+        return;
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") return;
+      }
+    }
+    copyLink("Link copied — paste it into Instagram");
+  }
+
   function popup(href: string) {
     window.open(href, "_blank", "noopener,noreferrer,width=640,height=560");
   }
@@ -171,9 +186,9 @@ export function ShareEvent({
       <button
         type="button"
         className={btn}
-        title="Share on Instagram (copies link)"
-        aria-label="Copy link for Instagram"
-        onClick={() => copyLink("Link copied — paste it into Instagram")}
+        title="Share on Instagram"
+        aria-label="Share on Instagram"
+        onClick={instagramShare}
       >
         <InstagramIcon />
       </button>
