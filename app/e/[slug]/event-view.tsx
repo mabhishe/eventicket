@@ -18,6 +18,7 @@ import { eventPreviewVersion } from "@/lib/eventPreview";
 import { formatEventWhen } from "@/lib/datetime";
 import { ResponsiveImage } from "@/components/responsive-image";
 import type { PublicEventData } from "@/lib/publicEvent";
+import { ShareEvent } from "@/components/ShareEvent";
 import { EventPageSkeleton } from "./skeleton";
 
 type TicketType = {
@@ -399,6 +400,13 @@ export default function EventView({
           heading="Gold sponsors"
           variant="gold"
         />
+        <div className="mb-6">
+          <ShareEvent
+            slug={slug ?? ""}
+            title={event.title}
+            text={`${event.title} — ${formatEventWhen(event.date, event.timezone)}${event.venue ? ` · ${event.venue}` : ""}`}
+          />
+        </div>
         {event.description && (
           <Card className="mb-6">
             <p className="whitespace-pre-wrap text-sm">{event.description}</p>
