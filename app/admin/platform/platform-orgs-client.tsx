@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import {
   Container,
   Card,
@@ -10,6 +10,7 @@ import {
   btnPrimary,
   ErrorNote,
 } from "@/components/ui";
+import { TempOverridesManager } from "./temp-overrides-manager";
 
 type Org = {
   id: string;
@@ -32,6 +33,7 @@ export default function PlatformOrgsClient() {
   const [orgs, setOrgs] = useState<Org[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
+  const [showTemp, setShowTemp] = useState<string | null>(null);
   const [form, setForm] = useState({
     plan: "FREE",
     maxEventsOverride: "",
@@ -115,10 +117,10 @@ export default function PlatformOrgsClient() {
             </thead>
             <tbody>
               {orgs.map((o) => (
-                <tr
-                  key={o.id}
-                  className="border-t border-stone-100 dark:border-stone-800"
-                >
+                <Fragment key={o.id}>
+                  <tr
+                    className="border-t border-stone-100 dark:border-stone-800"
+                  >
                   <td className="py-3 pr-4">
                     <div className="font-semibold">{o.name}</div>
                     <div className="text-xs text-stone-500">
@@ -244,15 +246,33 @@ export default function PlatformOrgsClient() {
                         </button>
                       </div>
                     ) : (
-                      <button
-                        className="text-sm underline"
-                        onClick={() => startEdit(o)}
-                      >
-                        Edit
-                      </button>
+                      <div className="flex gap-3">
+                        <button
+                          className="text-sm underline"
+                          onClick={() => startEdit(o)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="text-sm underline"
+                          onClick={() =>
+                            setShowTemp(showTemp === o.id ? null : o.id)
+                          }
+                        >
+                          {showTemp === o.id ? "Hide temp" : "Temp"}
+                        </button>
+                      </div>
                     )}
                   </td>
-                </tr>
+                  </tr>
+                  {showTemp === o.id && (
+                    <tr>
+                      <td colSpan={7} className="bg-stone-50 px-4 dark:bg-stone-900/50">
+                        <TempOverridesManager orgId={o.id} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>

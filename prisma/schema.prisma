@@ -50,6 +50,17 @@ enum PaymentKind {
   WAIVER
 }
 
+// Quota metrics a SaaS-owner temporary override can raise.
+// Monthly meters reset each calendar month; static caps apply continuously.
+// (Spec: eventpass-quota-override-spec.md)
+enum QuotaMetric {
+  MONTHLY_BOOKINGS
+  MONTHLY_EMAILS
+  MONTHLY_WHATSAPP
+  MAX_EVENTS
+  MAX_SEATS
+}
+
 model User {
   id            String   @id @default(cuid())
   name          String
@@ -100,6 +111,9 @@ model Organization {
   maxEventsOverride  Int?
   maxTicketsOverride Int?
   maxSeatsOverride   Int?
+  // Temporary SaaS-owner quota overrides (see OrganizationQuotaOverride).
+  // Standing column overrides above are permanent; rows here MUST expire.
+  quotaOverrides     OrganizationQuotaOverride[]
   // Payment inbox auto-match (Interac / Zelle adapters). Pro orgs get it;
   // paymentAutoMatchEnabled lets a Free org pilot (e.g. Canosa) without Pro.
   paymentAutoMatchEnabled Boolean @default(false)
@@ -111,6 +125,28 @@ model Organization {
   scheduledReminders ScheduledReminder[]
   messageLogs      MessageLog[]
   paymentIntakes   PaymentIntake[]
+}
+
+// Temporary SaaS-owner quota override for one organization.
+// A ceiling lift, never a plan change: numeric quotas only, no feature gates,
+// invisible to the organizer, and enforced purely by clock-read —
+// a row counts only while revokedAt IS NULL AND createdAt <= now < expiresAt.
+// No cron needed; expired rows are simply never read.
+// (Spec: workspace/goals/event-ticketing-app-pilot/files/eventpass-quota-override-spec.md)
+model OrganizationQuotaOverride {
+  id             String      @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  metric         QuotaMetric
+  value          Int         // the ceiling while active; must be >= 0
+  reason         String      // required: why this was granted (audit)
+  createdBy      String      // platform admin email that granted it
+  createdAt      DateTime    @default(now())
+  expiresAt      DateTime    // required: ignored at/after this instant
+  revokedAt      DateTime?   // set on manual revoke; ignored thereafter
+
+  @@index([organizationId, metric])
+  @@index([expiresAt])
 }
 
 model Membership {

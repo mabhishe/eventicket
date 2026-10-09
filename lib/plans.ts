@@ -11,6 +11,15 @@
  * All limits are enforced server-side; the UI only mirrors them.
  */
 import { db } from "@/lib/db";
+import {
+  applyTempOverrides,
+  isOverrideActive,
+  type QuotaMetric,
+  type QuotaOverrideRow,
+} from "@/lib/quotaOverrides";
+
+export type { QuotaMetric, QuotaOverrideRow };
+export { isOverrideActive };
 
 export type PlanId = "FREE" | "PRO";
 
@@ -76,6 +85,59 @@ export function effectiveLimits(org: {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Temporary SaaS-owner quota overrides (OrganizationQuotaOverride).
+// Pure merge logic lives in lib/quotaOverrides.ts (import-free, unit-tested).
+// Monthly-meter metrics (MONTHLY_*) are stored for the meter-enforcement
+// build; only static caps merge into OrgLimits today.
+// ---------------------------------------------------------------------------
+
+/** Load an org's currently-active temp quota overrides (for enforcement). */
+export async function activeQuotaOverrides(
+  organizationId: string,
+  now: Date = new Date()
+): Promise<QuotaOverrideRow[]> {
+  const rows = await db.organizationQuotaOverride.findMany({
+    where: {
+      organizationId,
+      revokedAt: null,
+      createdAt: { lte: now },
+      expiresAt: { gt: now },
+    },
+    select: {
+      metric: true,
+      value: true,
+      createdAt: true,
+      expiresAt: true,
+      revokedAt: true,
+    },
+  });
+  return rows as QuotaOverrideRow[];
+}
+
+/**
+ * Effective limits including active temporary SaaS-owner overrides.
+ * Prefer this in enforcement paths; the sync effectiveLimits() stays for
+ * pure plan+standing computation and UI mirrors.
+ */
+export async function effectiveLimitsAsync(
+  organizationId: string
+): Promise<OrgLimits> {
+  const org = await loadOrg(organizationId);
+  const base = effectiveLimits(org ?? {});
+  const now = new Date();
+  const overrides = await activeQuotaOverrides(organizationId, now);
+  const merged = applyTempOverrides(
+    {
+      maxActiveEvents: base.maxActiveEvents,
+      maxSeats: base.maxSeats,
+    },
+    overrides,
+    now
+  );
+  return { ...base, ...merged };
+}
+
 async function loadOrg(organizationId: string) {
   return db.organization.findUnique({
     where: { id: organizationId },
@@ -93,8 +155,7 @@ export async function canPublishEvent(
   organizationId: string,
   plan: PlanId
 ): Promise<{ ok: boolean; reason?: string }> {
-  const org = await loadOrg(organizationId);
-  const limits = effectiveLimits(org ?? { plan });
+  const limits = await effectiveLimitsAsync(organizationId);
   const limit = limits.maxActiveEvents;
   if (limit == null) return { ok: true };
   const active = await db.event.count({
@@ -114,8 +175,7 @@ export async function canAddSeat(
   organizationId: string,
   plan: PlanId
 ): Promise<{ ok: boolean; reason?: string }> {
-  const org = await loadOrg(organizationId);
-  const limits = effectiveLimits(org ?? { plan });
+  const limits = await effectiveLimitsAsync(organizationId);
   const limit = limits.maxSeats;
   if (limit == null) return { ok: true };
   const seats = await db.membership.count({ where: { organizationId } });
@@ -140,6 +200,7 @@ export async function canSellTickets(
   const event = await db.event.findUnique({
     where: { id: eventId },
     select: {
+      organizationId: true,
       organization: {
         select: {
           plan: true,
@@ -148,7 +209,10 @@ export async function canSellTickets(
       },
     },
   });
-  const limits = effectiveLimits(event?.organization ?? { plan });
+  if (!event) return { ok: true }; // unknown event: nothing to enforce against
+  const limits = event.organizationId
+    ? await effectiveLimitsAsync(event.organizationId)
+    : effectiveLimits({ plan });
   const limit = limits.maxTicketsPerEvent;
   if (limit == null) return { ok: true };
   const sold = await db.ticket.count({
