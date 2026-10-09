@@ -63,11 +63,19 @@ export async function POST(req: NextRequest) {
       notes: String(body.notes || "").trim() || undefined,
       inviteCode: String(body.inviteCode || "").trim() || undefined,
       showOnWall: body.showOnWall === true,
+      // Registration modules
+      emergencyName: String(body.emergencyName || ""),
+      emergencyPhone: String(body.emergencyPhone || ""),
+      emergencyRelation: String(body.emergencyRelation || ""),
+      pickupAuth: String(body.pickupAuth || ""),
+      waiverAccepted: body.waiverAccepted === true,
+      waiverSignedName: String(body.waiverSignedName || ""),
       items: items.map((it: Record<string, unknown>) => ({
         ticketTypeId: String(it.ticketTypeId),
         qty: Number(it.qty),
         mealOptionId: it.mealOptionId ? String(it.mealOptionId) : null,
         holderName: it.holderName ? String(it.holderName) : null,
+        medicalNotes: it.medicalNotes ? String(it.medicalNotes) : null,
       })),
     });
     // Confirmation email + WhatsApp (never fail the order).

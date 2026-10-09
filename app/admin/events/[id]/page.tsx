@@ -30,6 +30,7 @@ import {
 } from "@/components/image-crop-dialog";
 import { datetimeLocalToISO, toDatetimeLocalValue } from "@/lib/datetime";
 import { eventPreviewVersion, withPreviewVersion } from "@/lib/eventPreview";
+import { RegistrationFieldsCard } from "./registration-fields-card";
 
 type TicketType = {
   id: string;
@@ -68,6 +69,7 @@ type EventData = {
   imageUrls: string;
   brandColor: string | null;
   requireEntryBeforeFood: boolean;
+  registrationFields: string | null;
   ticketTypes: TicketType[];
   mealOptions: MealOption[];
   programItems: ProgramItem[];
@@ -1630,6 +1632,11 @@ export default function ManageEventPage({
               <button className={btnSecondary}>Add</button>
             </form>
           </Card>
+
+          <RegistrationFieldsCard
+            initial={event?.registrationFields ?? null}
+            onSave={(json) => patch({ registrationFields: json })}
+          />
 
           <Card>
             <h2 className="mb-3 font-semibold">Program / schedule</h2>

@@ -45,6 +45,12 @@ export async function GET(req: NextRequest) {
           status: true,
           emergencyAdmittedAt: true,
           emergencyAdmitReason: true,
+          emergencyName: true,
+          emergencyPhone: true,
+          emergencyRelation: true,
+          pickupAuth: true,
+          waiverAcceptedAt: true,
+          waiverSignedName: true,
           payments: { select: { kind: true, amountCents: true } },
         },
       },
@@ -72,6 +78,13 @@ export async function GET(req: NextRequest) {
       "Balance owing",
       "Order status",
       "Emergency reason",
+      "Medical notes",
+      "Emergency contact",
+      "Emergency phone",
+      "Emergency relation",
+      "Pickup authorization",
+      "Waiver accepted",
+      "Waiver signed by",
     ],
   ];
   for (const t of tickets) {
@@ -102,6 +115,15 @@ export async function GET(req: NextRequest) {
         ? "EMERGENCY"
         : t.order.status,
       t.order.emergencyAdmitReason || "",
+      t.medicalNotes || "",
+      t.order.emergencyName || "",
+      t.order.emergencyPhone || "",
+      t.order.emergencyRelation || "",
+      t.order.pickupAuth || "",
+      t.order.waiverAcceptedAt
+        ? new Date(t.order.waiverAcceptedAt).toISOString()
+        : "",
+      t.order.waiverSignedName || "",
     ]);
   }
 

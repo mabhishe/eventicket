@@ -19,6 +19,8 @@ import { PaymentBotQueue } from "@/components/payment-bot-queue";
 type OrderItem = {
   qty: number;
   unitPriceCents: number;
+  holderName: string | null;
+  medicalNotes: string | null;
   ticketType: { name: string };
   mealOption: { name: string } | null;
 };
@@ -29,6 +31,12 @@ type Order = LedgerOrder & {
   payMethod: string;
   notes: string | null;
   refCode: string | null;
+  emergencyName: string | null;
+  emergencyPhone: string | null;
+  emergencyRelation: string | null;
+  pickupAuth: string | null;
+  waiverAcceptedAt: string | null;
+  waiverSignedName: string | null;
   createdAt: string;
   event: { title: string; currency: string; timezone?: string | null };
   seller: { name: string } | null;
@@ -206,6 +214,52 @@ function OrdersInner() {
                   </p>
                   {o.notes && (
                     <p className="mt-1 text-xs text-stone-500">“{o.notes}”</p>
+                  )}
+                  {(o.emergencyName ||
+                    o.pickupAuth ||
+                    o.waiverAcceptedAt ||
+                    o.items.some((i) => i.medicalNotes)) && (
+                    <div className="mt-2 space-y-1 rounded-lg bg-stone-50 p-2 text-xs dark:bg-stone-800/50">
+                      {o.emergencyName && (
+                        <p>
+                          <span className="font-semibold">🚨 Emergency:</span>{" "}
+                          {o.emergencyName}
+                          {o.emergencyPhone ? ` · ${o.emergencyPhone}` : ""}
+                          {o.emergencyRelation
+                            ? ` (${o.emergencyRelation})`
+                            : ""}
+                        </p>
+                      )}
+                      {o.pickupAuth && (
+                        <p>
+                          <span className="font-semibold">Pickup:</span>{" "}
+                          {o.pickupAuth}
+                        </p>
+                      )}
+                      {o.items
+                        .filter((i) => i.medicalNotes)
+                        .map((i, idx) => (
+                          <p key={idx}>
+                            <span className="font-semibold">⚕️ Medical</span>
+                            {i.holderName ? ` (${i.holderName})` : ""}:{" "}
+                            {i.medicalNotes}
+                          </p>
+                        ))}
+                      {o.waiverAcceptedAt && (
+                        <p>
+                          <span className="font-semibold">
+                            ✅ Waiver accepted
+                          </span>
+                          {o.waiverSignedName
+                            ? ` by ${o.waiverSignedName}`
+                            : ""}{" "}
+                          ·{" "}
+                          {new Date(o.waiverAcceptedAt).toLocaleDateString(
+                            "en-CA"
+                          )}
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
                 <div className="flex items-center gap-2">

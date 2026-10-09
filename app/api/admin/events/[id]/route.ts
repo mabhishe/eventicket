@@ -3,6 +3,10 @@ import { db } from "@/lib/db";
 import { requireOrgApiUser } from "@/lib/auth";
 import { canPublishEvent, planOf } from "@/lib/plans";
 import { eventTimeZone, parseEventInstant } from "@/lib/datetime";
+import {
+  parseRegistrationFields,
+  serializeRegistrationFields,
+} from "@/lib/registrationFields";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -63,6 +67,7 @@ const EDITABLE = [
   "cashNote",
   "brandColor",
   "requireEntryBeforeFood",
+  "registrationFields",
 ] as const;
 
 export async function PATCH(req: NextRequest, { params }: Ctx) {
@@ -84,6 +89,15 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     const v = body[key];
     if (key === "requireEntryBeforeFood") {
       data.requireEntryBeforeFood = v === true;
+      continue;
+    }
+    if (key === "registrationFields") {
+      // Accept a JSON string (or null/"" to clear). Sanitize through the
+      // canonical parser so only valid modes are ever stored.
+      const raw = String(v ?? "").trim();
+      data.registrationFields = raw
+        ? serializeRegistrationFields(parseRegistrationFields(raw))
+        : null;
       continue;
     }
     if (key === "date") {

@@ -69,6 +69,7 @@ export async function loadPublicEvent(slug: string) {
       logoUrl: string | null;
       imageUrls: string;
       brandColor: string | null;
+      registrationFields: string | null;
       sponsorAds: {
         id: string;
         name: string;

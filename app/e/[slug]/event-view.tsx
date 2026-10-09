@@ -16,6 +16,7 @@ import { formatCents } from "@/lib/money";
 import { SponsorsStrip, type SponsorAdInfo } from "@/components/sponsors-strip";
 import { eventPreviewVersion } from "@/lib/eventPreview";
 import { formatEventWhen } from "@/lib/datetime";
+import { parseRegistrationFields } from "@/lib/registrationFields";
 import { ResponsiveImage } from "@/components/responsive-image";
 import type { PublicEventData } from "@/lib/publicEvent";
 import { ShareEvent } from "@/components/ShareEvent";
@@ -50,6 +51,7 @@ type EventData = {
   logoUrl: string | null;
   imageUrls: string;
   brandColor: string | null;
+  registrationFields: string | null;
   sponsorAds: SponsorAdInfo[];
   programItems: ProgramItem[];
   ticketTypes: TicketType[];
@@ -173,6 +175,18 @@ export default function EventView({
   const [buyerName, setBuyerName] = useState("");
   const [buyerEmail, setBuyerEmail] = useState("");
   const [buyerPhone, setBuyerPhone] = useState("");
+  // Registration modules (per-event toggles; see lib/registrationFields.ts)
+  const regFields = useMemo(
+    () => parseRegistrationFields(event?.registrationFields),
+    [event]
+  );
+  const [medicalNotes, setMedicalNotes] = useState<Record<string, string>>({});
+  const [emergencyName, setEmergencyName] = useState("");
+  const [emergencyPhone, setEmergencyPhone] = useState("");
+  const [emergencyRelation, setEmergencyRelation] = useState("");
+  const [pickupAuth, setPickupAuth] = useState("");
+  const [waiverAccepted, setWaiverAccepted] = useState(false);
+  const [waiverSignedName, setWaiverSignedName] = useState("");
   const [payMethod, setPayMethod] = useState("ETRANSFER");
   const [busy, setBusy] = useState(false);
   const [inviteCode] = useState<string | null>(() => {
@@ -305,6 +319,36 @@ export default function EventView({
       setBusy(false);
       return;
     }
+    // Registration modules (mirrors server-side validation in lib/orders.ts).
+    if (
+      regFields.emergencyContact === "required" &&
+      (!emergencyName.trim() || !emergencyPhone.trim())
+    ) {
+      setError("Please add an emergency contact name and phone number.");
+      setBusy(false);
+      return;
+    }
+    if (
+      regFields.medicalNotes === "required" &&
+      slots.some((s) => !(medicalNotes[s.key] || "").trim())
+    ) {
+      setError("Please add medical / allergy notes for every guest.");
+      setBusy(false);
+      return;
+    }
+    if (regFields.pickupAuth === "required" && !pickupAuth.trim()) {
+      setError("Please tell us who is authorized for pickup.");
+      setBusy(false);
+      return;
+    }
+    if (
+      regFields.waiver === "required" &&
+      (!waiverAccepted || !waiverSignedName.trim())
+    ) {
+      setError("Please accept the waiver and type your name.");
+      setBusy(false);
+      return;
+    }
 
     const items = slots.map((s) => ({
       ticketTypeId: s.ticketTypeId,
@@ -313,6 +357,7 @@ export default function EventView({
         (sameMealOn[s.ticketTypeId] ? sameMeal[s.ticketTypeId] : attendeeMeals[s.key]) ||
         null,
       holderName: (names[s.key] || "").trim() || null,
+      medicalNotes: (medicalNotes[s.key] || "").trim() || null,
     }));
     const res = await fetch("/api/orders", {
       method: "POST",
@@ -326,6 +371,12 @@ export default function EventView({
         items,
         inviteCode: inviteCode || undefined,
         showOnWall,
+        emergencyName,
+        emergencyPhone,
+        emergencyRelation,
+        pickupAuth,
+        waiverAccepted,
+        waiverSignedName,
       }),
     });
     const data = await res.json();
@@ -640,6 +691,27 @@ export default function EventView({
                         </div>
                       )}
                     </div>
+                    {regFields.medicalNotes !== "off" && (
+                      <div className="mt-3">
+                        <Field
+                          label={`Medical / allergy notes${
+                            regFields.medicalNotes === "required" ? " *" : ""
+                          }`}
+                        >
+                          <textarea
+                            className={inputCls + " min-h-16"}
+                            placeholder="Allergies, conditions, medication — only shared with event staff"
+                            value={medicalNotes[s.key] || ""}
+                            onChange={(e) =>
+                              setMedicalNotes({
+                                ...medicalNotes,
+                                [s.key]: e.target.value,
+                              })
+                            }
+                          />
+                        </Field>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -682,6 +754,93 @@ export default function EventView({
                   At least one of email or phone is needed so you can find your
                   order later.
                 </p>
+                {regFields.emergencyContact !== "off" && (
+                  <div className="rounded-lg border border-stone-200 p-4 dark:border-stone-800">
+                    <p className="mb-3 text-sm font-semibold">
+                      Emergency contact
+                      {regFields.emergencyContact === "required" && " *"}
+                    </p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Field label="Contact name">
+                        <input
+                          className={inputCls}
+                          placeholder="Who should we call in an emergency?"
+                          value={emergencyName}
+                          onChange={(e) => setEmergencyName(e.target.value)}
+                        />
+                      </Field>
+                      <Field label="Contact phone">
+                        <input
+                          className={inputCls}
+                          type="tel"
+                          value={emergencyPhone}
+                          onChange={(e) => setEmergencyPhone(e.target.value)}
+                        />
+                      </Field>
+                    </div>
+                    <div className="mt-3">
+                      <Field label="Relationship (optional)">
+                        <input
+                          className={inputCls}
+                          placeholder="e.g. Mother, Father, Guardian"
+                          value={emergencyRelation}
+                          onChange={(e) => setEmergencyRelation(e.target.value)}
+                        />
+                      </Field>
+                    </div>
+                  </div>
+                )}
+                {regFields.pickupAuth !== "off" && (
+                  <Field
+                    label={`Authorized pickup${
+                      regFields.pickupAuth === "required" ? " *" : ""
+                    }`}
+                  >
+                    <textarea
+                      className={inputCls + " min-h-16"}
+                      placeholder="Names of people allowed to pick up your child"
+                      value={pickupAuth}
+                      onChange={(e) => setPickupAuth(e.target.value)}
+                    />
+                  </Field>
+                )}
+                {regFields.waiver !== "off" && (
+                  <div className="rounded-lg border border-stone-200 p-4 dark:border-stone-800">
+                    <p className="mb-2 text-sm font-semibold">
+                      Waiver / consent
+                      {regFields.waiver === "required" && " *"}
+                    </p>
+                    {regFields.waiverText ? (
+                      <div className="mb-3 max-h-40 overflow-y-auto whitespace-pre-wrap rounded bg-stone-50 p-3 text-sm text-stone-700 dark:bg-stone-900 dark:text-stone-300">
+                        {regFields.waiverText}
+                      </div>
+                    ) : (
+                      <p className="mb-3 text-sm text-stone-500">
+                        The organizer has not added waiver text yet.
+                      </p>
+                    )}
+                    <label className="flex cursor-pointer items-start gap-3">
+                      <input
+                        type="checkbox"
+                        checked={waiverAccepted}
+                        onChange={(e) => setWaiverAccepted(e.target.checked)}
+                        className="mt-1 h-4 w-4 shrink-0"
+                      />
+                      <span className="text-sm">
+                        I have read and accept the waiver / consent above.
+                      </span>
+                    </label>
+                    <div className="mt-3">
+                      <Field label="Type your full name as signature">
+                        <input
+                          className={inputCls}
+                          value={waiverSignedName}
+                          onChange={(e) => setWaiverSignedName(e.target.value)}
+                        />
+                      </Field>
+                    </div>
+                  </div>
+                )}
                 <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-stone-200 p-3 dark:border-stone-800">
                   <input
                     type="checkbox"

@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { db } from "./db";
 import { canSellTickets, planOf } from "./plans";
 import { newTicketCode } from "./tickets";
+import { parseRegistrationFields } from "./registrationFields";
 
 /**
  * Ensure an order has a group-pass refCode, backfilling one for orders
@@ -142,6 +143,7 @@ export async function issueTickets(
           ticketTypeId: item.ticketTypeId,
           mealOptionId: item.mealOptionId,
           holderName: item.holderName ?? order.buyerName,
+          medicalNotes: item.medicalNotes ?? null,
         });
       }
     }
@@ -158,6 +160,7 @@ export type NewOrderItem = {
   qty: number;
   mealOptionId?: string | null;
   holderName?: string | null; // attendee name; per-person rows use qty: 1
+  medicalNotes?: string | null; // per-child medical/allergy notes (registration module)
 };
 
 export type NewOrderInput = {
@@ -172,6 +175,13 @@ export type NewOrderInput = {
   items: NewOrderItem[];
   inviteCode?: string; // invite code from ?invite= — validated against same-event orders
   showOnWall?: boolean; // buyer opted into the public "who's going" wall
+  // Registration modules (validated against Event.registrationFields)
+  emergencyName?: string;
+  emergencyPhone?: string;
+  emergencyRelation?: string;
+  pickupAuth?: string;
+  waiverAccepted?: boolean;
+  waiverSignedName?: string;
 };
 
 /** Validate + create an order with its items. Throws on validation errors. */
@@ -193,6 +203,37 @@ export async function createOrder(input: NewOrderInput) {
     throw new Error("An email or phone number is required");
   }
   if (!input.items.length) throw new Error("No tickets selected");
+
+  // Registration modules: validate required fields server-side.
+  const reg = parseRegistrationFields(event.registrationFields);
+  const trim = (v: string | null | undefined) => (v ?? "").trim();
+  if (reg.emergencyContact === "required") {
+    if (!trim(input.emergencyName) || !trim(input.emergencyPhone)) {
+      throw new Error("Emergency contact name and phone are required.");
+    }
+  }
+  if (reg.medicalNotes === "required") {
+    const missing = input.items.some((it) => !trim(it.medicalNotes));
+    if (missing) {
+      throw new Error("Medical / allergy notes are required for every guest.");
+    }
+  }
+  if (reg.pickupAuth === "required" && !trim(input.pickupAuth)) {
+    throw new Error("Authorized pickup details are required.");
+  }
+  let waiverAcceptedAt: Date | null = null;
+  if (reg.waiver === "required") {
+    if (!input.waiverAccepted || !trim(input.waiverSignedName)) {
+      throw new Error("Please accept the waiver and type your name.");
+    }
+    if (!reg.waiverText.trim()) {
+      throw new Error("This event requires a waiver, but none is configured.");
+    }
+    waiverAcceptedAt = new Date();
+  } else if (reg.waiver !== "off" && input.waiverAccepted && trim(input.waiverSignedName)) {
+    // Optional waiver accepted voluntarily — record it the same way.
+    waiverAcceptedAt = new Date();
+  }
 
   // Phase 3: plan cap on tickets per event.
   const totalQty = input.items.reduce((n, i) => n + i.qty, 0);
@@ -242,6 +283,7 @@ export async function createOrder(input: NewOrderInput) {
       qty: item.qty,
       unitPriceCents: type.priceCents,
       holderName: item.holderName?.trim() || null,
+      medicalNotes: item.medicalNotes?.trim() || null,
       ticketType: { connect: { id: type.id } },
       ...(mealOptionId ? { mealOption: { connect: { id: mealOptionId } } } : {}),
     });
@@ -259,6 +301,14 @@ export async function createOrder(input: NewOrderInput) {
     showOnWall: input.showOnWall ?? false,
     totalCents,
     items: { create: rows },
+    // Registration modules (only stored when the event enables them)
+    emergencyName: reg.emergencyContact !== "off" ? trim(input.emergencyName) || null : null,
+    emergencyPhone: reg.emergencyContact !== "off" ? trim(input.emergencyPhone) || null : null,
+    emergencyRelation: reg.emergencyContact !== "off" ? trim(input.emergencyRelation) || null : null,
+    pickupAuth: reg.pickupAuth !== "off" ? trim(input.pickupAuth) || null : null,
+    waiverAcceptedAt,
+    waiverSignedName: waiverAcceptedAt ? trim(input.waiverSignedName) || null : null,
+    waiverTextSnapshot: waiverAcceptedAt ? reg.waiverText.trim() || null : null,
   };
   // Validate the invite code: it must belong to another order for the same
   // event. Invalid codes are ignored rather than rejected.

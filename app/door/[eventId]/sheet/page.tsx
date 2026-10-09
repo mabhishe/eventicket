@@ -116,6 +116,7 @@ export default async function DoorSheetPage({
               <th className="py-2 pr-2">Ticket code</th>
               <th className="py-2 pr-2">Family code</th>
               <th className="py-2 pr-2">Meal</th>
+              <th className="py-2 pr-2">Medical / allergy</th>
               <th className="py-2 pr-2 text-center">In</th>
               <th className="py-2 text-center">Food</th>
             </tr>
@@ -136,6 +137,17 @@ export default async function DoorSheetPage({
                     {row.order.buyerName}
                     {row.order.status !== "CONFIRMED" ? " · unpaid" : ""}
                   </span>
+                  {row.order.emergencyName && (
+                    <span className="block text-xs font-medium text-red-700">
+                      🚨 {row.order.emergencyName}
+                      {row.order.emergencyPhone
+                        ? ` · ${row.order.emergencyPhone}`
+                        : ""}
+                      {row.order.emergencyRelation
+                        ? ` (${row.order.emergencyRelation})`
+                        : ""}
+                    </span>
+                  )}
                 </td>
                 <td className="py-2 pr-2 font-mono text-xs font-bold tracking-widest">
                   {row.ticket.code}
@@ -145,6 +157,15 @@ export default async function DoorSheetPage({
                 </td>
                 <td className="py-2 pr-2 text-xs">
                   {row.ticket.mealOption?.name || "—"}
+                </td>
+                <td className="py-2 pr-2 text-xs">
+                  {row.ticket.medicalNotes ? (
+                    <span className="font-medium text-amber-800">
+                      ⚕️ {row.ticket.medicalNotes}
+                    </span>
+                  ) : (
+                    "—"
+                  )}
                 </td>
                 <td className="py-2 pr-2 text-center">
                   <span className="inline-block h-5 w-5 rounded border-2 border-stone-400" />
