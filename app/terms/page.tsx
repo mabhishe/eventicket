@@ -51,8 +51,37 @@ export default function TermsPage() {
               not place fraudulent orders, attempt to check in with someone
               else&rsquo;s codes, or misuse the service.
             </p>
+            <p>
+              <strong className="text-stone-800">
+                6. Organizer plans and quotas.
+              </strong>{" "}
+              The free plan includes 1 published event at a time, 200 bookings
+              and 400 emails per calendar month per organization, and 2 team
+              seats. A booking is one order, however many tickets it holds.
+              Quotas reset on the 1st of each month in your
+              organization&rsquo;s timezone. When a quota is reached, new
+              bookings or sends pause until the next month or until you
+              upgrade — we&rsquo;ll warn you at 80%.
+            </p>
+            <p>
+              <strong className="text-stone-800">7. Fair use.</strong> One free
+              organization per account. The free tier is for one organizing
+              business — don&rsquo;t split a single event or business across
+              multiple free organizations to evade limits. WhatsApp
+              notifications on Pro are subject to a fair-use quota of 1,000
+              messages per month per organization. We may throttle or pause
+              messaging that threatens the reliability of the service for
+              everyone, and platform admins may merge or suspend organizations
+              that evade quotas, after review.
+            </p>
+            <p>
+              <strong className="text-stone-800">8. EventPass badge.</strong>{" "}
+              Public event pages on the free plan show a
+              &ldquo;Powered by EventPass&rdquo; badge. Removing it requires a
+              Pro subscription.
+            </p>
             <p className="text-xs text-stone-400">
-              Last updated September 2026.
+              Last updated October 2026.
             </p>
           </div>
         </Card>

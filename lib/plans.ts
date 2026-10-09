@@ -37,7 +37,7 @@ export const PLANS: Record<
   },
   PRO: {
     name: "Pro",
-    priceCents: 1900,
+    priceCents: 2900, // C$29/mo approved 2026-10-08 (C$290/yr = 2 months free)
     maxActiveEvents: null,
     maxTicketsPerEvent: null,
     maxSeats: null,

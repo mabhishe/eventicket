@@ -25,32 +25,40 @@ export const metadata: Metadata = {
   },
 };
 
+// Where early-access requests go.
+const EARLY_ACCESS_EMAIL = "info@aicloudconsult.com";
+
 const FREE_FEATURES = [
   "1 published event at a time",
-  "Up to 500 tickets per event",
+  "200 bookings per month",
+  "400 emails per month",
   "2 team seats",
   "QR tickets, door check-in, food collection",
   "Sponsor ads + social share cards",
 ];
 
 const PRO_FEATURES = [
-  "Unlimited published events",
-  "Unlimited tickets per event",
-  "Unlimited team seats",
-  "Your branding on the public event page",
+  "Unlimited events, bookings & team seats",
+  "No EventPass badge on public pages",
+  "Waitlists",
+  "WhatsApp notifications",
+  "Broadcast + reminder messages",
+  "Custom email templates",
+  "Accent color & branding",
+  "CSV exports + advanced reports",
   "Everything in Free",
 ];
 
 export default function PricingPage() {
-  const price = `$${(PLANS.PRO.priceCents / 100).toFixed(0)}`;
+  const monthly = `$${(PLANS.PRO.priceCents / 100).toFixed(0)}`;
   const signupOpen = publicSignupEnabled();
   return (
     <Container>
       <PageTitle
         title="Simple pricing"
-        sub="Start free. Upgrade when your events outgrow the free tier."
+        sub="Start free. Upgrade when your community outgrows it."
       />
-      <div className="mx-auto grid max-w-3xl gap-6 md:grid-cols-2">
+      <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-2">
         <Card>
           <h2 className="text-lg font-bold">Free</h2>
           <p className="mt-1 text-3xl font-extrabold">
@@ -92,19 +100,22 @@ export default function PricingPage() {
             </>
           )}
         </Card>
-        <Card>
+        <Card className="border-2 !border-orange-500 shadow-[0_8px_30px_rgba(234,88,12,0.15)]">
           <h2 className="text-lg font-bold">
             Pro{" "}
-            <span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-200">
+            <span className="ml-1 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-800 dark:bg-orange-950 dark:text-orange-200">
               Coming soon
             </span>
           </h2>
           <p className="mt-1 text-3xl font-extrabold">
-            {price}
+            {monthly}
             <span className="text-sm font-normal text-stone-500">
               {" "}
               CAD / month
             </span>
+          </p>
+          <p className="mt-1 text-sm text-stone-500">
+            or $290 CAD / year — two months free
           </p>
           <ul className="mt-4 space-y-2 text-sm">
             {PRO_FEATURES.map((f) => (
@@ -113,12 +124,32 @@ export default function PricingPage() {
               </li>
             ))}
           </ul>
-          <p className="mt-6 text-sm text-stone-500">
-            {signupOpen
-              ? "Pro launches soon — start free today, upgrade when it's here."
-              : "Pro launches soon. Request access and the team will be in touch."}
+          <a
+            href={`mailto:${EARLY_ACCESS_EMAIL}?subject=${encodeURIComponent(
+              "EventPass Pro early access"
+            )}`}
+            className="mt-6 inline-block rounded-lg bg-orange-600 px-4 py-2 font-semibold text-white hover:bg-orange-700"
+          >
+            Contact for early access
+          </a>
+          <p className="mt-3 text-sm text-stone-500">
+            Pro launches soon — write to us and we&apos;ll set you up first.
           </p>
         </Card>
+      </div>
+      <div className="mx-auto mt-8 max-w-3xl space-y-1 text-center text-xs text-stone-500">
+        <p>
+          No per-ticket fees on either plan. You collect payments directly — we
+          never take a cut.
+        </p>
+        <p>
+          Free includes 200 bookings and 400 emails per calendar month per
+          organization. A booking is one order, however many tickets it holds.
+        </p>
+        <p>
+          Pro includes up to 1,000 WhatsApp notifications per month per
+          organization (fair use). One free organization per account.
+        </p>
       </div>
     </Container>
   );
