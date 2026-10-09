@@ -131,6 +131,15 @@ export function RegistrationFieldsCard({
             />
           </Field>
         )}
+        {fields.waiver !== "off" && !fields.waiverText.trim() && (
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+            ⚠️ Waiver is {fields.waiver} but no text is set. Buyers will see
+            “The organizer has not added waiver text yet.”
+            {fields.waiver === "required"
+              ? " Required waivers with no text block checkout entirely."
+              : ""}
+          </p>
+        )}
       </div>
       <div className="mt-4 flex items-center gap-3">
         <button
