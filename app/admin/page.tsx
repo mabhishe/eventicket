@@ -64,7 +64,7 @@ export default async function AdminDashboard() {
   const canManage = orgRole === "ORG_OWNER" || orgRole === "ORG_ADMIN";
   const now = new Date();
 
-  const [events, moneyOrders, pendingOrders] = await Promise.all([
+  const [events, moneyOrders, pendingGroups] = await Promise.all([
     db.event.findMany({
       where: { organizationId: orgId },
       orderBy: { date: "asc" },
@@ -84,16 +84,21 @@ export default async function AdminDashboard() {
         payments: { select: { kind: true, amountCents: true } },
       },
     }),
-    db.order.findMany({
+    db.order.groupBy({
+      by: ["eventId"],
       where: { status: "PENDING_PAYMENT", event: { organizationId: orgId } },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      include: {
-        event: { select: { title: true } },
-        items: { include: { ticketType: true } },
-      },
+      _count: { _all: true },
+      _sum: { totalCents: true },
     }),
   ]);
+  const pendingEventMap = new Map(
+    (
+      await db.event.findMany({
+        where: { id: { in: pendingGroups.map((g) => g.eventId) } },
+        select: { id: true, title: true, date: true },
+      })
+    ).map((e) => [e.id, e])
+  );
 
   let collectedCents = 0;
   let outstandingCents = 0;
@@ -217,42 +222,42 @@ export default async function AdminDashboard() {
       <h2 className="mb-3 text-lg font-semibold">
         Orders waiting for payment ({pendingCount})
       </h2>
-      {pendingOrders.length === 0 ? (
+      {pendingGroups.length === 0 ? (
         <Card>
           <p className="text-sm text-stone-500">Nothing waiting. Nice.</p>
         </Card>
       ) : (
         <div className="space-y-3">
-          {pendingOrders.map((o) => (
-            <Card key={o.id}>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="font-semibold">{o.buyerName}</p>
-                  <p className="text-sm text-stone-500">
-                    {o.event.title} ·{" "}
-                    {o.items
-                      .map((i) => `${i.qty} × ${i.ticketType.name}`)
-                      .join(", ")}{" "}
-                    · {o.payMethod}
-                  </p>
-                  <p className="text-xs text-stone-400">
-                    {fmtDate(o.createdAt, timeZone)}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="font-semibold">
-                    {formatCents(o.totalCents)}
-                  </span>
-                  <Link
-                    href={`/admin/orders?highlight=${o.id}`}
-                    className={btnPrimary + " text-xs"}
-                  >
-                    Review
-                  </Link>
-                </div>
-              </div>
-            </Card>
-          ))}
+          {pendingGroups
+            .slice()
+            .sort(
+              (a, b) =>
+                (pendingEventMap.get(a.eventId)?.date?.getTime() ?? 0) -
+                (pendingEventMap.get(b.eventId)?.date?.getTime() ?? 0)
+            )
+            .map((g) => {
+              const e = pendingEventMap.get(g.eventId);
+              const n = g._count._all;
+              return (
+                <Card key={g.eventId}>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="font-semibold">{e?.title ?? "Event"}</p>
+                      <p className="text-sm text-stone-500">
+                        {n} order{n === 1 ? "" : "s"} waiting ·{" "}
+                        {formatCents(g._sum.totalCents ?? 0)}
+                      </p>
+                    </div>
+                    <Link
+                      href={`/admin/orders?eventId=${g.eventId}&status=PENDING_PAYMENT`}
+                      className={btnPrimary + " text-xs"}
+                    >
+                      Review
+                    </Link>
+                  </div>
+                </Card>
+              );
+            })}
         </div>
       )}
     </Container>

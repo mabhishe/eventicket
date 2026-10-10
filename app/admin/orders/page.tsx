@@ -56,7 +56,14 @@ function OrdersInner() {
   const searchParams = useSearchParams();
   const highlight = searchParams.get("highlight");
   const [orders, setOrders] = useState<Order[]>([]);
-  const [filter, setFilter] = useState("PENDING_PAYMENT");
+  const [filter, setFilter] = useState(() => {
+    const s = searchParams.get("status");
+    return s && ["PENDING_PAYMENT", "CONFIRMED", "CANCELLED", "ALL"].includes(s)
+      ? s
+      : "PENDING_PAYMENT";
+  });
+  const [eventId, setEventId] = useState(() => searchParams.get("eventId") || "");
+  const [events, setEvents] = useState<{ id: string; title: string }[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [buyerInput, setBuyerInput] = useState("");
@@ -70,6 +77,7 @@ function OrdersInner() {
       pageSize: String(PAGE_SIZE),
     });
     if (filter !== "ALL") params.set("status", filter);
+    if (eventId) params.set("eventId", eventId);
     if (buyerQuery) params.set("q", buyerQuery);
     const res = await fetch(`/api/admin/orders?${params}`);
     const data = await res.json();
@@ -77,7 +85,17 @@ function OrdersInner() {
       setOrders(data.orders);
       setTotal(data.total ?? 0);
     } else setError(data.error || "Could not load orders");
-  }, [filter, page, buyerQuery]);
+  }, [filter, eventId, page, buyerQuery]);
+
+  useEffect(() => {
+    fetch("/api/admin/events")
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.events))
+          setEvents(d.events.map((e: { id: string; title: string }) => ({ id: e.id, title: e.title })));
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -141,7 +159,23 @@ function OrdersInner() {
       />
       <ErrorNote message={error} />
       <PaymentBotQueue onLinked={load} onError={setError} />
-      <div className="mb-4">
+      <div className="mb-4 flex gap-2">
+        <select
+          className="shrink-0 rounded-lg border border-stone-300 px-3 py-2.5 text-sm dark:border-stone-700 dark:bg-stone-900"
+          value={eventId}
+          onChange={(e) => {
+            setEventId(e.target.value);
+            setPage(1);
+          }}
+          aria-label="Filter by event"
+        >
+          <option value="">All events</option>
+          {events.map((e) => (
+            <option key={e.id} value={e.id}>
+              {e.title}
+            </option>
+          ))}
+        </select>
         <input
           className="w-full rounded-lg border border-stone-300 px-3 py-2.5 text-sm dark:border-stone-700 dark:bg-stone-900"
           value={buyerInput}
